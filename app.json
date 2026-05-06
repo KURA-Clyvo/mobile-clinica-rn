@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "KURA Clínica",
+    "slug": "kura-clinica",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "kura-clinica",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1A3A52"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "br.com.kura.clinica"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A3A52"
+      },
+      "package": "br.com.kura.clinica"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
