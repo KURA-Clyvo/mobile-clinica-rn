@@ -6,8 +6,10 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -56,11 +58,18 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     form: { gap: 16 },
     submitBtn: { marginTop: 8 },
+    registerLink: { alignItems: 'center', marginTop: 16 },
+    registerLinkText: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 14,
+      color: colors.primary,
+    },
   });
 
 export default function LoginScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const router = useRouter();
   const { mutate: doLogin, isPending, error } = useLoginMutation();
 
   const { control, handleSubmit } = useForm<LoginFormData>({
@@ -133,6 +142,14 @@ export default function LoginScreen() {
             >
               {STRINGS.auth.login}
             </KCButton>
+
+            <TouchableOpacity
+              onPress={() => router.push('/register')}
+              style={styles.registerLink}
+              testID="login-register-link"
+            >
+              <Text style={styles.registerLinkText}>Cadastrar clínica</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

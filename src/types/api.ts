@@ -25,6 +25,7 @@ export interface RegisterClinicaResponse {
   idVeterinarioAdmin: number;
   accessToken: string;
   expiresAt: string;
+  usuario: VeterinarioResponse;
 }
 
 // ─── Dashboard ────────────────────────────────────────────────

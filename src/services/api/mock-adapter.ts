@@ -9,6 +9,7 @@ type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
 const ROUTES: Array<[RegExp, MockHandler]> = [
   [/\/auth\/login$/, authMock.login],
+  [/\/auth\/register$/, authMock.register],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],
