@@ -1,6 +1,7 @@
 import type { InternalAxiosRequestConfig } from 'axios';
 import * as authMock from '../../mocks/auth.mock';
 import * as dashboardMock from '../../mocks/dashboard.mock';
+import * as agendaMock from '../../mocks/agenda.mock';
 import * as petsMock from '../../mocks/pets.mock';
 import * as eventosMock from '../../mocks/eventos-clinicos.mock';
 import * as lunaMock from '../../mocks/luna.mock';
@@ -10,6 +11,7 @@ type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 const ROUTES: Array<[RegExp, MockHandler]> = [
   [/\/auth\/login$/, authMock.login],
   [/\/auth\/register$/, authMock.register],
+  [/\/agenda$/, agendaMock.agenda],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],

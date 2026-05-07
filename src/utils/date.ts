@@ -34,3 +34,64 @@ export function getGreeting(): string {
 export function firstName(fullName: string): string {
   return fullName.split(' ')[0] ?? fullName;
 }
+
+const DAYS_SHORT_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+export function getMondayOf(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+export function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+export function subDays(date: Date, days: number): Date {
+  return addDays(date, -days);
+}
+
+export function getSundayOf(date: Date): Date {
+  return addDays(getMondayOf(date), 6);
+}
+
+export function formatDateISO(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear()
+  );
+}
+
+export function isToday(date: Date): boolean {
+  return isSameDay(date, new Date());
+}
+
+export function getDayLabel(date: Date): string {
+  return DAYS_SHORT_PT[date.getDay()];
+}
+
+export function getDayNumber(date: Date): number {
+  return date.getDate();
+}
+
+export function formatWeekRange(start: Date, end: Date): string {
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  const month = MONTHS_PT[end.getMonth()].slice(0, 3);
+  const year = end.getFullYear();
+  return `${startDay} – ${endDay} ${month} ${year}`;
+}

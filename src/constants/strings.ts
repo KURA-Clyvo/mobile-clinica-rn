@@ -55,6 +55,12 @@ export const STRINGS = {
     temaEscuro: 'Tema escuro',
     sair: 'Sair',
   },
+  agenda: {
+    titulo: 'Agenda',
+    semanaAnterior: 'Semana anterior',
+    proximaSemana: 'Próxima semana',
+    semConsultas: 'Nenhuma consulta neste dia',
+  },
   erros: {
     generico: 'Algo deu errado. Tente novamente.',
     semConexao: 'Sem conexão com a internet.',
