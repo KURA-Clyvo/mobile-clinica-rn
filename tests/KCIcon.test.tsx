@@ -8,14 +8,14 @@ function wrap(ui: React.ReactElement) {
 }
 
 describe('KCIcon', () => {
-  it('renders all 27 icon names without crash', () => {
+  it('renders all 28 icon names without crash', () => {
     ICON_NAMES.forEach((name) => {
       expect(() => wrap(<KCIcon name={name} />)).not.toThrow();
     });
   });
 
   it('renders every icon name in the list', () => {
-    expect(ICON_NAMES).toHaveLength(27);
+    expect(ICON_NAMES).toHaveLength(28);
   });
 
   it('passes size prop to Svg width and height', () => {

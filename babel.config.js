@@ -22,7 +22,7 @@ module.exports = function (api) {
           extensions: ['.ios.js', '.android.js', '.js', '.ts', '.tsx', '.json'],
         },
       ],
-      // react-native-reanimated/plugin MUST be last (added in Task 2.3)
+      ...(process.env.NODE_ENV !== 'test' ? ['react-native-reanimated/plugin'] : []),
     ],
   };
 };

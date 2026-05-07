@@ -7,7 +7,7 @@ export const ICON_NAMES = [
   'dashboard', 'agenda', 'patients', 'consult', 'tele', 'rx', 'luna',
   'settings', 'search', 'bell', 'plus', 'more', 'arrowR', 'chevR',
   'check', 'alert', 'edit', 'download', 'print', 'paw', 'mic', 'cam',
-  'hangup', 'share', 'filter', 'back', 'close',
+  'hangup', 'share', 'filter', 'back', 'close', 'menu',
 ] as const;
 
 export type KCIconName = typeof ICON_NAMES[number];
@@ -202,6 +202,9 @@ const ICON_PATHS: Record<KCIconName, IconRenderer> = {
   ),
   close: (c, sw) => (
     <Path d="M18 6L6 18M6 6l12 12" stroke={c} strokeWidth={sw} />
+  ),
+  menu: (c, sw) => (
+    <Path d="M3 12h18M3 6h18M3 18h18" stroke={c} strokeWidth={sw} />
   ),
 };
 

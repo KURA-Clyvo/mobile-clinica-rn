@@ -8,6 +8,8 @@ module.exports = {
   moduleNameMapper: {
     '^react-native-svg$': '<rootDir>/__mocks__/react-native-svg.js',
     '^expo-linear-gradient$': '<rootDir>/__mocks__/expo-linear-gradient.js',
+    '^react-native-reanimated$': 'react-native-reanimated/mock',
+    '^react-native-gesture-handler$': '<rootDir>/__mocks__/react-native-gesture-handler.js',
     '^@react-native-async-storage/async-storage$': '@react-native-async-storage/async-storage/jest/async-storage-mock',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@components/(.*)$': '<rootDir>/src/components/$1',

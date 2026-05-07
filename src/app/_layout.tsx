@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { SplashScreen, Stack } from 'expo-router';
+import { useAuthStore } from '@store/authStore';
 import { useFonts } from 'expo-font';
 import { Cormorant_500Medium } from '@expo-google-fonts/cormorant';
 import { Lexend_400Regular, Lexend_500Medium } from '@expo-google-fonts/lexend';
@@ -23,6 +25,13 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('auth:logout', () => {
+      useAuthStore.getState().clearSession();
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
