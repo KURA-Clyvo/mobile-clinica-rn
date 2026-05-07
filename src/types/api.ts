@@ -6,6 +6,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   expiresAt: string;
+  usuario: VeterinarioResponse;
 }
 
 export interface RegisterClinicaRequest {

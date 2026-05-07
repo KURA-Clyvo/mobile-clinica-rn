@@ -60,4 +60,12 @@ export const STRINGS = {
     semConexao: 'Sem conexão com a internet.',
     naoEncontrado: 'Registro não encontrado.',
   },
+  AUTH: {
+    INVALID_CREDENTIALS: 'E-mail ou senha incorretos',
+    NETWORK_ERROR: 'Sem conexão. Verifique sua internet.',
+  },
+  VALIDATION: {
+    EMAIL_INVALID: 'E-mail inválido',
+    PASSWORD_MIN: 'A senha deve ter no mínimo 6 caracteres',
+  },
 } as const;

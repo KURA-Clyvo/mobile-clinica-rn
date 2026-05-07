@@ -17,5 +17,6 @@ export async function login(_config: InternalAxiosRequestConfig): Promise<LoginR
   return {
     accessToken: 'kura_mock_jwt_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     expiresAt,
+    usuario: mockVeterinario,
   };
 }
