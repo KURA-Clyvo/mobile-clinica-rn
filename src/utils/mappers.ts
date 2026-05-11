@@ -17,6 +17,19 @@ import type {
   Veterinario,
   DashboardHoje,
 } from '../types/domain';
+import type { PetPalette } from '../components/primitives/KCPetPortrait';
+
+export function racaToPalette(raca: string): PetPalette {
+  const r = raca.toLowerCase();
+  if (r.includes('labrador')) return 'lab';
+  if (r.includes('siam')) return 'siam';
+  if (r.includes('border')) return 'border';
+  if (r.includes('poodle')) return 'poodle';
+  if (r.includes('persa')) return 'persa';
+  if (r.includes('golden')) return 'golden';
+  if (r.includes('husky')) return 'husky';
+  return 'srd';
+}
 
 export function mapTutorDto(dto: {
   id: number;

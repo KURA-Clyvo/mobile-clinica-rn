@@ -3,6 +3,8 @@ const MONTHS_PT = [
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ];
 
+const MONTHS_SHORT_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 const DAYS_PT = [
   'domingo', 'segunda-feira', 'terça-feira', 'quarta-feira',
   'quinta-feira', 'sexta-feira', 'sábado',
@@ -86,6 +88,27 @@ export function getDayLabel(date: Date): string {
 
 export function getDayNumber(date: Date): number {
   return date.getDate();
+}
+
+export function formatDateShort(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = MONTHS_SHORT_PT[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+}
+
+export function calcularIdade(dtNascimento: string): string {
+  const nascimento = new Date(dtNascimento);
+  const hoje = new Date();
+  if (nascimento > hoje) return '0 dias';
+  const diffMs = hoje.getTime() - nascimento.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 30) return `${diffDays} dias`;
+  const diffMonths = Math.floor(diffDays / 30.44);
+  if (diffMonths < 12) return `${diffMonths} meses`;
+  const diffYears = Math.floor(diffDays / 365.25);
+  return `${diffYears} anos`;
 }
 
 export function formatWeekRange(start: Date, end: Date): string {
