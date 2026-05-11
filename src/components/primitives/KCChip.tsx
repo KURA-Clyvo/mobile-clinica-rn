@@ -18,6 +18,7 @@ export interface KCChipProps {
   onPress?: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -61,7 +62,7 @@ function getToneColors(
   }
 }
 
-export function KCChip({ tone = 'mute', dot = false, onPress, children, style }: KCChipProps) {
+export function KCChip({ tone = 'mute', dot = false, onPress, children, style, testID }: KCChipProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const toneColors = getToneColors(tone, colors);
@@ -71,6 +72,7 @@ export function KCChip({ tone = 'mute', dot = false, onPress, children, style }:
   return (
     <Container
       onPress={onPress}
+      testID={testID}
       style={[
         styles.base,
         {

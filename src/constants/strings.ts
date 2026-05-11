@@ -83,4 +83,18 @@ export const STRINGS = {
     EMAIL_INVALID: 'E-mail inválido',
     PASSWORD_MIN: 'A senha deve ter no mínimo 6 caracteres',
   },
+  LUNA: {
+    TITLE: 'Luna IA',
+    STATUS_ONLINE: 'Online',
+    STATUS_DEGRADADO: 'Degradado',
+    STATUS_OFFLINE: 'Offline',
+    RELATORIO_TITLE: 'Relatório de Triagens',
+    PERIODO_7: '7 dias',
+    PERIODO_30: '30 dias',
+    PERIODO_90: '90 dias',
+    TOTAL_TRIAGENS: (n: number) => `Total de triagens: ${n}`,
+    ENCAMINHADAS: (n: number) => `Encaminhadas para vet: ${n}`,
+    ALERTAS_TITLE: 'Alertas gerados pela Luna',
+    EMPTY_ALERTAS: 'Nenhum alerta ativo',
+  },
 } as const;
