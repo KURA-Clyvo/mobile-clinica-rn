@@ -32,6 +32,15 @@ export const STRINGS = {
     vacinas: 'Vacinas',
     documentos: 'Documentos',
   },
+  PACIENTES: {
+    TITLE: 'Pacientes',
+    SEARCH_PLACEHOLDER: 'Buscar pet ou tutor...',
+    EMPTY_SEARCH: 'Nenhum paciente encontrado',
+    EMPTY_LIST: 'Nenhum paciente cadastrado',
+    COUNT_SINGULAR: '1 paciente',
+    COUNT_PLURAL: (n: number) => `${n} pacientes`,
+    NO_TUTOR: 'Sem tutor',
+  },
   acoes: {
     novaConsulta: 'Nova consulta',
     teleorientacao: 'Teleorientação',
