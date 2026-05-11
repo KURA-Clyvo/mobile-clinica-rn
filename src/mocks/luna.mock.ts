@@ -5,6 +5,17 @@ import type {
   TriagensRelatorioResponse,
 } from '../types/api';
 
+const SOAP_SUGESTOES: Record<'S' | 'O' | 'A' | 'P', string> = {
+  S: 'Tutor relata apatia há 2 dias e diminuição do apetite.',
+  O: 'Animal alerta, mucosas normocoradas, TPC < 2s. Ausculta cardiopulmonar sem alterações.',
+  A: 'Suspeita de gastroenterite. Aguardar exames complementares.',
+  P: 'Dieta hipossódica por 5 dias. Retorno em 7 dias ou se piorar.',
+};
+
+export function sugestaoSOAP(campo: 'S' | 'O' | 'A' | 'P', _idPet: number): string {
+  return SOAP_SUGESTOES[campo];
+}
+
 let _envioId = 5000;
 
 export async function enviarWhatsApp(

@@ -25,6 +25,7 @@ export interface KCTextFieldProps {
   editable?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -101,6 +102,7 @@ export function KCTextField({
   editable = true,
   style,
   accessibilityLabel,
+  testID,
 }: KCTextFieldProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -140,7 +142,7 @@ export function KCTextField({
           autoCorrect={keyboardType === 'email-address' ? false : undefined}
           autoCapitalize={keyboardType === 'email-address' ? 'none' : undefined}
           accessibilityLabel={accessibilityLabel ?? label}
-          testID="kc-text-input"
+          testID={testID ?? 'kc-text-input'}
         />
         {secureTextEntry && (
           <TouchableOpacity
