@@ -22,6 +22,7 @@ module.exports = {
     '^@store/(.*)$': '<rootDir>/src/store/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^expo-clipboard$': '<rootDir>/__mocks__/expo-clipboard.js',
+    '^@react-native-community/datetimepicker$': '<rootDir>/__mocks__/@react-native-community/datetimepicker.js',
   },
   testPathPattern: ['tests/.*\\.test\\.[jt]sx?$'],
   collectCoverageFrom: [
