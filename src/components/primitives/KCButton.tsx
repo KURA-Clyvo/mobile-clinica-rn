@@ -22,6 +22,7 @@ export interface KCButtonProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 const SIZE_SPEC = {
@@ -86,6 +87,7 @@ export function KCButton({
   children,
   style,
   accessibilityLabel,
+  testID,
 }: KCButtonProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -118,6 +120,7 @@ export function KCButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       accessibilityLabel={accessibilityLabel}
+      testID={testID}
     >
       {iconLeft && !loading && <View>{iconLeft}</View>}
       {loading ? (

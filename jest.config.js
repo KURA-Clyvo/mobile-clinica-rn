@@ -21,6 +21,7 @@ module.exports = {
     '^@constants/(.*)$': '<rootDir>/src/constants/$1',
     '^@store/(.*)$': '<rootDir>/src/store/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
+    '^expo-clipboard$': '<rootDir>/__mocks__/expo-clipboard.js',
   },
   testPathPattern: ['tests/.*\\.test\\.[jt]sx?$'],
   collectCoverageFrom: [
