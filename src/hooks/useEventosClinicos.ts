@@ -4,7 +4,8 @@ import {
   criarPrescricao,
   getMedicamentos,
 } from '@services/eventos-clinicos.service';
-import type { ConsultaRequest, PrescricaoRequest, MedicamentosQuery } from '../types/api';
+import { enviarWhatsApp } from '@services/luna.service';
+import type { ConsultaRequest, PrescricaoRequest, MedicamentosQuery, WhatsAppEnvioRequest } from '../types/api';
 
 export function useCriarConsulta() {
   const qc = useQueryClient();
@@ -25,6 +26,13 @@ export function useCriarPrescricao() {
     onSuccess: (_data, req) => {
       qc.invalidateQueries({ queryKey: ['pets', req.idPet, 'timeline'] });
     },
+  });
+}
+
+export function useEnviarWhatsApp() {
+  return useMutation({
+    mutationFn: (req: WhatsAppEnvioRequest) => enviarWhatsApp(req),
+    retry: 0,
   });
 }
 
