@@ -34,11 +34,11 @@ import { WhatsAppModal } from '@components/domain/WhatsAppModal';
 
 const prescricaoSchema = z.object({
   idMedicamento: z
-    .number({ required_error: 'Selecione um medicamento' })
+    .number({ error: 'Selecione um medicamento' })
     .positive('Selecione um medicamento'),
   dsPosologia: z.string().min(5, 'Descreva a posologia'),
   nrDuracaoDias: z
-    .number({ required_error: 'Informe a duração' })
+    .number({ error: 'Informe a duração' })
     .int()
     .positive()
     .max(365, 'Máximo 365 dias'),

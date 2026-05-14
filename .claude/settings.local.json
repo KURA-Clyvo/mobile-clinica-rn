@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(npm uninstall *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/expo/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(Select-String -Pattern \"eslint\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/eslint-config-expo/package.json'\\).version\\)\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/eslint-config-expo/package.json'\\); console.log\\(JSON.stringify\\(pkg.peerDependencies, null, 2\\)\\)\")",
+      "Bash(npx jest *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/zod/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\('@hookform/resolvers:', require\\('./node_modules/@hookform/resolvers/package.json'\\).version, '\\\\nreact-hook-form:', require\\('./node_modules/react-hook-form/package.json'\\).version, '\\\\n@tanstack/react-query:', require\\('./node_modules/@tanstack/react-query/package.json'\\).version\\)\")",
+      "Bash(node -e \"console.log\\('expo:', require\\('./node_modules/expo/package.json'\\).version, '\\\\nexpo-router:', require\\('./node_modules/expo-router/package.json'\\).version, '\\\\nreact-native:', require\\('./node_modules/react-native/package.json'\\).version, '\\\\ntypescript:', require\\('./node_modules/typescript/package.json'\\).version\\)\")"
+    ]
+  }
+}

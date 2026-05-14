@@ -1,0 +1,206 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`KCChip tone snapshots renders amber tone correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 9999,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "gap": 5,
+        "paddingHorizontal": 10,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": "#FBF0DB",
+        "borderColor": "#C8810D",
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "Lexend_500Medium",
+          "fontSize": 11,
+        },
+        {
+          "color": "#C8810D",
+        },
+      ]
+    }
+  >
+    amber
+  </Text>
+</View>
+`;
+
+exports[`KCChip tone snapshots renders clay tone correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 9999,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "gap": 5,
+        "paddingHorizontal": 10,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": "#F7E5DF",
+        "borderColor": "#D9624A",
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "Lexend_500Medium",
+          "fontSize": 11,
+        },
+        {
+          "color": "#D9624A",
+        },
+      ]
+    }
+  >
+    clay
+  </Text>
+</View>
+`;
+
+exports[`KCChip tone snapshots renders mute tone correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 9999,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "gap": 5,
+        "paddingHorizontal": 10,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": "#EDE3CD",
+        "borderColor": "#EDE3CD",
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "Lexend_500Medium",
+          "fontSize": 11,
+        },
+        {
+          "color": "#8A7458",
+        },
+      ]
+    }
+  >
+    mute
+  </Text>
+</View>
+`;
+
+exports[`KCChip tone snapshots renders ocean tone correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 9999,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "gap": 5,
+        "paddingHorizontal": 10,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": "#D8E8F2",
+        "borderColor": "#1A3A52",
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "Lexend_500Medium",
+          "fontSize": 11,
+        },
+        {
+          "color": "#1A3A52",
+        },
+      ]
+    }
+  >
+    ocean
+  </Text>
+</View>
+`;
+
+exports[`KCChip tone snapshots renders sage tone correctly 1`] = `
+<View
+  style={
+    [
+      {
+        "alignItems": "center",
+        "alignSelf": "flex-start",
+        "borderRadius": 9999,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "gap": 5,
+        "paddingHorizontal": 10,
+        "paddingVertical": 4,
+      },
+      {
+        "backgroundColor": "#E0ECDB",
+        "borderColor": "#4A6944",
+      },
+      undefined,
+    ]
+  }
+>
+  <Text
+    numberOfLines={1}
+    style={
+      [
+        {
+          "fontFamily": "Lexend_500Medium",
+          "fontSize": 11,
+        },
+        {
+          "color": "#4A6944",
+        },
+      ]
+    }
+  >
+    sage
+  </Text>
+</View>
+`;

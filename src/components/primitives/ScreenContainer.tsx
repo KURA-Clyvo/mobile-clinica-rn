@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StyleProp,
   ViewStyle,
+  RefreshControlProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
@@ -13,7 +14,7 @@ import { lightColors } from '@theme/tokens';
 export interface ScreenContainerProps {
   children: React.ReactNode;
   scroll?: boolean;
-  refreshControl?: React.ReactElement;
+  refreshControl?: React.ReactElement<RefreshControlProps>;
   paddingHorizontal?: number;
   style?: StyleProp<ViewStyle>;
 }

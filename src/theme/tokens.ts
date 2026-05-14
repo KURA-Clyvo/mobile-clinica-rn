@@ -33,7 +33,7 @@ export const lightColors = {
   dangerBg: '#F7E5DF',
   info: '#2D5E7E',
   infoBg: '#D8E8F2',
-} as const;
+};
 
 export const darkColors: typeof lightColors = {
   primary: '#4A8AB5',
@@ -70,7 +70,7 @@ export const darkColors: typeof lightColors = {
   dangerBg: '#3A1510',
   info: '#5A9DC8',
   infoBg: '#1A3A52',
-} as const;
+};
 
 export const spacing = {
   1: 4,

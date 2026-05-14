@@ -83,7 +83,7 @@ export function isToday(date: Date): boolean {
 }
 
 export function getDayLabel(date: Date): string {
-  return DAYS_SHORT_PT[date.getDay()];
+  return DAYS_SHORT_PT[date.getDay()] ?? '';
 }
 
 export function getDayNumber(date: Date): number {
@@ -114,7 +114,7 @@ export function calcularIdade(dtNascimento: string): string {
 export function formatWeekRange(start: Date, end: Date): string {
   const startDay = start.getDate();
   const endDay = end.getDate();
-  const month = MONTHS_PT[end.getMonth()].slice(0, 3);
+  const month = (MONTHS_PT[end.getMonth()] ?? '').slice(0, 3);
   const year = end.getFullYear();
   return `${startDay} – ${endDay} ${month} ${year}`;
 }

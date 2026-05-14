@@ -1,0 +1,337 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`KCPetPortrait palette snapshots renders border palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#1A1A1A",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders golden palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#8B5500",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders husky palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#2A2A4A",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders lab palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#8B6914",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders persa palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#8B4040",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders poodle palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#B8906A",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders siam palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#3D1F0A",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;
+
+exports[`KCPetPortrait palette snapshots renders srd palette 1`] = `
+<View
+  style={
+    [
+      {
+        "borderRadius": 44,
+        "height": 88,
+        "overflow": "hidden",
+        "width": 88,
+      },
+      false,
+      undefined,
+    ]
+  }
+  testID="kc-pet-portrait"
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flex": 1,
+        "justifyContent": "flex-end",
+        "paddingBottom": 13.2,
+      }
+    }
+    testID="LinearGradient"
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#6B4A20",
+          "borderRadius": 13,
+          "height": 26,
+          "opacity": 0.3,
+          "width": 26,
+        }
+      }
+    />
+  </View>
+</View>
+`;

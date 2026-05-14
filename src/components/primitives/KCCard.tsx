@@ -14,6 +14,7 @@ export interface KCCardProps {
   onPress?: () => void;
   elevated?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -31,7 +32,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
-export function KCCard({ children, onPress, elevated = false, style }: KCCardProps) {
+export function KCCard({ children, onPress, elevated = false, style, testID }: KCCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const elevation = elevated ? 4 : 2;
@@ -40,11 +41,11 @@ export function KCCard({ children, onPress, elevated = false, style }: KCCardPro
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={cardStyle}>
+      <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={cardStyle} testID={testID}>
         {children}
       </TouchableOpacity>
     );
   }
 
-  return <View style={cardStyle}>{children}</View>;
+  return <View style={cardStyle} testID={testID}>{children}</View>;
 }
