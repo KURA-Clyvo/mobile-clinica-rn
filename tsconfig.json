@@ -3,38 +3,17 @@
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "src/*"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@services/*": [
-        "src/services/*"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@theme/*": [
-        "src/theme/*"
-      ],
-      "@types": [
-        "src/types"
-      ],
-      "@mocks/*": [
-        "src/mocks/*"
-      ],
-      "@constants/*": [
-        "src/constants/*"
-      ],
-      "@store/*": [
-        "src/store/*"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ]
+      "@/*": ["./src/*"],
+      "@components/*": ["./src/components/*"],
+      "@services/*": ["./src/services/*"],
+      "@hooks/*": ["./src/hooks/*"],
+      "@theme/*": ["./src/theme/*"],
+      "@types": ["./src/types"],
+      "@mocks/*": ["./src/mocks/*"],
+      "@constants/*": ["./src/constants/*"],
+      "@store/*": ["./src/store/*"],
+      "@utils/*": ["./src/utils/*"]
     }
   },
   "include": [
