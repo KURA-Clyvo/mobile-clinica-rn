@@ -2,6 +2,9 @@
 
 App mobile para clínicas veterinárias — React Native + Expo Router.
 
+## Link do vídeo no Youtube
+ https://youtube.com/shorts/Ik28Muwtljc?feature=share
+
 ## Setup
 
 ```bash
