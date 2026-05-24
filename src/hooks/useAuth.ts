@@ -3,7 +3,12 @@ import { useRouter } from 'expo-router';
 import { login, registerClinica } from '@services/auth.service';
 import { useAuthStore } from '@store/authStore';
 import { ROUTES } from '@constants/routes';
-import type { LoginRequest, LoginResponse, RegisterClinicaRequest, RegisterClinicaResponse } from '../types/api';
+import type {
+  LoginRequest,
+  LoginResponse,
+  RegisterClinicaRequest,
+  RegisterClinicaResponse,
+} from '../types/api';
 
 export function useLoginMutation() {
   const router = useRouter();

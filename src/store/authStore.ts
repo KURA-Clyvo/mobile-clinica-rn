@@ -4,10 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '@services/queryClient';
 import { VeterinarioResponse } from '../types/api';
 
+// store/authStore.ts
 interface AuthState {
   token: string | null;
   expiresAt: string | null;
   usuario: VeterinarioResponse | null;
+  _hasHydrated: boolean; // ← adiciona isso
+  setHasHydrated: (state: boolean) => void; // ← e isso
   setSession: (token: string, expiresAt: string, usuario: VeterinarioResponse) => void;
   clearSession: () => void;
   isAuthenticated: () => boolean;
@@ -19,6 +22,9 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       expiresAt: null,
       usuario: null,
+      _hasHydrated: false, // ← começa false
+
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setSession: (token, expiresAt, usuario) => {
         set({ token, expiresAt, usuario });
@@ -43,6 +49,10 @@ export const useAuthStore = create<AuthState>()(
         expiresAt: state.expiresAt,
         usuario: state.usuario,
       }),
+      onRehydrateStorage: () => (state) => {
+        // ← chamado quando o AsyncStorage termina de ser lido
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

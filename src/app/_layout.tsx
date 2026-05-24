@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-import { DeviceEventEmitter } from 'react-native';
 import { SplashScreen, Stack } from 'expo-router';
-import { useAuthStore } from '@store/authStore';
 import { useFonts } from 'expo-font';
 import { Cormorant_500Medium } from '@expo-google-fonts/cormorant';
 import { Lexend_400Regular, Lexend_500Medium } from '@expo-google-fonts/lexend';
@@ -21,30 +19,20 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    const timeout = setTimeout(() => SplashScreen.hideAsync(), 3000);
     if (fontsLoaded || fontError) {
+      clearTimeout(timeout);
       SplashScreen.hideAsync();
     }
+    return () => clearTimeout(timeout);
   }, [fontsLoaded, fontError]);
 
-  useEffect(() => {
-    const sub = DeviceEventEmitter.addListener('auth:logout', () => {
-      useAuthStore.getState().clearSession();
-    });
-    return () => sub.remove();
-  }, []);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
-
+  // ✅ Sem early return null — sempre renderiza o Stack
+  // A SplashScreen cobre a tela enquanto as fontes carregam
   return (
     <ThemeProvider>
-      <PersistQueryClientProvider
-        client={queryClient}
-        persistOptions={persistOptions}
-      >
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <Stack screenOptions={{ headerShown: false }} />
-        {process.env.NODE_ENV !== 'production' && null}
       </PersistQueryClientProvider>
     </ThemeProvider>
   );
