@@ -58,15 +58,45 @@ describe('luna.service', () => {
     const result = await getLunaHealth();
     expect(mockLunaGet).toHaveBeenCalledWith('/health');
     expect(mockApiGet).not.toHaveBeenCalled();
-    expect(result.sgStatus).toBe('UP');
-    expect(result.servicos).toBeDefined();
+    // quando online, retorna os campos do LunaHealthResponse
+    expect('sgStatus' in result).toBe(true);
+    if ('sgStatus' in result) {
+      expect(result.sgStatus).toBe('UP');
+      expect(result.servicos).toBeDefined();
+    }
   });
 
-  it('enviarWhatsApp uses lunaClient and returns WhatsAppEnvioResponse', async () => {
+  it('getLunaHealth offline — retorna {status:"indisponivel"} sem lançar', async () => {
+    mockLunaGet.mockRejectedValue(new Error('ECONNREFUSED'));
+
+    const result = await getLunaHealth();
+
+    // nunca lança — retorna degradado
+    expect(result).toEqual({ status: 'indisponivel' });
+  });
+
+  it('enviarWhatsApp uses lunaClient e retorna status enviado', async () => {
     const req = { idPet: 1, idTutor: 10, dsMensagem: 'Olá!' };
     const result = await enviarWhatsApp(req);
     expect(mockLunaPost).toHaveBeenCalledWith('/whatsapp/enviar', req);
-    expect(result.sgStatus).toBe('ENVIADO');
+    expect(result.status).toBe('enviado');
+  });
+
+  it('enviarWhatsApp offline — retorna {status:"indisponivel"} sem lançar', async () => {
+    mockLunaPost.mockRejectedValue(new Error('Network Error'));
+
+    const result = await enviarWhatsApp({ idPet: 1, idTutor: 10, dsMensagem: 'teste' });
+
+    // nunca lança — UI não quebra
+    expect(result.status).toBe('indisponivel');
+  });
+
+  it('enviarWhatsApp timeout — retorna {status:"indisponivel"} sem lançar', async () => {
+    mockLunaPost.mockRejectedValue({ code: 'ECONNABORTED', message: 'timeout of 15000ms exceeded' });
+
+    const result = await enviarWhatsApp({ idPet: 1, idTutor: 10, dsMensagem: 'teste' });
+
+    expect(result.status).toBe('indisponivel');
   });
 
   it('mock relatorio: sum of urgency levels equals nrTotalTriagens', async () => {

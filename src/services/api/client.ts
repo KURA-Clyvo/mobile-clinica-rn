@@ -45,8 +45,8 @@ function buildResponseSuccessInterceptor() {
   return (response: AxiosResponse): AxiosResponse => response;
 }
 
-function createInstance(baseURL: string): AxiosInstance {
-  const instance = axios.create({ baseURL, timeout: TIMEOUT_MS });
+function createInstance(baseURL: string, defaultHeaders?: Record<string, string>): AxiosInstance {
+  const instance = axios.create({ baseURL, timeout: TIMEOUT_MS, headers: defaultHeaders });
   instance.interceptors.request.use(buildRequestInterceptor());
   instance.interceptors.response.use(
     buildResponseSuccessInterceptor(),
@@ -59,6 +59,8 @@ export const apiClient: AxiosInstance = createInstance(
   process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
 );
 
+const lunaApiKey = process.env.EXPO_PUBLIC_LUNA_API_KEY;
 export const lunaClient: AxiosInstance = createInstance(
   process.env.EXPO_PUBLIC_LUNA_BASE_URL ?? '',
+  lunaApiKey ? { 'X-API-Key': lunaApiKey } : undefined,
 );

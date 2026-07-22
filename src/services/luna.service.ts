@@ -1,7 +1,3 @@
-// TODO: EXPO_PUBLIC_LUNA_BASE_URL ainda não confirmado pelo time Python.
-// Em modo mock (EXPO_PUBLIC_USE_MOCKS=true), lunaClient é bypassado normalmente.
-// Em produção, definir a URL no .env antes do deploy.
-// Esquema de auth da Luna (JWT compartilhado vs API key) também pendente.
 import { lunaClient, apiClient } from './api/client';
 import type {
   WhatsAppEnvioRequest,
@@ -11,14 +7,40 @@ import type {
   TriagensRelatorioResponse,
 } from '../types/api';
 
-export async function enviarWhatsApp(req: WhatsAppEnvioRequest): Promise<WhatsAppEnvioResponse> {
-  const { data } = await lunaClient.post<WhatsAppEnvioResponse>('/whatsapp/enviar', req);
-  return data;
+export type LunaStatus = 'enviado' | 'indisponivel' | 'erro';
+
+export interface EnvioResult {
+  status: LunaStatus;
+  sid?: string;
+  motivo?: string;
 }
 
-export async function getLunaHealth(): Promise<LunaHealthResponse> {
-  const { data } = await lunaClient.get<LunaHealthResponse>('/health');
-  return data;
+/**
+ * Envia mensagem WhatsApp via Luna.
+ * Retorna estado degradado ('indisponivel') se a Luna estiver offline ou timeout —
+ * nunca lança exceção para não derrubar a UI.
+ * Autenticação: header X-API-Key injetado pelo lunaClient (EXPO_PUBLIC_LUNA_API_KEY).
+ */
+export async function enviarWhatsApp(req: WhatsAppEnvioRequest): Promise<EnvioResult> {
+  try {
+    await lunaClient.post<WhatsAppEnvioResponse>('/whatsapp/enviar', req);
+    return { status: 'enviado' };
+  } catch {
+    return { status: 'indisponivel' };
+  }
+}
+
+/**
+ * Verifica saúde da Luna.
+ * Retorna estado degradado se a Luna estiver offline — nunca lança.
+ */
+export async function getLunaHealth(): Promise<LunaHealthResponse | { status: 'indisponivel' }> {
+  try {
+    const { data } = await lunaClient.get<LunaHealthResponse>('/health');
+    return data;
+  } catch {
+    return { status: 'indisponivel' };
+  }
 }
 
 export async function getRelatorioTriagens(

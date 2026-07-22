@@ -21,11 +21,22 @@ cp .env.example .env
 
 ## Env vars
 
-| Variável | Descrição |
-|---|---|
-| `EXPO_PUBLIC_API_BASE_URL` | Base URL do backend .NET (KURA API) |
-| `EXPO_PUBLIC_LUNA_BASE_URL` | Base URL do serviço Python da Luna |
-| `EXPO_PUBLIC_USE_MOCKS` | `true` para usar fixtures locais (sem rede) |
+| Variável | Obrigatória | Exemplo | Descrição |
+|---|---|---|---|
+| `EXPO_PUBLIC_API_BASE_URL` | prod | `http://192.168.1.100:8080` | Base URL do backend .NET (KURA API) |
+| `EXPO_PUBLIC_LUNA_BASE_URL` | prod | `http://192.168.1.100:8000` | Base URL do serviço Python da Luna |
+| `EXPO_PUBLIC_LUNA_API_KEY` | prod | `kura-luna-secret` | API key enviada no header `X-API-Key` ao lunaClient |
+| `EXPO_PUBLIC_USE_MOCKS` | dev | `true` | `true` = fixtures locais (sem rede); default de dev |
+
+### Matriz de comportamento
+
+| `EXPO_PUBLIC_USE_MOCKS` | `EXPO_PUBLIC_API_BASE_URL` | Resultado |
+|---|---|---|
+| `true` | qualquer | Todas as chamadas resolvem por fixtures (`src/mocks/`) |
+| `false` | definida | App conecta ao .NET real e à Luna |
+| `false` | vazia | Axios usa path relativo (falha em produção — definir sempre) |
+
+> A Luna usa um `lunaClient` separado com header `X-API-Key`. O `.NET apiClient` nunca envia essa key.
 
 ## Scripts
 
