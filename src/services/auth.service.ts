@@ -1,3 +1,4 @@
+import { apiClient } from './api/client';
 import type {
   LoginRequest,
   LoginResponse,
@@ -5,46 +6,20 @@ import type {
   RegisterClinicaResponse,
 } from '../types/api';
 
-async function delay(ms = 800) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  await delay();
-
-  if (data.dsEmail === 'gui@kura.com' && data.dsSenha === '123456') {
-    return {
-      accessToken: 'mock-token-abc',
-      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-      usuario: {
-        id: 1,
-        nmVeterinario: 'Guilherme Sola',
-        nrCRMV: '12345-SP',
-        dsEmail: data.dsEmail,
-      },
-    };
-  }
-
-  throw { status: 401 };
+  const { data: response } = await apiClient.post<LoginResponse>('/api/v1/auth/login', data);
+  return response;
 }
 
+// Não há endpoint de logout na API real — sessão é apenas limpa localmente.
 export async function logout(): Promise<void> {}
 
 export async function registerClinica(
   data: RegisterClinicaRequest,
 ): Promise<RegisterClinicaResponse> {
-  await delay();
-
-  return {
-    idClinica: 1,
-    idVeterinarioAdmin: 2,
-    accessToken: 'mock-token-register',
-    expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
-    usuario: {
-      id: 2,
-      nmVeterinario: data.nmVeterinarioAdmin,
-      nrCRMV: data.nrCRMV,
-      dsEmail: data.dsEmailAdmin,
-    },
-  };
+  const { data: response } = await apiClient.post<RegisterClinicaResponse>(
+    '/api/v1/auth/register-clinica',
+    data,
+  );
+  return response;
 }

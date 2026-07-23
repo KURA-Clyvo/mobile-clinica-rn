@@ -26,17 +26,20 @@ import type { RegisterClinicaRequest } from '../types/api';
 const registerSchema = z
   .object({
     nmClinica: z.string().min(2, 'Nome da clínica obrigatório'),
-    dsCnpj: z.string().min(14, 'CNPJ deve ter 14 dígitos'),
+    nrCnpj: z.string().min(14, 'CNPJ deve ter 14 dígitos'),
     dsEmail: z.string().email(STRINGS.VALIDATION.EMAIL_INVALID),
-    dsTelefone: z.string().min(10, 'Telefone inválido'),
+    nrTelefone: z.string().min(10, 'Telefone inválido'),
     dsEndereco: z.string().min(5, 'Endereço obrigatório'),
+    nmCidade: z.string().min(2, 'Cidade obrigatória'),
+    sgUf: z.string().length(2, 'UF deve ter 2 letras'),
+    nrCep: z.string().min(8, 'CEP inválido'),
     nmVeterinarioAdmin: z.string().min(2, 'Nome do veterinário obrigatório'),
     nrCRMV: z.string().min(4, 'CRMV inválido'),
-    dsEmailAdmin: z.string().email(STRINGS.VALIDATION.EMAIL_INVALID),
-    dsSenhaAdmin: z.string().min(6, STRINGS.VALIDATION.PASSWORD_MIN),
+    dsEmailAcesso: z.string().email(STRINGS.VALIDATION.EMAIL_INVALID),
+    dsSenha: z.string().min(6, STRINGS.VALIDATION.PASSWORD_MIN),
     confirmSenha: z.string(),
   })
-  .refine((d) => d.dsSenhaAdmin === d.confirmSenha, {
+  .refine((d) => d.dsSenha === d.confirmSenha, {
     message: 'As senhas não coincidem',
     path: ['confirmSenha'],
   });
@@ -98,14 +101,17 @@ export default function RegisterScreen() {
     resolver: zodResolver(registerSchema),
     defaultValues: {
       nmClinica: '',
-      dsCnpj: '',
+      nrCnpj: '',
       dsEmail: '',
-      dsTelefone: '',
+      nrTelefone: '',
       dsEndereco: '',
+      nmCidade: '',
+      sgUf: '',
+      nrCep: '',
       nmVeterinarioAdmin: '',
       nrCRMV: '',
-      dsEmailAdmin: '',
-      dsSenhaAdmin: '',
+      dsEmailAcesso: '',
+      dsSenha: '',
       confirmSenha: '',
     },
   });
@@ -153,7 +159,7 @@ export default function RegisterScreen() {
 
             <Controller
               control={control}
-              name="dsCnpj"
+              name="nrCnpj"
               render={({ field, fieldState }) => (
                 <KCTextField
                   label="CNPJ"
@@ -185,7 +191,7 @@ export default function RegisterScreen() {
 
             <Controller
               control={control}
-              name="dsTelefone"
+              name="nrTelefone"
               render={({ field, fieldState }) => (
                 <KCTextField
                   label="Telefone"
@@ -205,11 +211,57 @@ export default function RegisterScreen() {
               render={({ field, fieldState }) => (
                 <KCTextField
                   label="Endereço"
-                  placeholder="Rua, número, bairro, cidade"
+                  placeholder="Rua, número, bairro"
                   value={field.value}
                   onChangeText={field.onChange}
                   onBlur={field.onBlur}
                   error={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="nmCidade"
+              render={({ field, fieldState }) => (
+                <KCTextField
+                  label="Cidade"
+                  placeholder="São Paulo"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="sgUf"
+              render={({ field, fieldState }) => (
+                <KCTextField
+                  label="UF"
+                  placeholder="SP"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Controller
+              control={control}
+              name="nrCep"
+              render={({ field, fieldState }) => (
+                <KCTextField
+                  label="CEP"
+                  placeholder="00000-000"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                  keyboardType="numeric"
                 />
               )}
             />
@@ -248,7 +300,7 @@ export default function RegisterScreen() {
 
             <Controller
               control={control}
-              name="dsEmailAdmin"
+              name="dsEmailAcesso"
               render={({ field, fieldState }) => (
                 <KCTextField
                   label="E-mail do Veterinário"
@@ -264,7 +316,7 @@ export default function RegisterScreen() {
 
             <Controller
               control={control}
-              name="dsSenhaAdmin"
+              name="dsSenha"
               render={({ field, fieldState }) => (
                 <KCTextField
                   label="Senha"

@@ -82,7 +82,10 @@ describe('RegisterScreen', () => {
     fireEvent.changeText(getByPlaceholderText('00.000.000/0001-00'), '12345678000199');
     fireEvent.changeText(getByPlaceholderText('clinica@email.com'), 'clinica@email.com');
     fireEvent.changeText(getByPlaceholderText('(11) 99999-9999'), '11987654321');
-    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro, cidade'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('São Paulo'), 'São Paulo');
+    fireEvent.changeText(getByPlaceholderText('SP'), 'SP');
+    fireEvent.changeText(getByPlaceholderText('00000-000'), '01234567');
     fireEvent.changeText(getByPlaceholderText('Dr(a). Nome Completo'), 'Dr. João Silva');
     fireEvent.changeText(getByPlaceholderText('SP-12345'), 'SP-54321');
     fireEvent.changeText(getByPlaceholderText('vet@email.com'), 'joao@vet.com');
@@ -102,7 +105,10 @@ describe('RegisterScreen', () => {
     fireEvent.changeText(getByPlaceholderText('00.000.000/0001-00'), '12345678000199');
     fireEvent.changeText(getByPlaceholderText('clinica@email.com'), 'clinica@email.com');
     fireEvent.changeText(getByPlaceholderText('(11) 99999-9999'), '11987654321');
-    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro, cidade'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('São Paulo'), 'São Paulo');
+    fireEvent.changeText(getByPlaceholderText('SP'), 'SP');
+    fireEvent.changeText(getByPlaceholderText('00000-000'), '01234567');
     fireEvent.changeText(getByPlaceholderText('Dr(a). Nome Completo'), 'Dr. João Silva');
     fireEvent.changeText(getByPlaceholderText('SP-12345'), 'SP-54321');
     fireEvent.changeText(getByPlaceholderText('vet@email.com'), 'joao@vet.com');
@@ -115,8 +121,12 @@ describe('RegisterScreen', () => {
       expect(mockRegisterClinica).toHaveBeenCalledWith(
         expect.objectContaining({
           nmClinica: 'Clínica Kura',
-          dsEmailAdmin: 'joao@vet.com',
-          dsSenhaAdmin: 'senha123',
+          nrCnpj: '12345678000199',
+          nmCidade: 'São Paulo',
+          sgUf: 'SP',
+          nrCep: '01234567',
+          dsEmailAcesso: 'joao@vet.com',
+          dsSenha: 'senha123',
         }),
       );
     });
@@ -131,7 +141,10 @@ describe('RegisterScreen', () => {
     fireEvent.changeText(getByPlaceholderText('00.000.000/0001-00'), '12345678000199');
     fireEvent.changeText(getByPlaceholderText('clinica@email.com'), 'clinica@email.com');
     fireEvent.changeText(getByPlaceholderText('(11) 99999-9999'), '11987654321');
-    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro, cidade'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('São Paulo'), 'São Paulo');
+    fireEvent.changeText(getByPlaceholderText('SP'), 'SP');
+    fireEvent.changeText(getByPlaceholderText('00000-000'), '01234567');
     fireEvent.changeText(getByPlaceholderText('Dr(a). Nome Completo'), 'Dr. João Silva');
     fireEvent.changeText(getByPlaceholderText('SP-12345'), 'SP-54321');
     fireEvent.changeText(getByPlaceholderText('vet@email.com'), 'joao@vet.com');
@@ -155,7 +168,10 @@ describe('RegisterScreen', () => {
     fireEvent.changeText(getByPlaceholderText('00.000.000/0001-00'), '12345678000199');
     fireEvent.changeText(getByPlaceholderText('clinica@email.com'), 'clinica@email.com');
     fireEvent.changeText(getByPlaceholderText('(11) 99999-9999'), '11987654321');
-    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro, cidade'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('Rua, número, bairro'), 'Rua das Flores, 123');
+    fireEvent.changeText(getByPlaceholderText('São Paulo'), 'São Paulo');
+    fireEvent.changeText(getByPlaceholderText('SP'), 'SP');
+    fireEvent.changeText(getByPlaceholderText('00000-000'), '01234567');
     fireEvent.changeText(getByPlaceholderText('Dr(a). Nome Completo'), 'Dr. João Silva');
     fireEvent.changeText(getByPlaceholderText('SP-12345'), 'SP-54321');
     fireEvent.changeText(getByPlaceholderText('vet@email.com'), 'joao@vet.com');

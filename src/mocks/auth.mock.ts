@@ -33,7 +33,7 @@ export async function register(config: InternalAxiosRequestConfig): Promise<Regi
       id: 2,
       nmVeterinario: body.nmVeterinarioAdmin,
       nrCRMV: body.nrCRMV,
-      dsEmail: body.dsEmailAdmin,
+      dsEmail: body.dsEmailAcesso,
     },
   };
 }

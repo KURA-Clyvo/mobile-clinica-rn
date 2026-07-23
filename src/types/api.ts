@@ -11,14 +11,18 @@ export interface LoginResponse {
 
 export interface RegisterClinicaRequest {
   nmClinica: string;
-  dsCnpj: string;
-  dsEmail: string;
-  dsTelefone: string;
+  nrCnpj: string;
+  nmRazaoSocial?: string;
   dsEndereco: string;
+  nmCidade: string;
+  sgUf: string;
+  nrCep: string;
+  nrTelefone?: string;
+  dsEmail: string;
+  dsEmailAcesso: string;
+  dsSenha: string;
   nmVeterinarioAdmin: string;
   nrCRMV: string;
-  dsEmailAdmin: string;
-  dsSenhaAdmin: string;
 }
 export interface RegisterClinicaResponse {
   idClinica: number;
