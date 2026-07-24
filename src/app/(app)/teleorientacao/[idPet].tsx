@@ -5,17 +5,21 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  Linking,
   StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
+import { useTeleconsulta } from '@hooks/useTeleconsulta';
 import { useAuthStore } from '@store/authStore';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { CFMV_TELEORIENTACAO_BANNER } from '@constants/compliance';
+import type { ApiError } from '../../../types/api';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -84,6 +88,13 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.textOnPrimary,
       opacity: 0.4,
     },
+    videoMessage: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textOnPrimary,
+      textAlign: 'center',
+      paddingHorizontal: 24,
+    },
     notesCard: { marginHorizontal: 16 },
     notesTitle: {
       fontFamily: 'Lexend_500Medium',
@@ -115,16 +126,28 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function TeleorientacaoScreen() {
-  const { idPet } = useLocalSearchParams<{ idPet: string }>();
+  const { idPet, idAgendamento } = useLocalSearchParams<{ idPet: string; idAgendamento?: string }>();
   const petId = idPet ? parseInt(idPet, 10) : null;
+  const agendamentoId = idAgendamento ? parseInt(idAgendamento, 10) : null;
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
   const [notes, setNotes] = useState('');
+  const { query: salaQuery, mutation: criarSalaMutation } = useTeleconsulta(agendamentoId);
 
   const { data: pet } = usePetDetail(petId);
   const tutor = pet?.tutores[0];
+
+  const sala = criarSalaMutation.data ?? salaQuery.data;
+  const erro = (criarSalaMutation.error ?? salaQuery.error) as unknown as ApiError | undefined;
+  const carregando = salaQuery.isLoading || criarSalaMutation.isPending;
+
+  const handleEntrarNaSala = () => {
+    if (sala?.dsSalaUrl) {
+      Linking.openURL(sala.dsSalaUrl);
+    }
+  };
 
   const handleEncerrar = () => {
     Alert.alert(
@@ -169,12 +192,72 @@ export default function TeleorientacaoScreen() {
           )}
         </KCCard>
 
-        {/* Área de vídeo placeholder */}
+        {/* Área de vídeo */}
         <View style={styles.videoArea} testID="video-area">
-          <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
-          <Text style={styles.videoTitle}>Chamada de vídeo</Text>
-          {pet && tutor && (
-            <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
+          {!agendamentoId ? (
+            <>
+              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              <Text style={styles.videoTitle}>Chamada de vídeo</Text>
+              <Text style={styles.videoMessage} testID="msg-sem-agendamento">
+                Inicie a teleconsulta a partir de um agendamento na Agenda.
+              </Text>
+            </>
+          ) : carregando ? (
+            <ActivityIndicator color={colors.textOnPrimary} testID="loading-sala" />
+          ) : erro?.status === 422 ? (
+            <Text style={styles.videoMessage} testID="msg-sem-consentimento">
+              O tutor ainda não registrou consentimento de teleorientação. Peça para ele
+              aceitar o termo no app antes de continuar.
+            </Text>
+          ) : erro ? (
+            <>
+              <Text style={styles.videoMessage} testID="msg-erro-sala">
+                Não foi possível carregar a sala de videochamada.
+              </Text>
+              <KCButton
+                variant="secondary"
+                size="sm"
+                onPress={() => criarSalaMutation.mutate()}
+                testID="btn-tentar-novamente"
+              >
+                Tentar novamente
+              </KCButton>
+            </>
+          ) : sala?.stFallbackManual ? (
+            <Text style={styles.videoMessage} testID="msg-fallback-manual">
+              Não foi possível criar a sala automaticamente. Combine um link de
+              videochamada manual com o tutor.
+            </Text>
+          ) : sala?.dsSalaUrl ? (
+            <>
+              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              {pet && tutor && (
+                <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
+              )}
+              <KCButton
+                variant="primary"
+                size="md"
+                onPress={handleEntrarNaSala}
+                testID="btn-entrar-sala"
+              >
+                Entrar na sala
+              </KCButton>
+            </>
+          ) : (
+            <>
+              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              {pet && tutor && (
+                <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
+              )}
+              <KCButton
+                variant="primary"
+                size="md"
+                onPress={() => criarSalaMutation.mutate()}
+                testID="btn-iniciar-chamada"
+              >
+                Iniciar chamada
+              </KCButton>
+            </>
           )}
         </View>
 

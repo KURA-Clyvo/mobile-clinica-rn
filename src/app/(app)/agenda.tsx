@@ -8,12 +8,14 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useAgendaSemana } from '@hooks/useAgenda';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { ROUTES } from '@constants/routes';
 import {
   formatTime,
   formatWeekRange,
@@ -174,6 +176,22 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 12,
       color: colors.textMute,
     },
+    teleBtn: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 8,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+    },
+    teleBtnText: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 11,
+      color: colors.textOnPrimary,
+    },
   });
 
 interface AgendaAppointmentCardProps {
@@ -183,6 +201,7 @@ interface AgendaAppointmentCardProps {
 function AgendaAppointmentCard({ appointment: a }: AgendaAppointmentCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const router = useRouter();
 
   return (
     <KCCard style={styles.apptCard} testID="agenda-appointment">
@@ -201,6 +220,17 @@ function AgendaAppointmentCard({ appointment: a }: AgendaAppointmentCardProps) {
             {a.pet.nmEspecie} · {a.pet.nmRaca}
           </Text>
           <Text style={styles.tutorText} numberOfLines={1}>{a.tutor.nmTutor}</Text>
+          {a.sgStatus !== 'CANCELADA' && (
+            <TouchableOpacity
+              style={styles.teleBtn}
+              onPress={() => router.push(ROUTES.app.teleorientacao(a.pet.id, a.id))}
+              testID="btn-iniciar-teleconsulta"
+              accessibilityLabel="Iniciar teleconsulta"
+            >
+              <KCIcon name="cam" size={12} color={colors.textOnPrimary} />
+              <Text style={styles.teleBtnText}>Teleconsulta</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </KCCard>

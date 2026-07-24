@@ -8,6 +8,11 @@ jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: jest.fn(),
 }));
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
 import { useAgendaSemana } from '../src/hooks/useAgenda';
 const mockUseAgendaSemana = useAgendaSemana as jest.Mock;
 

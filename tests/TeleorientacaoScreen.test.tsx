@@ -1,14 +1,15 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import TeleorientacaoScreen from '../src/app/(app)/teleorientacao/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
 import { CFMV_TELEORIENTACAO_BANNER } from '../src/constants/compliance';
 
 const mockBack = jest.fn();
+const mockUseLocalSearchParams = jest.fn(() => ({ idPet: '1' } as Record<string, string>));
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
   useRouter: () => ({ back: mockBack }),
 }));
 
@@ -17,9 +18,15 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 
 jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
+jest.mock('@hooks/useTeleconsulta', () => ({ useTeleconsulta: jest.fn() }));
 
 import { usePetDetail } from '../src/hooks/usePetDetail';
+import { useTeleconsulta } from '../src/hooks/useTeleconsulta';
 const mockUsePetDetail = usePetDetail as jest.Mock;
+const mockUseTeleconsulta = useTeleconsulta as jest.Mock;
+
+const IDLE_QUERY = { data: undefined, isLoading: false, error: null };
+const IDLE_MUTATION = { data: undefined, isPending: false, error: null, mutate: jest.fn() };
 
 const MOCK_VET = { id: 1, nmVeterinario: 'Dr. Felipe Ferrete', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' };
 const MOCK_PET = {
@@ -36,6 +43,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   useAuthStore.setState({ token: 'tok', expiresAt: new Date(Date.now() + 3_600_000).toISOString(), usuario: MOCK_VET });
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
+  mockUseTeleconsulta.mockReturnValue({ query: IDLE_QUERY, mutation: IDLE_MUTATION });
 });
 
 describe('TeleorientacaoScreen', () => {
@@ -88,5 +96,83 @@ describe('TeleorientacaoScreen', () => {
     const { getByTestId } = wrap(<TeleorientacaoScreen />);
     fireEvent.press(getByTestId('btn-encerrar'));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+
+  it('sem idAgendamento (entrada ad-hoc), mostra mensagem para usar a Agenda', () => {
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('msg-sem-agendamento')).toBeTruthy();
+  });
+});
+
+describe('TeleorientacaoScreen — com idAgendamento (wired ao backend)', () => {
+  beforeEach(() => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '42' });
+  });
+
+  it('mostra botão "Iniciar chamada" quando a sala ainda não foi criada', () => {
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('btn-iniciar-chamada')).toBeTruthy();
+  });
+
+  it('pressing "Iniciar chamada" dispara a mutation', () => {
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    fireEvent.press(getByTestId('btn-iniciar-chamada'));
+    expect(IDLE_MUTATION.mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('mostra spinner enquanto carrega', () => {
+    mockUseTeleconsulta.mockReturnValue({
+      query: IDLE_QUERY,
+      mutation: { ...IDLE_MUTATION, isPending: true },
+    });
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('loading-sala')).toBeTruthy();
+  });
+
+  it('mostra "Entrar na sala" quando a sala já foi criada, e abre a URL ao pressionar', () => {
+    const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true as never);
+    mockUseTeleconsulta.mockReturnValue({
+      query: {
+        data: { idAgendamento: 42, dsSalaUrl: 'https://kura.daily.co/room-42', dsProvedorVideo: 'DAILY', dtInicioSessao: null, stFallbackManual: false },
+        isLoading: false,
+        error: null,
+      },
+      mutation: IDLE_MUTATION,
+    });
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    fireEvent.press(getByTestId('btn-entrar-sala'));
+    expect(openURLSpy).toHaveBeenCalledWith('https://kura.daily.co/room-42');
+  });
+
+  it('mostra mensagem de fallback manual quando o Daily.co falha', () => {
+    mockUseTeleconsulta.mockReturnValue({
+      query: IDLE_QUERY,
+      mutation: {
+        ...IDLE_MUTATION,
+        data: { idAgendamento: 42, dsSalaUrl: null, dsProvedorVideo: null, dtInicioSessao: null, stFallbackManual: true },
+      },
+    });
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('msg-fallback-manual')).toBeTruthy();
+  });
+
+  it('mostra mensagem de consentimento ausente em erro 422', () => {
+    mockUseTeleconsulta.mockReturnValue({
+      query: IDLE_QUERY,
+      mutation: { ...IDLE_MUTATION, error: { status: 422, code: 'RegraDeNegocioException', message: 'sem consentimento' } },
+    });
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('msg-sem-consentimento')).toBeTruthy();
+  });
+
+  it('mostra erro genérico com botão de tentar novamente em outros erros', () => {
+    mockUseTeleconsulta.mockReturnValue({
+      query: IDLE_QUERY,
+      mutation: { ...IDLE_MUTATION, error: { status: 404, code: 'EntidadeNaoEncontradaException', message: 'não encontrado' } },
+    });
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    expect(getByTestId('msg-erro-sala')).toBeTruthy();
+    fireEvent.press(getByTestId('btn-tentar-novamente'));
+    expect(IDLE_MUTATION.mutate).toHaveBeenCalledTimes(1);
   });
 });
