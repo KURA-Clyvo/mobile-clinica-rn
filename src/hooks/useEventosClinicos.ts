@@ -5,6 +5,7 @@ import {
   getMedicamentos,
   enviarTranscricao,
   confirmarSoap,
+  gerarReceituario,
 } from '@services/eventos-clinicos.service';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { enviarWhatsApp } from '@services/luna.service';
@@ -51,6 +52,13 @@ export function useConfirmarSoap() {
   return useMutation({
     mutationFn: (vars: { idEventoClinico: number; dto: SoapDraft }) =>
       confirmarSoap(vars.idEventoClinico, vars.dto),
+    retry: 0,
+  });
+}
+
+export function useGerarReceituario() {
+  return useMutation({
+    mutationFn: (idEventoClinico: number) => gerarReceituario(idEventoClinico),
     retry: 0,
   });
 }

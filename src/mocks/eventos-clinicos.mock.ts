@@ -1,6 +1,10 @@
 import type { InternalAxiosRequestConfig } from 'axios';
 import type { ConsultaResponse, MedicamentoResponse, PaginatedResponse } from '../types/api';
-import type { EventoClinicoSoapResponse, SoapDraft } from '../services/eventos-clinicos.service';
+import type {
+  DocumentoResponse,
+  EventoClinicoSoapResponse,
+  SoapDraft,
+} from '../services/eventos-clinicos.service';
 
 let _eventoId = 2000;
 let _consultaId = 3000;
@@ -61,6 +65,22 @@ export async function confirmarSoap(
     dsTranscricao: null,
     soap: { s: body.s ?? null, o: body.o ?? null, a: body.a ?? null, p: body.p ?? null },
     stSoapConfirmado: true,
+  };
+}
+
+let _documentoId = 6000;
+
+export async function gerarReceituario(
+  _config: InternalAxiosRequestConfig,
+): Promise<DocumentoResponse> {
+  const idEventoClinico = _eventoId;
+  return {
+    id: ++_documentoId,
+    idEventoClinico,
+    nmArquivo: `receituario-${idEventoClinico}.pdf`,
+    dsTipoMime: 'application/pdf',
+    dsCaminho: `/storage/documentos/receituario-${idEventoClinico}.pdf`,
+    nrTamanhoBytes: 15872,
   };
 }
 

@@ -205,19 +205,15 @@ export interface TriagensRelatorioResponse {
 }
 
 // ─── Luna (Python — chamada direta) ───────────────────────────
+// Espelha EnviarWhatsAppRequest/-Response de luna/src/web/routers/whatsapp.py (TASK-06).
 export interface WhatsAppEnvioRequest {
-  idPet: number;
-  idTutor: number;
-  dsMensagem: string;
-  attachments?: Array<{
-    tipo: 'IMAGEM' | 'PDF' | 'PRESCRICAO';
-    url: string;
-  }>;
+  telefone: string;
+  mensagem: string;
+  tipo: 'resumo_consulta' | 'receituario' | 'lembrete' | 'manual';
 }
 export interface WhatsAppEnvioResponse {
-  idEnvio: number;
-  dtEnvio: string;
-  sgStatus: 'AGENDADO' | 'ENVIADO' | 'FALHOU';
+  status: string;
+  sid?: string | null;
 }
 
 export interface LunaHealthResponse {

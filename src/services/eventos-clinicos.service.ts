@@ -91,3 +91,26 @@ export async function confirmarSoap(
   );
   return data;
 }
+
+// Espelha Kura.Application/DTOs/Documento/DocumentoResponseDto.cs (backend-clinica-dotnet, TASK-15).
+export interface DocumentoResponse {
+  id: number;
+  idEventoClinico: number;
+  nmArquivo: string;
+  dsTipoMime: string;
+  dsCaminho: string;
+  nrTamanhoBytes: number;
+}
+
+/**
+ * Gera o PDF do receituário de uma prescrição já criada (CRMV, pet,
+ * medicamento/posologia/duração e data) e retorna os metadados do Documento
+ * persistido (ver TASK-15). Não existe endpoint de download dos bytes ainda —
+ * o PDF fica em storage no servidor.
+ */
+export async function gerarReceituario(idEventoClinico: number): Promise<DocumentoResponse> {
+  const { data } = await apiClient.post<DocumentoResponse>(
+    `/api/v1/eventos-clinicos/${idEventoClinico}/receituario`,
+  );
+  return data;
+}

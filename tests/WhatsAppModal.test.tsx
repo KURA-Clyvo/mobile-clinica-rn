@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import { WhatsAppModal } from '../src/components/domain/WhatsAppModal';
 
@@ -21,10 +22,10 @@ const mockUseEnviarWhatsApp = useEnviarWhatsApp as jest.Mock;
 const BASE_PROPS = {
   visible: true,
   onClose: mockOnClose,
-  idPet: 1,
-  idTutor: 10,
   nmPet: 'Thor',
   nmTutor: 'Carlos Mendes',
+  dsTelefone: '11999990001',
+  tipo: 'receituario' as const,
 };
 
 function wrap(ui: React.ReactElement) {
@@ -79,30 +80,41 @@ describe('WhatsAppModal', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it('calls enviarWhatsApp with correct payload on submit', () => {
+  it('calls enviarWhatsApp with {telefone, mensagem, tipo} matching the Luna contract', () => {
     const { getByTestId } = wrap(
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem de teste" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
     expect(mockMutate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idPet: 1,
-        idTutor: 10,
-        dsMensagem: 'Mensagem de teste',
-      }),
+      { telefone: '11999990001', mensagem: 'Mensagem de teste', tipo: 'receituario' },
       expect.any(Object),
     );
   });
 
   it('calls onClose after successful send', () => {
     mockMutate.mockImplementation(
-      (_req: unknown, { onSuccess }: { onSuccess: () => void }) => onSuccess(),
+      (_req: unknown, { onSuccess }: { onSuccess: (r: { status: string }) => void }) =>
+        onSuccess({ status: 'enviado' }),
     );
     const { getByTestId } = wrap(
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
     expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('shows a degraded alert and does not close when Luna is offline (status indisponivel)', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockMutate.mockImplementation(
+      (_req: unknown, { onSuccess }: { onSuccess: (r: { status: string }) => void }) =>
+        onSuccess({ status: 'indisponivel' }),
+    );
+    const { getByTestId } = wrap(
+      <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
+    );
+    fireEvent.press(getByTestId('btn-enviar-whatsapp'));
+    expect(alertSpy).toHaveBeenCalledWith('Luna indisponível', expect.any(String));
+    expect(mockOnClose).not.toHaveBeenCalled();
   });
 
   it('calls onClose when close button is pressed', () => {

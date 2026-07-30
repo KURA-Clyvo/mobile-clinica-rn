@@ -29,9 +29,8 @@ const MOCK_HEALTH_DATA = {
 };
 
 const MOCK_WHATSAPP_DATA = {
-  idEnvio: 5001,
-  dtEnvio: new Date().toISOString(),
-  sgStatus: 'ENVIADO' as const,
+  status: 'enviado',
+  sid: 'SMmock1234567890',
 };
 
 beforeEach(() => {
@@ -75,17 +74,18 @@ describe('luna.service', () => {
     expect(result).toEqual({ status: 'indisponivel' });
   });
 
-  it('enviarWhatsApp uses lunaClient e retorna status enviado', async () => {
-    const req = { idPet: 1, idTutor: 10, dsMensagem: 'Olá!' };
+  it('enviarWhatsApp uses lunaClient e retorna status enviado + sid, no formato esperado pela Luna', async () => {
+    const req = { telefone: '11999990001', mensagem: 'Olá!', tipo: 'receituario' as const };
     const result = await enviarWhatsApp(req);
     expect(mockLunaPost).toHaveBeenCalledWith('/whatsapp/enviar', req);
     expect(result.status).toBe('enviado');
+    expect(result.sid).toBe('SMmock1234567890');
   });
 
   it('enviarWhatsApp offline — retorna {status:"indisponivel"} sem lançar', async () => {
     mockLunaPost.mockRejectedValue(new Error('Network Error'));
 
-    const result = await enviarWhatsApp({ idPet: 1, idTutor: 10, dsMensagem: 'teste' });
+    const result = await enviarWhatsApp({ telefone: '11999990001', mensagem: 'teste', tipo: 'manual' });
 
     // nunca lança — UI não quebra
     expect(result.status).toBe('indisponivel');
@@ -94,7 +94,7 @@ describe('luna.service', () => {
   it('enviarWhatsApp timeout — retorna {status:"indisponivel"} sem lançar', async () => {
     mockLunaPost.mockRejectedValue({ code: 'ECONNABORTED', message: 'timeout of 15000ms exceeded' });
 
-    const result = await enviarWhatsApp({ idPet: 1, idTutor: 10, dsMensagem: 'teste' });
+    const result = await enviarWhatsApp({ telefone: '11999990001', mensagem: 'teste', tipo: 'manual' });
 
     expect(result.status).toBe('indisponivel');
   });

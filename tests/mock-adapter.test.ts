@@ -88,8 +88,15 @@ describe('mock-adapter', () => {
 
   it('resolves /luna/whatsapp/enviar', async () => {
     const res = await resolveMock(makeConfig('/luna/whatsapp/enviar', 'POST'));
-    const data = res.data as { sgStatus: string };
-    expect(data.sgStatus).toBe('ENVIADO');
+    const data = res.data as { status: string; sid?: string };
+    expect(data.status).toBe('enviado');
+  });
+
+  it('resolves /eventos-clinicos/{id}/receituario', async () => {
+    const res = await resolveMock(makeConfig('/eventos-clinicos/100/receituario', 'POST'));
+    const data = res.data as { dsTipoMime: string; nmArquivo: string };
+    expect(data.dsTipoMime).toBe('application/pdf');
+    expect(data.nmArquivo).toContain('.pdf');
   });
 
   it('resolves /luna/triagens/relatorio', async () => {

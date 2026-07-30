@@ -6,6 +6,16 @@ import { useAuthStore } from '../src/store/authStore';
 
 const mockBack = jest.fn();
 const mockMutate = jest.fn();
+const mockMutateGerarReceituario = jest.fn();
+
+const MOCK_DOCUMENTO = {
+  id: 1,
+  idEventoClinico: 100,
+  nmArquivo: 'receituario-100.pdf',
+  dsTipoMime: 'application/pdf',
+  dsCaminho: '/storage/documentos/receituario-100.pdf',
+  nrTamanhoBytes: 15872,
+};
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
@@ -21,22 +31,30 @@ jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
 jest.mock('@hooks/useEventosClinicos', () => ({
   useCriarPrescricao: jest.fn(),
   useMedicamentos: jest.fn(),
+  useGerarReceituario: jest.fn(),
 }));
 
+const mockWhatsAppModal = jest.fn();
 jest.mock('@components/domain/WhatsAppModal', () => ({
-  WhatsAppModal: ({ visible }: { visible: boolean }) => {
+  WhatsAppModal: (props: { visible: boolean }) => {
+    mockWhatsAppModal(props);
     const R = require('react');
     const { View } = require('react-native');
-    return visible ? R.createElement(View, { testID: 'whatsapp-modal' }) : null;
+    return props.visible ? R.createElement(View, { testID: 'whatsapp-modal' }) : null;
   },
 }));
 
 import { usePetDetail } from '../src/hooks/usePetDetail';
-import { useCriarPrescricao, useMedicamentos } from '../src/hooks/useEventosClinicos';
+import {
+  useCriarPrescricao,
+  useMedicamentos,
+  useGerarReceituario,
+} from '../src/hooks/useEventosClinicos';
 
 const mockUsePetDetail = usePetDetail as jest.Mock;
 const mockUseCriarPrescricao = useCriarPrescricao as jest.Mock;
 const mockUseMedicamentos = useMedicamentos as jest.Mock;
+const mockUseGerarReceituario = useGerarReceituario as jest.Mock;
 
 const MOCK_VET = {
   id: 1,
@@ -93,7 +111,19 @@ beforeEach(() => {
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET });
   mockUseCriarPrescricao.mockReturnValue({ mutate: mockMutate, isPending: false });
   mockUseMedicamentos.mockReturnValue({ data: MOCK_MEDS });
+  mockUseGerarReceituario.mockReturnValue({ mutate: mockMutateGerarReceituario, isPending: false });
+  mockMutateGerarReceituario.mockImplementation(
+    (_idEventoClinico: number, opts: { onSuccess?: (doc: typeof MOCK_DOCUMENTO) => void }) =>
+      opts?.onSuccess?.(MOCK_DOCUMENTO),
+  );
 });
+
+function emitirReceitaComSucesso(idEventoClinico = 100) {
+  mockMutate.mockImplementation(
+    (_req: unknown, opts: { onSuccess?: (r: { idEventoClinico: number; idPrescricao: number }) => void }) =>
+      opts?.onSuccess?.({ idEventoClinico, idPrescricao: 200 }),
+  );
+}
 
 describe('ReceituarioScreen', () => {
   it('shows validation error when submitting without medication', async () => {
@@ -154,9 +184,7 @@ describe('ReceituarioScreen', () => {
   });
 
   it('shows success modal on successful prescription creation', async () => {
-    mockMutate.mockImplementation((_req: unknown, { onSuccess }: { onSuccess: () => void }) =>
-      onSuccess(),
-    );
+    emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
     fireEvent.press(getByTestId('med-item-1'));
@@ -169,9 +197,7 @@ describe('ReceituarioScreen', () => {
   });
 
   it('opens WhatsApp modal when pressing "Enviar via WhatsApp"', async () => {
-    mockMutate.mockImplementation((_req: unknown, { onSuccess }: { onSuccess: () => void }) =>
-      onSuccess(),
-    );
+    emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
     fireEvent.press(getByTestId('med-item-1'));
@@ -185,10 +211,56 @@ describe('ReceituarioScreen', () => {
     });
   });
 
-  it('calls router.back() when pressing "Voltar ao paciente"', async () => {
-    mockMutate.mockImplementation((_req: unknown, { onSuccess }: { onSuccess: () => void }) =>
-      onSuccess(),
+  it('passes tipo="receituario" and the tutor phone to WhatsAppModal', async () => {
+    emitirReceitaComSucesso();
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => getByTestId('btn-whatsapp'));
+
+    expect(mockWhatsAppModal).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'receituario', dsTelefone: '11999990001' }),
     );
+  });
+
+  it('gera o receituário em PDF ao emitir a receita e mostra a confirmação', async () => {
+    emitirReceitaComSucesso();
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+
+    await waitFor(() => {
+      expect(mockMutateGerarReceituario).toHaveBeenCalledWith(100, expect.any(Object));
+      expect(getByTestId('receituario-pdf-info').props.children).toContain('receituario-100.pdf');
+    });
+  });
+
+  it('falha ao gerar o PDF não bloqueia o vet — mostra aviso e ainda permite concluir', async () => {
+    emitirReceitaComSucesso();
+    mockMutateGerarReceituario.mockImplementation(
+      (_id: number, opts: { onError?: () => void }) => opts?.onError?.(),
+    );
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+
+    await waitFor(() => {
+      expect(getByTestId('success-modal')).toBeTruthy();
+      expect(getByTestId('receituario-pdf-indisponivel')).toBeTruthy();
+    });
+  });
+
+  it('calls router.back() when pressing "Voltar ao paciente"', async () => {
+    emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
     fireEvent.press(getByTestId('med-item-1'));

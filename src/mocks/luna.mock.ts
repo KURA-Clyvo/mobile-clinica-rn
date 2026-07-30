@@ -16,15 +16,12 @@ export function sugestaoSOAP(campo: 'S' | 'O' | 'A' | 'P', _idPet: number): stri
   return SOAP_SUGESTOES[campo];
 }
 
-let _envioId = 5000;
-
 export async function enviarWhatsApp(
   _config: InternalAxiosRequestConfig,
 ): Promise<WhatsAppEnvioResponse> {
   return {
-    idEnvio: ++_envioId,
-    dtEnvio: new Date().toISOString(),
-    sgStatus: 'ENVIADO',
+    status: 'enviado',
+    sid: 'SMmock1234567890',
   };
 }
 

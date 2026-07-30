@@ -19,7 +19,12 @@ import { z } from 'zod';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
-import { useCriarPrescricao, useMedicamentos } from '@hooks/useEventosClinicos';
+import {
+  useCriarPrescricao,
+  useMedicamentos,
+  useGerarReceituario,
+} from '@hooks/useEventosClinicos';
+import type { DocumentoResponse } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
@@ -152,7 +157,8 @@ export default function ReceituarioScreen() {
   const usuario = useAuthStore((s) => s.usuario);
 
   const { data: pet } = usePetDetail(petId);
-  const { mutate: criarPrescricao, isPending } = useCriarPrescricao();
+  const { mutate: criarPrescricao, isPending: isCriandoPrescricao } = useCriarPrescricao();
+  const { mutate: gerarReceituario, isPending: isGerandoReceituario } = useGerarReceituario();
 
   const [buscaMed, setBuscaMed] = useState('');
   const [medSelecionado, setMedSelecionado] = useState<MedicamentoResponse | null>(null);
@@ -160,6 +166,10 @@ export default function ReceituarioScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showSuccess, setShowSuccess] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [receituario, setReceituario] = useState<DocumentoResponse | null>(null);
+  const [receituarioIndisponivel, setReceituarioIndisponivel] = useState(false);
+
+  const isPending = isCriandoPrescricao || isGerandoReceituario;
 
   const { data: medsData } = useMedicamentos(buscaMed || undefined);
   const medicamentos = medsData?.items ?? [];
@@ -215,7 +225,20 @@ export default function ReceituarioScreen() {
         nrDuracaoDias: data.nrDuracaoDias,
       },
       {
-        onSuccess: () => setShowSuccess(true),
+        onSuccess: (result) => {
+          setReceituarioIndisponivel(false);
+          gerarReceituario(result.idEventoClinico, {
+            onSuccess: (doc) => {
+              setReceituario(doc);
+              setShowSuccess(true);
+            },
+            // Falha ao gerar o PDF não bloqueia o vet — a prescrição já foi salva.
+            onError: () => {
+              setReceituarioIndisponivel(true);
+              setShowSuccess(true);
+            },
+          });
+        },
         onError: (err: unknown) => {
           const e = err as { message?: string };
           Alert.alert('Erro', e?.message ?? 'Não foi possível emitir a receita');
@@ -371,6 +394,16 @@ export default function ReceituarioScreen() {
                 {`${medSelecionado.nmMedicamento}`}
               </Text>
             )}
+            {receituario && (
+              <Text style={styles.successSummary} testID="receituario-pdf-info">
+                {`Receituário em PDF gerado (${receituario.nmArquivo})`}
+              </Text>
+            )}
+            {receituarioIndisponivel && (
+              <Text style={styles.successSummary} testID="receituario-pdf-indisponivel">
+                PDF do receituário indisponível no momento — a prescrição já foi salva.
+              </Text>
+            )}
             <KCButton
               variant="primary"
               size="md"
@@ -396,10 +429,10 @@ export default function ReceituarioScreen() {
         <WhatsAppModal
           visible={showWhatsApp}
           onClose={() => { setShowWhatsApp(false); router.back(); }}
-          idPet={petId}
-          idTutor={tutor.id}
           nmPet={pet?.nmPet ?? ''}
           nmTutor={tutor.nmTutor}
+          dsTelefone={tutor.dsTelefone}
+          tipo="receituario"
           mensagemDefault={
             medSelecionado
               ? `Olá ${tutor.nmTutor}! Segue a prescrição médica do(a) ${pet?.nmPet}.\n\nMedicamento: ${medSelecionado.nmMedicamento}\n\nQualquer dúvida, estamos à disposição.`

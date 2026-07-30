@@ -23,8 +23,8 @@ export interface EnvioResult {
  */
 export async function enviarWhatsApp(req: WhatsAppEnvioRequest): Promise<EnvioResult> {
   try {
-    await lunaClient.post<WhatsAppEnvioResponse>('/whatsapp/enviar', req);
-    return { status: 'enviado' };
+    const { data } = await lunaClient.post<WhatsAppEnvioResponse>('/whatsapp/enviar', req);
+    return { status: 'enviado', sid: data.sid ?? undefined };
   } catch {
     return { status: 'indisponivel' };
   }
