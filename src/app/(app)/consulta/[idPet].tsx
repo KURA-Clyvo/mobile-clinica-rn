@@ -11,10 +11,21 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+} from 'expo-audio';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
-import { useCriarConsulta } from '@hooks/useEventosClinicos';
+import {
+  useCriarConsulta,
+  useEnviarTranscricao,
+  useConfirmarSoap,
+} from '@hooks/useEventosClinicos';
+import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
@@ -23,6 +34,13 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { LunaSuggestionBadge } from '@components/domain/LunaSuggestionBadge';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateFull } from '@utils/date';
+
+const SOAP_DRAFT_LABELS: Record<keyof SoapDraft, string> = {
+  s: 'Subjetivo',
+  o: 'Objetivo',
+  a: 'Avaliação',
+  p: 'Plano',
+};
 
 const consultaSchema = z
   .object({
@@ -102,6 +120,32 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.bg,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+      gap: 8,
+    },
+    transcricaoCard: {
+      marginTop: 8,
+      padding: 12,
+      backgroundColor: colors.bgElev,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      gap: 12,
+    },
+    transcricaoTitulo: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 14,
+      color: colors.text,
+    },
+    transcricaoPreview: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textMute,
+      fontStyle: 'italic',
+    },
+    transcricaoIndisponivel: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textMute,
     },
   });
 
@@ -115,6 +159,16 @@ export default function ConsultaScreen() {
 
   const { data: pet } = usePetDetail(petId);
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
+  const { mutate: enviarTranscricao, isPending: isEnviandoAudio } = useEnviarTranscricao();
+  const { mutate: confirmarSoap, isPending: isConfirmandoSoap } = useConfirmarSoap();
+
+  const [idEventoClinico, setIdEventoClinico] = useState<number | null>(null);
+  const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);
+  const [transcricaoIndisponivel, setTranscricaoIndisponivel] = useState(false);
+  const [soapDraft, setSoapDraft] = useState<SoapDraft>({ s: '', o: '', a: '', p: '' });
+
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!);
+  const recorderState = useAudioRecorderState(audioRecorder);
 
   const {
     control,
@@ -149,13 +203,74 @@ export default function ConsultaScreen() {
         dsObservacao: data.dsObservacao,
       },
       {
-        onSuccess: () => {
-          Alert.alert('Sucesso', 'Consulta registrada');
-          router.back();
+        onSuccess: (result) => {
+          setIdEventoClinico(result.idEventoClinico);
         },
         onError: (err: unknown) => {
           const e = err as { message?: string };
           Alert.alert('Erro', e?.message ?? 'Não foi possível salvar a consulta');
+        },
+      },
+    );
+  };
+
+  const handleGravarPress = async () => {
+    if (recorderState.isRecording) {
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
+      if (uri && idEventoClinico) {
+        setTranscricaoIndisponivel(false);
+        enviarTranscricao(
+          { idEventoClinico, audioUri: uri, mimeType: 'audio/m4a' },
+          {
+            onSuccess: (result) => {
+              const semSugestao =
+                result.dsTranscricao === null &&
+                !result.soap.s &&
+                !result.soap.o &&
+                !result.soap.a &&
+                !result.soap.p;
+              if (semSugestao) {
+                setTranscricaoIndisponivel(true);
+                return;
+              }
+              setDsTranscricao(result.dsTranscricao);
+              setSoapDraft({
+                s: result.soap.s ?? '',
+                o: result.soap.o ?? '',
+                a: result.soap.a ?? '',
+                p: result.soap.p ?? '',
+              });
+            },
+            // Falha de transcrição: campos seguem editáveis manualmente, sem crash.
+            onError: () => setTranscricaoIndisponivel(true),
+          },
+        );
+      }
+      return;
+    }
+
+    const permissao = await requestRecordingPermissionsAsync();
+    if (!permissao.granted) {
+      Alert.alert('Permissão negada', 'Autorize o acesso ao microfone para gravar a consulta.');
+      return;
+    }
+    await audioRecorder.prepareToRecordAsync();
+    audioRecorder.record();
+  };
+
+  const handleConfirmarSoap = () => {
+    if (!idEventoClinico) return;
+    confirmarSoap(
+      { idEventoClinico, dto: soapDraft },
+      {
+        onSuccess: () => {
+          Alert.alert('SOAP confirmado', 'O rascunho foi salvo como definitivo.');
+          router.back();
+        },
+        onError: (err: unknown) => {
+          const e = err as { message?: string };
+          Alert.alert('Erro', e?.message ?? 'Não foi possível confirmar o SOAP');
         },
       },
     );
@@ -227,21 +342,96 @@ export default function ConsultaScreen() {
               </View>
             );
           })}
+
+          {/* Transcrição por áudio (TASK-13/TASK-14) — só após a consulta ser criada */}
+          {idEventoClinico !== null && (
+            <View style={styles.transcricaoCard} testID="card-transcricao">
+              <Text style={styles.transcricaoTitulo}>Transcrição por áudio (opcional)</Text>
+
+              <KCButton
+                variant="secondary"
+                iconLeft={
+                  <KCIcon
+                    name="mic"
+                    size={18}
+                    color={recorderState.isRecording ? colors.danger : colors.primary}
+                  />
+                }
+                loading={isEnviandoAudio}
+                disabled={isEnviandoAudio}
+                onPress={handleGravarPress}
+                testID="btn-gravar"
+              >
+                {recorderState.isRecording ? 'Parar gravação' : 'Gravar áudio da consulta'}
+              </KCButton>
+
+              {dsTranscricao && (
+                <Text style={styles.transcricaoPreview} testID="text-transcricao">
+                  {dsTranscricao}
+                </Text>
+              )}
+
+              {transcricaoIndisponivel && (
+                <Text style={styles.transcricaoIndisponivel} testID="msg-transcricao-indisponivel">
+                  Transcrição indisponível no momento — preencha os campos abaixo manualmente.
+                </Text>
+              )}
+
+              {(Object.keys(SOAP_DRAFT_LABELS) as (keyof SoapDraft)[]).map((letra) => (
+                <View key={letra}>
+                  <Text style={styles.fieldLabel}>{SOAP_DRAFT_LABELS[letra]}</Text>
+                  <TextInput
+                    style={styles.textarea}
+                    multiline
+                    value={soapDraft[letra] ?? ''}
+                    onChangeText={(texto) =>
+                      setSoapDraft((prev) => ({ ...prev, [letra]: texto }))
+                    }
+                    textAlignVertical="top"
+                    testID={`field-soap-${letra}`}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
 
       {/* Rodapé */}
       <View style={styles.footer}>
-        <KCButton
-          variant="primary"
-          size="lg"
-          loading={isPending}
-          disabled={isPending}
-          onPress={handleSubmit(onSubmit)}
-          testID="btn-salvar"
-        >
-          Salvar consulta
-        </KCButton>
+        {idEventoClinico === null ? (
+          <KCButton
+            variant="primary"
+            size="lg"
+            loading={isPending}
+            disabled={isPending}
+            onPress={handleSubmit(onSubmit)}
+            testID="btn-salvar"
+          >
+            Salvar consulta
+          </KCButton>
+        ) : (
+          <>
+            <KCButton
+              variant="ghost"
+              size="lg"
+              onPress={() => router.back()}
+              testID="btn-concluir-sem-soap"
+            >
+              Concluir sem confirmar SOAP
+            </KCButton>
+            <KCButton
+              variant="primary"
+              size="lg"
+              loading={isConfirmandoSoap}
+              disabled={isConfirmandoSoap}
+              onPress={handleConfirmarSoap}
+              testID="btn-confirmar-soap"
+            >
+              Confirmar SOAP
+            </KCButton>
+          </>
+        )}
       </View>
     </View>
   );

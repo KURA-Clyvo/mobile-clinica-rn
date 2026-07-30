@@ -20,6 +20,8 @@ const ROUTES: Array<[RegExp, MockHandler]> = [
   [/\/pets$/, petsMock.list],
   [/\/eventos-clinicos\/consultas$/, eventosMock.criarConsulta],
   [/\/eventos-clinicos\/prescricoes$/, eventosMock.criarPrescricao],
+  [/\/eventos-clinicos\/\d+\/transcricao$/, eventosMock.enviarTranscricao],
+  [/\/eventos-clinicos\/\d+\/soap$/, eventosMock.confirmarSoap],
   [/\/medicamentos$/, eventosMock.medicamentos],
   [/\/whatsapp\/enviar$/, lunaMock.enviarWhatsApp],
   [/\/health$/, lunaMock.health],

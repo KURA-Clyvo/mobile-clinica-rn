@@ -3,7 +3,10 @@ import {
   criarConsulta,
   criarPrescricao,
   getMedicamentos,
+  enviarTranscricao,
+  confirmarSoap,
 } from '@services/eventos-clinicos.service';
+import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { enviarWhatsApp } from '@services/luna.service';
 import type { ConsultaRequest, PrescricaoRequest, MedicamentosQuery, WhatsAppEnvioRequest } from '../types/api';
 
@@ -32,6 +35,22 @@ export function useCriarPrescricao() {
 export function useEnviarWhatsApp() {
   return useMutation({
     mutationFn: (req: WhatsAppEnvioRequest) => enviarWhatsApp(req),
+    retry: 0,
+  });
+}
+
+export function useEnviarTranscricao() {
+  return useMutation({
+    mutationFn: (vars: { idEventoClinico: number; audioUri: string; mimeType: string }) =>
+      enviarTranscricao(vars.idEventoClinico, vars.audioUri, vars.mimeType),
+    retry: 0,
+  });
+}
+
+export function useConfirmarSoap() {
+  return useMutation({
+    mutationFn: (vars: { idEventoClinico: number; dto: SoapDraft }) =>
+      confirmarSoap(vars.idEventoClinico, vars.dto),
     retry: 0,
   });
 }

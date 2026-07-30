@@ -26,7 +26,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Permitir que o KURA acesse o microfone para gravar o áudio da consulta e gerar o rascunho SOAP."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

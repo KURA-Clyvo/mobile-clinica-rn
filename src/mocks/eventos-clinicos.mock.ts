@@ -1,5 +1,6 @@
 import type { InternalAxiosRequestConfig } from 'axios';
 import type { ConsultaResponse, MedicamentoResponse, PaginatedResponse } from '../types/api';
+import type { EventoClinicoSoapResponse, SoapDraft } from '../services/eventos-clinicos.service';
 
 let _eventoId = 2000;
 let _consultaId = 3000;
@@ -34,6 +35,34 @@ const MEDICAMENTOS: MedicamentoResponse[] = [
   { id: 9, nmMedicamento: 'Tramadol', dsPrincipioAtivo: 'Cloridrato de tramadol', dsConcentracao: '50mg', dsApresentacao: 'Comprimido' },
   { id: 10, nmMedicamento: 'Cefalexina', dsPrincipioAtivo: 'Cefalexina monoidratada', dsConcentracao: '500mg', dsApresentacao: 'Cápsula' },
 ];
+
+export async function enviarTranscricao(
+  _config: InternalAxiosRequestConfig,
+): Promise<EventoClinicoSoapResponse> {
+  return {
+    idEventoClinico: _eventoId,
+    dsTranscricao: 'Tutor relata que o animal está comendo bem, sem vômitos. Temperatura 38.5°C, frequência cardíaca normal ao exame físico. Sem alterações significativas. Retorno em 30 dias.',
+    soap: {
+      s: 'Tutor relata que o animal está comendo bem, sem vômitos.',
+      o: 'Temperatura 38.5°C, frequência cardíaca normal ao exame físico.',
+      a: 'Sem alterações significativas.',
+      p: 'Retorno em 30 dias.',
+    },
+    stSoapConfirmado: false,
+  };
+}
+
+export async function confirmarSoap(
+  config: InternalAxiosRequestConfig,
+): Promise<EventoClinicoSoapResponse> {
+  const body = JSON.parse((config.data as string) ?? '{}') as SoapDraft;
+  return {
+    idEventoClinico: _eventoId,
+    dsTranscricao: null,
+    soap: { s: body.s ?? null, o: body.o ?? null, a: body.a ?? null, p: body.p ?? null },
+    stSoapConfirmado: true,
+  };
+}
 
 export async function medicamentos(
   _config: InternalAxiosRequestConfig,
