@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Jest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --watchAll=false garante saída não-interativa mesmo se o script "test"
+      # for alterado para rodar em watch mode por padrão (como já é o caso em
+      # mobile-tutor-rn) — ficaria pendurado indefinidamente no CI sem isso.
+      - name: Test
+        run: npm test -- --watchAll=false

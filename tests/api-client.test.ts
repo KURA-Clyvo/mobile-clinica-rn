@@ -20,7 +20,7 @@ describe('api client', () => {
 
   describe('normalizeError', () => {
     it('maps AxiosError with response to ApiError', async () => {
-      const { normalizeError } = await import('../src/services/api/errors');
+      const { normalizeError } = require('../src/services/api/errors');
       const axiosErr = {
         isAxiosError: true,
         response: { status: 422, data: { code: 'VALIDATION_ERROR', message: 'Invalid' } },
@@ -33,7 +33,7 @@ describe('api client', () => {
     });
 
     it('maps network error (no response) to status 0', async () => {
-      const { normalizeError } = await import('../src/services/api/errors');
+      const { normalizeError } = require('../src/services/api/errors');
       const axiosErr = { isAxiosError: true, response: undefined, message: 'Network Error' };
       const result = normalizeError(axiosErr);
       expect(result.status).toBe(0);
@@ -41,7 +41,7 @@ describe('api client', () => {
     });
 
     it('maps unknown error to status -1', async () => {
-      const { normalizeError } = await import('../src/services/api/errors');
+      const { normalizeError } = require('../src/services/api/errors');
       const result = normalizeError(new Error('unexpected'));
       expect(result.status).toBe(-1);
       expect(result.code).toBe('UNKNOWN_ERROR');
@@ -53,11 +53,11 @@ describe('api client', () => {
       const originalMocks = process.env['EXPO_PUBLIC_USE_MOCKS'];
       process.env['EXPO_PUBLIC_USE_MOCKS'] = 'true';
 
-      const { resolveMock } = await import('../src/services/api/mock-adapter');
+      const { resolveMock } = require('../src/services/api/mock-adapter');
       const mockResolve = resolveMock as jest.Mock;
       mockResolve.mockResolvedValueOnce({ data: { accessToken: 'mock_token' }, status: 200, config: {} });
 
-      const { apiClient } = await import('../src/services/api/client');
+      const { apiClient } = require('../src/services/api/client');
       try {
         await apiClient.post('/auth/login', { dsEmail: 'a@b.com', dsSenha: '123456' });
       } catch {
@@ -74,7 +74,7 @@ describe('api client', () => {
       mockAsyncStorage.getItem.mockResolvedValueOnce('my-token-abc');
 
       jest.resetModules();
-      const axiosMod = await import('axios');
+      const axiosMod = require('axios');
       const createSpy = jest.spyOn(axiosMod, 'create');
       createSpy.mockReturnValue({
         interceptors: {
@@ -92,7 +92,7 @@ describe('api client', () => {
       const emitSpy = jest.spyOn(DeviceEventEmitter, 'emit');
       mockAsyncStorage.removeItem.mockResolvedValueOnce(undefined);
 
-      const { normalizeError } = await import('../src/services/api/errors');
+      const { normalizeError } = require('../src/services/api/errors');
 
       const axiosErr = {
         isAxiosError: true,

@@ -1,8 +1,8 @@
 import { queryClient, persistOptions, asyncStoragePersister } from '../src/services/queryClient';
 
 describe('queryClient', () => {
-  it('is a singleton (same reference on multiple imports)', async () => {
-    const { queryClient: qc2 } = await import('../src/services/queryClient');
+  it('is a singleton (same reference on multiple imports)', () => {
+    const { queryClient: qc2 } = require('../src/services/queryClient');
     expect(queryClient).toBe(qc2);
   });
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -27,9 +27,13 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
   const [isDark, setIsDark] = useState(systemScheme === 'dark');
+  // Evita que a leitura assíncrona do override persistido sobrescreva um
+  // toggleTheme() manual que já tenha acontecido antes dela resolver.
+  const toggledRef = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_OVERRIDE_KEY).then((override) => {
+      if (toggledRef.current) return;
       if (override === 'dark') setIsDark(true);
       else if (override === 'light') setIsDark(false);
       else setIsDark(systemScheme === 'dark');
@@ -37,6 +41,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [systemScheme]);
 
   const toggleTheme = async () => {
+    toggledRef.current = true;
     const next = !isDark;
     setIsDark(next);
     await AsyncStorage.setItem(THEME_OVERRIDE_KEY, next ? 'dark' : 'light');
