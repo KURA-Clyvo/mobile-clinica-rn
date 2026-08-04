@@ -1,6 +1,9 @@
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
+  // Default do Jest (5000ms) estoura sob paralelismo no runner do CI (ubuntu-latest,
+  // 2 vCPUs) mesmo quando cada teste é rápido isoladamente — ver TASK-23.
+  testTimeout: 20000,
   setupFilesAfterEnv: ['@testing-library/react-native/extend-expect'],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg)',
