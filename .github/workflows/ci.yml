@@ -28,3 +28,9 @@ jobs:
       # mobile-tutor-rn) — ficaria pendurado indefinidamente no CI sem isso.
       - name: Test
         run: npm test -- --watchAll=false
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
