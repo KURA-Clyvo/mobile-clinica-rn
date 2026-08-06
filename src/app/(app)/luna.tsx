@@ -18,7 +18,7 @@ import type { KCIconName } from '@components/primitives/KCIcon';
 type Periodo = 7 | 30 | 90;
 type UrgLevel = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO';
 
-const PERIODOS: Array<{ value: Periodo; label: string }> = [
+const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 7, label: STRINGS.LUNA.PERIODO_7 },
   { value: 30, label: STRINGS.LUNA.PERIODO_30 },
   { value: 90, label: STRINGS.LUNA.PERIODO_90 },
@@ -251,7 +251,7 @@ export default function LunaScreen() {
       {/* SUB-SERVIÇOS */}
       {health && (
         <View style={styles.subServicesRow} testID="sub-services">
-          {(Object.keys(SERVICO_META) as Array<keyof typeof SERVICO_META>).map((key) => {
+          {(Object.keys(SERVICO_META) as (keyof typeof SERVICO_META)[]).map((key) => {
             const isUp = health.servicos[key] === 'UP';
             const meta = SERVICO_META[key];
             const svcColor = isUp ? colors.success : colors.danger;

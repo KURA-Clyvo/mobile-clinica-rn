@@ -8,7 +8,7 @@ import * as lunaMock from '../../mocks/luna.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
-const ROUTES: Array<[RegExp, MockHandler]> = [
+const ROUTES: [RegExp, MockHandler][] = [
   [/\/auth\/login$/, authMock.login],
   [/\/auth\/register-clinica$/, authMock.register],
   [/\/agenda$/, agendaMock.agenda],

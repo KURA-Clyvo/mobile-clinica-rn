@@ -15,7 +15,6 @@ import { usePets } from '@hooks/usePets';
 import { PetListItem } from '@components/domain/PetListItem';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCButton } from '@components/primitives/KCButton';
-import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';

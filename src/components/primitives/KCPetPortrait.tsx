@@ -2,7 +2,6 @@ import React from 'react';
 import { View, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
 
 export type PetPalette = 'lab' | 'siam' | 'border' | 'poodle' | 'persa' | 'srd' | 'golden' | 'husky';
 

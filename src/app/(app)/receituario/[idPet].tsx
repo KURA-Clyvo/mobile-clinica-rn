@@ -31,7 +31,6 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
-import { KCCard } from '@components/primitives/KCCard';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateShort, formatDateFull } from '@utils/date';
 import type { MedicamentoResponse } from '../../../types/api';
