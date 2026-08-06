@@ -87,6 +87,13 @@ describe('LunaScreen', () => {
     expect(getByTestId('status-text').props.children).toBe('Offline');
   });
 
+  it('shows "Offline" status and hides sub-services when Luna is indisponível (getLunaHealth never rejects)', () => {
+    mockUseLunaHealth.mockReturnValue({ data: { status: 'indisponivel' } });
+    const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+    expect(getByTestId('status-text').props.children).toBe('Offline');
+    expect(queryByTestId('sub-services')).toBeNull();
+  });
+
   it('shows 3 sub-service cards (twilio, oracle, visão)', () => {
     const { getByTestId } = wrap(<LunaScreen />);
     expect(getByTestId('svc-twilio')).toBeTruthy();

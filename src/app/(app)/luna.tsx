@@ -35,6 +35,15 @@ const SERVICO_META: Record<
 
 const URG_LEVELS: UrgLevel[] = ['BAIXO', 'MEDIO', 'ALTO', 'CRITICO'];
 
+// getLunaHealth() nunca rejeita: quando a Luna está fora do ar ela resolve com
+// {status: 'indisponivel'} em vez de lançar. Este type guard estreita a união antes de
+// acessar sgStatus/servicos — sem ele o acesso direto é um crash real em runtime.
+function isLunaHealthUp(
+  health: LunaHealthResponse | { status: 'indisponivel' } | undefined,
+): health is LunaHealthResponse {
+  return health != null && 'sgStatus' in health;
+}
+
 function urgColor(level: UrgLevel, colors: typeof lightColors): string {
   switch (level) {
     case 'BAIXO':   return colors.success;
@@ -197,17 +206,23 @@ export default function LunaScreen() {
     setRefreshing(false);
   };
 
-  const statusColor =
-    health?.sgStatus === 'UP'
+  // Luna fora do ar (indisponível) cai no mesmo ramo visual de "DOWN": vermelho + Offline.
+  // Nunca acessa sgStatus/servicos sem antes confirmar que a união é LunaHealthResponse.
+  const healthUp = isLunaHealthUp(health);
+
+  const statusColor = !healthUp
+    ? colors.danger
+    : health.sgStatus === 'UP'
       ? colors.success
-      : health?.sgStatus === 'DEGRADED'
+      : health.sgStatus === 'DEGRADED'
         ? colors.warning
         : colors.danger;
 
-  const statusLabel =
-    health?.sgStatus === 'UP'
+  const statusLabel = !healthUp
+    ? STRINGS.LUNA.STATUS_OFFLINE
+    : health.sgStatus === 'UP'
       ? STRINGS.LUNA.STATUS_ONLINE
-      : health?.sgStatus === 'DEGRADED'
+      : health.sgStatus === 'DEGRADED'
         ? STRINGS.LUNA.STATUS_DEGRADADO
         : STRINGS.LUNA.STATUS_OFFLINE;
 
@@ -249,7 +264,7 @@ export default function LunaScreen() {
       </View>
 
       {/* SUB-SERVIÇOS */}
-      {health && (
+      {healthUp && (
         <View style={styles.subServicesRow} testID="sub-services">
           {(Object.keys(SERVICO_META) as (keyof typeof SERVICO_META)[]).map((key) => {
             const isUp = health.servicos[key] === 'UP';
