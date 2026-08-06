@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
@@ -7,6 +8,7 @@ import { useAuthStore } from '../src/store/authStore';
 const mockBack = jest.fn();
 const mockMutate = jest.fn();
 const mockMutateGerarReceituario = jest.fn();
+const mockMutateBaixarReceituario = jest.fn();
 
 const MOCK_DOCUMENTO = {
   id: 1,
@@ -32,6 +34,7 @@ jest.mock('@hooks/useEventosClinicos', () => ({
   useCriarPrescricao: jest.fn(),
   useMedicamentos: jest.fn(),
   useGerarReceituario: jest.fn(),
+  useBaixarReceituario: jest.fn(),
 }));
 
 const mockWhatsAppModal = jest.fn();
@@ -49,12 +52,14 @@ import {
   useCriarPrescricao,
   useMedicamentos,
   useGerarReceituario,
+  useBaixarReceituario,
 } from '../src/hooks/useEventosClinicos';
 
 const mockUsePetDetail = usePetDetail as jest.Mock;
 const mockUseCriarPrescricao = useCriarPrescricao as jest.Mock;
 const mockUseMedicamentos = useMedicamentos as jest.Mock;
 const mockUseGerarReceituario = useGerarReceituario as jest.Mock;
+const mockUseBaixarReceituario = useBaixarReceituario as jest.Mock;
 
 const MOCK_VET = {
   id: 1,
@@ -116,6 +121,7 @@ beforeEach(() => {
     (_idEventoClinico: number, opts: { onSuccess?: (doc: typeof MOCK_DOCUMENTO) => void }) =>
       opts?.onSuccess?.(MOCK_DOCUMENTO),
   );
+  mockUseBaixarReceituario.mockReturnValue({ mutate: mockMutateBaixarReceituario, isPending: false });
 });
 
 function emitirReceitaComSucesso(idEventoClinico = 100) {
@@ -257,6 +263,66 @@ describe('ReceituarioScreen', () => {
       expect(getByTestId('success-modal')).toBeTruthy();
       expect(getByTestId('receituario-pdf-indisponivel')).toBeTruthy();
     });
+  });
+
+  it('calls baixarReceituario with the generated documento when pressing "Baixar/Visualizar PDF"', async () => {
+    emitirReceitaComSucesso();
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => getByTestId('btn-baixar-pdf'));
+
+    fireEvent.press(getByTestId('btn-baixar-pdf'));
+
+    await waitFor(() => {
+      expect(mockMutateBaixarReceituario).toHaveBeenCalledWith(
+        { idEventoClinico: MOCK_DOCUMENTO.idEventoClinico, documento: MOCK_DOCUMENTO },
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('does not show "Baixar/Visualizar PDF" when o PDF falhou ao gerar', async () => {
+    emitirReceitaComSucesso();
+    mockMutateGerarReceituario.mockImplementation(
+      (_id: number, opts: { onError?: () => void }) => opts?.onError?.(),
+    );
+    const { getByTestId, queryByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+
+    await waitFor(() => {
+      expect(getByTestId('success-modal')).toBeTruthy();
+    });
+    expect(queryByTestId('btn-baixar-pdf')).toBeNull();
+  });
+
+  it('shows an alert when baixarReceituario fails', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockMutateBaixarReceituario.mockImplementation(
+      (_vars: unknown, opts: { onError?: () => void }) => opts?.onError?.(),
+    );
+    emitirReceitaComSucesso();
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => getByTestId('btn-baixar-pdf'));
+
+    fireEvent.press(getByTestId('btn-baixar-pdf'));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith('Erro', expect.stringContaining('PDF'));
+    });
+    alertSpy.mockRestore();
   });
 
   it('calls router.back() when pressing "Voltar ao paciente"', async () => {

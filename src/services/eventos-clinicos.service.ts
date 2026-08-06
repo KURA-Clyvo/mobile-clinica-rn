@@ -1,4 +1,7 @@
-import { apiClient } from './api/client';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiClient, AUTH_TOKEN_KEY } from './api/client';
 import type {
   ConsultaRequest,
   ConsultaResponse,
@@ -105,12 +108,47 @@ export interface DocumentoResponse {
 /**
  * Gera o PDF do receituário de uma prescrição já criada (CRMV, pet,
  * medicamento/posologia/duração e data) e retorna os metadados do Documento
- * persistido (ver TASK-15). Não existe endpoint de download dos bytes ainda —
- * o PDF fica em storage no servidor.
+ * persistido (ver TASK-15).
  */
 export async function gerarReceituario(idEventoClinico: number): Promise<DocumentoResponse> {
   const { data } = await apiClient.post<DocumentoResponse>(
     `/api/v1/eventos-clinicos/${idEventoClinico}/receituario`,
   );
   return data;
+}
+
+/**
+ * Baixa os bytes reais do PDF do receituário (TASK-51,
+ * GET .../receituario/{idDocumento}/download) e abre no visualizador/compartilhador
+ * nativo do device via expo-sharing.
+ *
+ * Usa File.downloadFileAsync (expo-file-system) em vez do apiClient (axios) porque a
+ * resposta é um binário puro (application/pdf), não JSON — e porque axios não expõe
+ * um jeito direto de gravar a resposta em disco no React Native. O Bearer token é
+ * anexado manualmente (o download não passa pelo interceptor de auth do apiClient).
+ */
+export async function baixarEAbrirReceituario(
+  idEventoClinico: number,
+  documento: DocumentoResponse,
+): Promise<void> {
+  const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
+  const url = `${baseUrl}/api/v1/eventos-clinicos/${idEventoClinico}/receituario/${documento.id}/download`;
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+
+  const destino = new File(Paths.cache, documento.nmArquivo);
+  const arquivoBaixado = await File.downloadFileAsync(url, destino, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    // Reemitir a receita para o mesmo evento gera um nmArquivo novo (UUID), mas se o
+    // vet tentar baixar de novo o mesmo documento o arquivo local já existe — sem
+    // idempotent:true a segunda tentativa falharia com DestinationAlreadyExists.
+    idempotent: true,
+  });
+
+  const compartilhamentoDisponivel = await Sharing.isAvailableAsync();
+  if (compartilhamentoDisponivel) {
+    await Sharing.shareAsync(arquivoBaixado.uri, {
+      mimeType: documento.dsTipoMime,
+      dialogTitle: documento.nmArquivo,
+    });
+  }
 }

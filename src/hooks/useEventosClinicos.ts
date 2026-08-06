@@ -6,8 +6,9 @@ import {
   enviarTranscricao,
   confirmarSoap,
   gerarReceituario,
+  baixarEAbrirReceituario,
 } from '@services/eventos-clinicos.service';
-import type { SoapDraft } from '@services/eventos-clinicos.service';
+import type { SoapDraft, DocumentoResponse } from '@services/eventos-clinicos.service';
 import { enviarWhatsApp } from '@services/luna.service';
 import type { ConsultaRequest, PrescricaoRequest, MedicamentosQuery, WhatsAppEnvioRequest } from '../types/api';
 
@@ -59,6 +60,18 @@ export function useConfirmarSoap() {
 export function useGerarReceituario() {
   return useMutation({
     mutationFn: (idEventoClinico: number) => gerarReceituario(idEventoClinico),
+    retry: 0,
+  });
+}
+
+/**
+ * Baixa os bytes do PDF já gerado e abre no visualizador/compartilhador nativo
+ * (TASK-51) — substitui o modal de metadados por um preview real do arquivo.
+ */
+export function useBaixarReceituario() {
+  return useMutation({
+    mutationFn: (vars: { idEventoClinico: number; documento: DocumentoResponse }) =>
+      baixarEAbrirReceituario(vars.idEventoClinico, vars.documento),
     retry: 0,
   });
 }

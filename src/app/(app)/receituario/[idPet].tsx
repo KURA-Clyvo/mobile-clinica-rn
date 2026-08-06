@@ -23,6 +23,7 @@ import {
   useCriarPrescricao,
   useMedicamentos,
   useGerarReceituario,
+  useBaixarReceituario,
 } from '@hooks/useEventosClinicos';
 import type { DocumentoResponse } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
@@ -158,6 +159,7 @@ export default function ReceituarioScreen() {
   const { data: pet } = usePetDetail(petId);
   const { mutate: criarPrescricao, isPending: isCriandoPrescricao } = useCriarPrescricao();
   const { mutate: gerarReceituario, isPending: isGerandoReceituario } = useGerarReceituario();
+  const { mutate: baixarReceituario, isPending: isBaixandoReceituario } = useBaixarReceituario();
 
   const [buscaMed, setBuscaMed] = useState('');
   const [medSelecionado, setMedSelecionado] = useState<MedicamentoResponse | null>(null);
@@ -241,6 +243,21 @@ export default function ReceituarioScreen() {
         onError: (err: unknown) => {
           const e = err as { message?: string };
           Alert.alert('Erro', e?.message ?? 'Não foi possível emitir a receita');
+        },
+      },
+    );
+  };
+
+  const handleBaixarPdf = () => {
+    if (!receituario) return;
+    baixarReceituario(
+      { idEventoClinico: receituario.idEventoClinico, documento: receituario },
+      {
+        onError: () => {
+          Alert.alert(
+            'Erro',
+            'Não foi possível baixar o PDF do receituário. Tente novamente.',
+          );
         },
       },
     );
@@ -402,6 +419,18 @@ export default function ReceituarioScreen() {
               <Text style={styles.successSummary} testID="receituario-pdf-indisponivel">
                 PDF do receituário indisponível no momento — a prescrição já foi salva.
               </Text>
+            )}
+            {receituario && (
+              <KCButton
+                variant="secondary"
+                size="md"
+                loading={isBaixandoReceituario}
+                disabled={isBaixandoReceituario}
+                onPress={handleBaixarPdf}
+                testID="btn-baixar-pdf"
+              >
+                Baixar/Visualizar PDF
+              </KCButton>
             )}
             <KCButton
               variant="primary"

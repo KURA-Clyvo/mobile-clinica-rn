@@ -6,7 +6,10 @@ import { resolveMock } from './mock-adapter';
 import { normalizeError } from './errors';
 
 const MOCK_FLAG = '__mock';
-const AUTH_TOKEN_KEY = 'KURA_AUTH_TOKEN';
+// Exportado (TASK-51) para o download do receituário poder anexar o mesmo Bearer
+// token manualmente — esse fluxo usa File.downloadFileAsync (expo-file-system), que
+// não passa pelos interceptors do axios acima.
+export const AUTH_TOKEN_KEY = 'KURA_AUTH_TOKEN';
 const TIMEOUT_MS = 15_000;
 
 function buildRequestInterceptor() {
