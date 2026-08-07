@@ -48,7 +48,7 @@ const prescricaoSchema = z.object({
     .positive()
     .max(365, 'Máximo 365 dias'),
   dtEvento: z.string().min(1, 'Data obrigatória'),
-  dsObservacao: z.string().optional(),
+  dsObservacao: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
 });
 
 type PrescricaoForm = z.infer<typeof prescricaoSchema>;

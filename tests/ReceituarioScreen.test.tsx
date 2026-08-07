@@ -207,6 +207,20 @@ describe('ReceituarioScreen', () => {
     });
   });
 
+  it('shows validation error when dsObservacao exceeds 1000 characters', async () => {
+    const { getByTestId, getByText } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.changeText(getByTestId('field-observacao'), 'a'.repeat(1001));
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => {
+      expect(getByText('Máximo 1000 caracteres')).toBeTruthy();
+    });
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
   it('emits the prescription successfully when dsObservacao is left empty', async () => {
     emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);

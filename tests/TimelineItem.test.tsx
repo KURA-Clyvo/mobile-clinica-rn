@@ -84,9 +84,9 @@ describe('TimelineItem — expand/collapse', () => {
 describe('TimelineItem — dsObservacao (TASK-62)', () => {
   // Texto real devolvido pelo backend (GET /api/v1/eventos-clinicos/{id}) após
   // emitir uma prescrição com o novo campo "Observações" preenchido no form —
-  // confirma que o texto chega e é exibido sem alteração, sem precisar do
-  // endpoint de timeline (que tem um bug pré-existente e fora do escopo desta
-  // task — ver task-62-report.md).
+  // confirma que o texto chega e é exibido sem alteração. O bug do endpoint de
+  // timeline foi corrigido na TASK-63 (backend-clinica-dotnet, 88485c3); este
+  // teste continua válido como unidade pura, não depende do endpoint real.
   const REAL_API_DS_OBSERVACAO = 'Tutor deve retornar em 10 dias para reavaliacao';
 
   it('renders the exact dsObservacao text coming from the real API response', () => {
