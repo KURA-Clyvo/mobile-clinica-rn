@@ -6,13 +6,19 @@ import type { DashboardHojeResponse, AlertaResponse, RecentAppointmentResponse }
 // representam o contrato de rede do backend, não o contrato consumido pela
 // UI (esse é o papel de `types/api.ts`).
 
-interface PetResumoApiDto {
+// TASK-65 (FIX_5): exportadas de propósito — o mock (`dashboard.mock.ts`) simula a
+// fronteira HTTP deste service, então tem que devolver o shape de ENTRADA das
+// funções (o corpo cru que viria do .NET), não o shape de SAÍDA
+// (DashboardHojeResponse/AlertaResponse/RecentAppointmentResponse). Mesmo padrão
+// da TASK-64 (RegisterInviteApiResponse em auth.service.ts, mobile-tutor-rn):
+// acoplar o mock ao service é correto aqui, não acidental.
+export interface PetResumoApiDto {
   id: number;
   nmPet: string;
   ultimoAtendimento: string;
 }
 
-interface AgendamentoResumoApiDto {
+export interface AgendamentoResumoApiDto {
   id: number;
   nmPaciente: string;
   dtAgendamento: string;
@@ -20,7 +26,7 @@ interface AgendamentoResumoApiDto {
   stStatus: string;
 }
 
-interface DashboardHojeApiDto {
+export interface DashboardHojeApiDto {
   totalConsultasHoje: number;
   totalAlertasAtivos: number;
   totalRetornosPendentes: number;
@@ -30,7 +36,7 @@ interface DashboardHojeApiDto {
 
 // GET /dashboard/alertas retorna duas formas anônimas distintas (ver
 // DashboardService.GetAlertasAsync), unificadas aqui pelo shape comum.
-interface AlertaApiDto {
+export interface AlertaApiDto {
   tipo: 'TEMPERATURA' | 'VACINA_VENCENDO';
   id: number;
   dsTipoAlerta: string;

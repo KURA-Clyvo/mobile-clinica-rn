@@ -14,10 +14,16 @@ describe('mock-adapter', () => {
     expect(data.expiresAt).toBeDefined();
   });
 
+  // TASK-65 (FIX_5): resolveMock() devolve o shape RAW do .NET (DashboardHojeApiDto —
+  // `totalConsultasHoje`), não mais o app-facing (`metrics.nrConsultasHoje`) que
+  // dashboard.service.ts produz DEPOIS de mapear. Testar o raw aqui (nível do
+  // adapter) e o mapeado em tests/mock-contract-audit.test.ts (nível do service) —
+  // ver ficha desse achado em docs/mock-contract-audit.md (mobile-tutor-rn).
   it('resolves /dashboard/hoje', async () => {
     const res = await resolveMock(makeConfig('/dashboard/hoje'));
-    const data = res.data as { metrics: { nrConsultasHoje: number } };
-    expect(data.metrics.nrConsultasHoje).toBe(8);
+    const data = res.data as { totalConsultasHoje: number; ultimosPetsAtendidos: unknown[] };
+    expect(data.totalConsultasHoje).toBe(8);
+    expect(Array.isArray(data.ultimosPetsAtendidos)).toBe(true);
   });
 
   it('resolves /dashboard/alertas with 5 items', async () => {
@@ -118,12 +124,18 @@ describe('mock-adapter', () => {
     expect(elapsed).toBeGreaterThanOrEqual(280);
   });
 
-  it('alerta sem idPet is present in alertas', async () => {
+  // TASK-65 (FIX_5): reescrito — `idPet`/`dsTipoAlerta` (app-facing) não existem no
+  // shape RAW (AlertaApiDto usa `tipo`/`dsTipoAlerta` DIFERENTE: aqui `dsTipoAlerta`
+  // é o subtipo cru do .NET, ex. 'ACIMA_LIMITE', não o enum traduzido
+  // 'IOT_TEMPERATURA'). A garantia antiga (idPet sempre undefined após o mapeamento,
+  // porque DashboardService.GetAlertasAsync não inclui esse campo em nenhuma forma)
+  // é uma propriedade do MAPPER, não do fixture raw — testada agora em
+  // tests/mock-contract-audit.test.ts, no nível do service.
+  it('alertas raw usa os dois subtipos reais do .NET (TEMPERATURA/VACINA_VENCENDO)', async () => {
     const res = await resolveMock(makeConfig('/dashboard/alertas'));
-    const data = res.data as Array<{ idPet?: number; dsTipoAlerta: string }>;
-    const semPet = data.find((a) => a.idPet === undefined);
-    expect(semPet).toBeDefined();
-    expect(semPet?.dsTipoAlerta).toBe('IOT_TEMPERATURA');
+    const data = res.data as Array<{ tipo: string; dsTipoAlerta: string }>;
+    const tipos = new Set(data.map((a) => a.tipo));
+    expect(tipos).toEqual(new Set(['TEMPERATURA', 'VACINA_VENCENDO']));
   });
 
   it('pet com tutores vazios exists (Bolinha, id=7)', async () => {

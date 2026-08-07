@@ -6,7 +6,10 @@ import type { AgendaQuery, AgendamentoResponse } from '../types/api';
 // Ficam locais a este service porque representam o contrato de rede do
 // backend, não o contrato consumido pela UI (esse é o papel de `types/api.ts`).
 
-interface AgendamentoItemApiDto {
+// TASK-65 (FIX_5): exportadas de propósito — mesmo racional de
+// dashboard.service.ts/PetResumoApiDto (ver comentário lá). O mock
+// (`agenda.mock.ts`) precisa devolver este shape RAW, não `AgendamentoResponse`.
+export interface AgendamentoItemApiDto {
   idAgendamento: number;
   dtAgendamento: string;
   duracaoMinutos: number;
@@ -19,7 +22,7 @@ interface AgendamentoItemApiDto {
   nrVersion: number;
 }
 
-interface AgendaApiResponseDto {
+export interface AgendaApiResponseDto {
   dataInicio: string;
   dataFim: string;
   agendamentos: AgendamentoItemApiDto[];
