@@ -153,6 +153,7 @@ export interface PrescricaoRequest {
   idMedicamento: number;
   dsPosologia: string;
   nrDuracaoDias: number;
+  dsObservacao?: string;
 }
 
 // ─── Medicamentos ─────────────────────────────────────────────

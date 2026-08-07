@@ -23,6 +23,8 @@ export interface KCTextFieldProps {
   onChangeText: (text: string) => void;
   onBlur?: () => void;
   editable?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
   testID?: string;
@@ -66,6 +68,13 @@ const makeStyles = (colors: typeof lightColors) =>
       fontFamily: 'Lexend_400Regular',
       padding: 0,
     },
+    inputMultiline: {
+      minHeight: 90,
+      textAlignVertical: 'top',
+    },
+    inputContainerMultiline: {
+      alignItems: 'flex-start',
+    },
     feedbackRow: {
       height: 16,
       marginTop: 3,
@@ -100,6 +109,8 @@ export function KCTextField({
   onChangeText,
   onBlur,
   editable = true,
+  multiline = false,
+  numberOfLines,
   style,
   accessibilityLabel,
   testID,
@@ -122,11 +133,12 @@ export function KCTextField({
         style={[
           styles.inputContainer,
           borderStyle,
+          multiline && styles.inputContainerMultiline,
           !editable && styles.inputContainerDisabled,
         ]}
       >
         <TextInput
-          style={styles.input}
+          style={[styles.input, multiline && styles.inputMultiline]}
           placeholder={placeholder}
           placeholderTextColor={colors.textMute}
           value={value}
@@ -139,6 +151,8 @@ export function KCTextField({
           secureTextEntry={isSecure}
           keyboardType={keyboardType}
           editable={editable}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           autoCorrect={keyboardType === 'email-address' ? false : undefined}
           autoCapitalize={keyboardType === 'email-address' ? 'none' : undefined}
           accessibilityLabel={accessibilityLabel ?? label}

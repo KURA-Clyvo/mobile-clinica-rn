@@ -81,6 +81,31 @@ describe('TimelineItem — expand/collapse', () => {
   });
 });
 
+describe('TimelineItem — dsObservacao (TASK-62)', () => {
+  // Texto real devolvido pelo backend (GET /api/v1/eventos-clinicos/{id}) após
+  // emitir uma prescrição com o novo campo "Observações" preenchido no form —
+  // confirma que o texto chega e é exibido sem alteração, sem precisar do
+  // endpoint de timeline (que tem um bug pré-existente e fora do escopo desta
+  // task — ver task-62-report.md).
+  const REAL_API_DS_OBSERVACAO = 'Tutor deve retornar em 10 dias para reavaliacao';
+
+  it('renders the exact dsObservacao text coming from the real API response', () => {
+    const { getByTestId } = wrap(
+      <TimelineItem
+        evento={makeEvento('PRESCRICAO', { dsObservacao: REAL_API_DS_OBSERVACAO })}
+      />,
+    );
+    expect(getByTestId('observacao-text').props.children).toBe(REAL_API_DS_OBSERVACAO);
+  });
+
+  it('renders the coalesced sentinel when the backend received no observação', () => {
+    const { getByTestId } = wrap(
+      <TimelineItem evento={makeEvento('PRESCRICAO', { dsObservacao: 'Sem observações' })} />,
+    );
+    expect(getByTestId('observacao-text').props.children).toBe('Sem observações');
+  });
+});
+
 describe('TimelineItem — veterinario', () => {
   it('shows vet name when nmVeterinario is present', () => {
     const { getByTestId, getByText } = wrap(

@@ -80,6 +80,30 @@ describe('KCTextField', () => {
     expect(onChangeText).toHaveBeenCalledWith('test@email.com');
   });
 
+  describe('multiline', () => {
+    it('forwards multiline and numberOfLines to the underlying TextInput', () => {
+      const { getByTestId } = wrap(
+        <KCTextField
+          label="Observações"
+          value=""
+          onChangeText={jest.fn()}
+          multiline
+          numberOfLines={4}
+        />,
+      );
+      const input = getByTestId('kc-text-input');
+      expect(input.props.multiline).toBe(true);
+      expect(input.props.numberOfLines).toBe(4);
+    });
+
+    it('does NOT set multiline on the TextInput by default', () => {
+      const { getByTestId } = wrap(
+        <KCTextField label="Email" value="" onChangeText={jest.fn()} />,
+      );
+      expect(getByTestId('kc-text-input').props.multiline).toBeFalsy();
+    });
+  });
+
   describe('password toggle', () => {
     it('shows toggle button when secureTextEntry=true', () => {
       const { getByTestId } = wrap(

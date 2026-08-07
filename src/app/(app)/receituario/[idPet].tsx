@@ -48,6 +48,7 @@ const prescricaoSchema = z.object({
     .positive()
     .max(365, 'Máximo 365 dias'),
   dtEvento: z.string().min(1, 'Data obrigatória'),
+  dsObservacao: z.string().optional(),
 });
 
 type PrescricaoForm = z.infer<typeof prescricaoSchema>;
@@ -192,6 +193,7 @@ export default function ReceituarioScreen() {
       dsPosologia: '',
       nrDuracaoDias: 0,
       dtEvento: new Date().toISOString(),
+      dsObservacao: '',
     },
   });
 
@@ -224,6 +226,7 @@ export default function ReceituarioScreen() {
         idMedicamento: data.idMedicamento,
         dsPosologia: data.dsPosologia,
         nrDuracaoDias: data.nrDuracaoDias,
+        dsObservacao: data.dsObservacao,
       },
       {
         onSuccess: (result) => {
@@ -382,6 +385,24 @@ export default function ReceituarioScreen() {
               <Text style={styles.errorText}>{errors.dtEvento.message}</Text>
             )}
           </View>
+
+          {/* Observações (opcional) */}
+          <Controller
+            control={control}
+            name="dsObservacao"
+            render={({ field: { onChange, value } }) => (
+              <KCTextField
+                label="Observações"
+                placeholder="Ex: orientar tutor sobre efeitos colaterais"
+                multiline
+                numberOfLines={4}
+                value={value ?? ''}
+                onChangeText={onChange}
+                error={errors.dsObservacao?.message}
+                testID="field-observacao"
+              />
+            )}
+          />
         </View>
       </ScrollView>
 

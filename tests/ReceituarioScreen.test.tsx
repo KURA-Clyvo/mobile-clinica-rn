@@ -189,6 +189,41 @@ describe('ReceituarioScreen', () => {
     });
   });
 
+  it('calls criarPrescricao with dsObservacao when the field is filled', async () => {
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.changeText(getByTestId('field-observacao'), 'Tutor deve retornar em 10 dias');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dsObservacao: 'Tutor deve retornar em 10 dias',
+        }),
+        expect.any(Object),
+      );
+    });
+  });
+
+  it('emits the prescription successfully when dsObservacao is left empty', async () => {
+    emitirReceitaComSucesso();
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ dsObservacao: '' }),
+        expect.any(Object),
+      );
+      expect(getByTestId('success-modal')).toBeTruthy();
+    });
+  });
+
   it('shows success modal on successful prescription creation', async () => {
     emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
