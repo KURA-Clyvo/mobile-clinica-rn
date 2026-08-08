@@ -5,6 +5,7 @@ import * as agendaMock from '../../mocks/agenda.mock';
 import * as petsMock from '../../mocks/pets.mock';
 import * as eventosMock from '../../mocks/eventos-clinicos.mock';
 import * as lunaMock from '../../mocks/luna.mock';
+import * as teleconsultaMock from '../../mocks/teleconsulta.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
@@ -27,6 +28,9 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/whatsapp\/enviar$/, lunaMock.enviarWhatsApp],
   [/\/health$/, lunaMock.health],
   [/\/luna\/triagens\/relatorio$/, lunaMock.relatorioTriagens],
+  // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
+  // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).
+  [/\/teleconsulta\/\d+\/sala$/, teleconsultaMock.sala],
 ];
 
 const MOCK_LATENCY_MS = 300;

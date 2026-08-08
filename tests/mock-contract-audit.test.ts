@@ -1,4 +1,5 @@
-// TASK-65 (FIX_5): G4b — varredura sistemática mock x consumidor, mobile-clinica-rn.
+// TASK-65 (FIX_5) / TASK-71 (FIX_6): G4b — varredura sistemática mock x consumidor,
+// mobile-clinica-rn.
 // Mesma disciplina do auth.mock-contract.test.ts (TASK-64, mobile-tutor-rn): EXERCITA
 // a função de verdade (service -> apiClient real -> mock-adapter -> mocks/*.mock.ts),
 // sem jest.mock do apiClient/mock-adapter (o resto da suíte deste repo — ex.:
@@ -24,7 +25,7 @@ import { login } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
 import { enviarWhatsApp, getLunaHealth } from '../src/services/luna.service';
-import { criarOuObterSala } from '../src/services/teleconsulta.service';
+import { criarOuObterSala, obterSala } from '../src/services/teleconsulta.service';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
   const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
@@ -138,13 +139,32 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
     });
   });
 
-  // Rota de service SEM mock correspondente — o adapter lança "No mock for ...".
-  // Registrada aqui (e em docs/mock-contract-audit.md) por decisão explícita: é um
-  // modo de falha diferente do shape mismatch, não algo que esta task exige
-  // corrigir (ver KURA_BACKLOG_FIX_5.md, passo 2 do método da TASK-65).
-  describe('rota sem mock (documentada, não corrigida nesta task)', () => {
-    it('criarOuObterSala (teleconsulta) não tem rota no adapter', async () => {
-      await expect(criarOuObterSala(1)).rejects.toThrow('No mock for');
+  // TASK-71 (FIX_6): rota que era "sem mock" (TASK-65 documentou, não corrigiu —
+  // era a maior das 3 rotas sem mock nos dois apps: sem `try/catch` na tela, a
+  // única que quebrava visivelmente em modo mock). Fixture conferido campo a campo
+  // contra `TeleconsultaResponseDto.cs:3-10` (backend-clinica-dotnet) — ver
+  // comentário em `src/mocks/teleconsulta.mock.ts::sala`.
+  describe('teleconsulta.service (TASK-71, FIX_6)', () => {
+    it('criarOuObterSala (POST) executa sem lançar e devolve sala com URL', async () => {
+      const res = await criarOuObterSala(1);
+      expect(res.idAgendamento).toBe(1);
+      expect(typeof res.dsSalaUrl).toBe('string');
+      expect(res.dsSalaUrl?.length).toBeGreaterThan(0);
+      expect(res.stFallbackManual).toBe(false);
+    });
+
+    it('obterSala (GET) executa sem lançar e devolve o estado "sala ainda não criada"', async () => {
+      const res = await obterSala(1);
+      expect(res.idAgendamento).toBe(1);
+      expect(res.dsSalaUrl).toBeNull();
+      expect(res.stFallbackManual).toBe(false);
+    });
+
+    it('POST e GET no mesmo endpoint não se confundem (despacho por método)', async () => {
+      const post = await criarOuObterSala(2);
+      const get = await obterSala(2);
+      expect(post.dsSalaUrl).not.toBeNull();
+      expect(get.dsSalaUrl).toBeNull();
     });
   });
 });
