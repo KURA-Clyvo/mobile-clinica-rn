@@ -1,4 +1,5 @@
 import React from 'react';
+import { Alert } from 'react-native';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
@@ -91,5 +92,29 @@ describe('PatientsListScreen', () => {
     });
 
     jest.useRealTimers();
+  });
+
+  it('tapping "+ Novo" communicates unavailability instead of a silent no-op', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+
+    const { getByTestId } = wrap(<PacientesScreen />);
+    fireEvent.press(getByTestId('btn-novo-paciente'));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Cadastro de paciente',
+      'Funcionalidade em breve — ainda não é possível cadastrar um novo paciente por aqui.',
+    );
+    expect(logSpy).not.toHaveBeenCalled();
+
+    logSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  it('"+ Novo" CTA exposes an accessible label explaining unavailability', () => {
+    const { getByTestId } = wrap(<PacientesScreen />);
+    const cta = getByTestId('btn-novo-paciente');
+    expect(cta.props.accessibilityRole).toBe('button');
+    expect(cta.props.accessibilityLabel).toBe('Novo paciente — funcionalidade em breve');
   });
 });
