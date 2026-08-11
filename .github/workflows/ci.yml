@@ -14,6 +14,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # TASK-81 (KURA_BACKLOG_FIX_7), rodada de fix 1 — G2 apontou que a metade 2
+      # de tests/smoke-coverage.test.ts (checar que todo "coberto: <nome>" do
+      # registry existe de fato em DevOps-Cloud/scripts/smoke-contratos.sh) só
+      # rodava quando os 2 repos eram irmãos no filesystem, o que não é verdade no
+      # checkout de CI padrão (só este repo). DevOps-Cloud é público
+      # (KURA-Clyvo/DevOps-Cloud) — este segundo checkout lê o HEAD real do script
+      # a cada run, sem vendorizar cópia (que criaria fonte dupla e apodreceria,
+      # exatamente o padrão que este projeto já reprovou em outro lugar). Fica em
+      # $GITHUB_WORKSPACE/DevOps-Cloud — smoke-coverage.test.ts já sabe achar esse
+      # caminho (3º candidato de `candidatosDevOpsCloud`).
+      - name: Checkout DevOps-Cloud (fonte real do smoke-contratos.sh)
+        uses: actions/checkout@v4
+        with:
+          repository: KURA-Clyvo/DevOps-Cloud
+          path: DevOps-Cloud
+
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
