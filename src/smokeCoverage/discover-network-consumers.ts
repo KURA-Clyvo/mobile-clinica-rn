@@ -51,9 +51,60 @@
 // vínculo encontrado) é o que fecha o falso positivo de brinde: uma variável local
 // `apiClient` SEM import correspondente nunca ganha vínculo 'objeto' (não há mais
 // fallback de texto cru — só vira vínculo se houver import real ou cadeia de
-// `const` que remonte a um import real), e sombreamento de nome entre 2 funções
-// distintas é resolvido corretamente (cada função tem seu próprio escopo, que só
-// enxerga o escopo pai por busca explícita, não por um mapa global compartilhado).
+// `const` que remonte a um import real), e sombreamento de nome entre 2 FUNÇÕES
+// IRMÃS, cada uma com seu próprio escopo, é resolvido corretamente (não vazam vínculo
+// entre si porque cada uma só enxerga o escopo pai por busca explícita, não por um
+// mapa global compartilhado). ⚠️ Esta frase, na sua forma original, foi cobrada de
+// overclaim pelo G2 rodada 3 (Ataque D, ver INCREMENTO abaixo) — era verdadeira para
+// sombra entre irmãos, mas não cobria sombra de uma redeclaração LOCAL do mesmo nome
+// dentro da MESMA função; o incremento fechou esse caso também, mas a lição
+// permanece: descrever a prova que sustenta a frase, não generalizar além dela.
+//
+// INCREMENTO pós-G2 rodada 3 (`task-81-review-rodada3.md`) — 4 achados sobre a v3,
+// aprovada com ressalva de que não fossem parqueados. Mesma pilha de escopos, sem
+// redesenho:
+//   - Ataques A/B (Critical): `resolverExpressaoParaCanonico` não reconhecia
+//     `ConditionalExpression` (`cond ? lunaClient : apiClient`) nem `BinaryExpression`
+//     com `??` (`clienteInjetado ?? apiClient`) como fonte de um client — ambos
+//     escapavam por completo. Adicionados como mais 2 `case`s da mesma função
+//     (resolve os 2 ramos, qualquer um que resolva para canônico basta), mais
+//     desembrulho de `ParenthesizedExpression` (necessário porque `(cond ? a :
+//     b).metodo(...)` chega com o ternário ENVOLTO em parênteses como objeto da
+//     chamada).
+//   - Ataque C (Important, julgamento do incremento — não obrigatório, fechado):
+//     `let cliente;` sem inicializador, atribuído depois por `=` solto (fora de
+//     `VariableStatement`) dentro de `if`/`else`, nunca virava vínculo. Fechado com 2
+//     peças: (1) `let x;` sem inicializador agora vira vínculo 'bloqueado' já na
+//     declaração — dá um ALVO na pilha de escopos; (2) `processarAtribuicaoSolta`,
+//     nova função chamada para todo `BinaryExpression` com operador `=`, acha (via
+//     `encontrarEscopoDono`) o escopo ANCESTRAL onde o nome já está declarado e MUTA
+//     o vínculo lá — é isso que faz o valor atribuído dentro de um bloco aninhado
+//     (`if`/`else`) ficar visível depois, no escopo da função onde foi declarado.
+//     ⚠️ Esta peça, na sua forma original, foi cobrada de falso NEGATIVO pela revisão
+//     seguinte (`task-81-incremento-review.md`, Critical-1): a mutação era
+//     incondicional, então "última atribuição visitada EM ORDEM DE TEXTO" vencia —
+//     não "o ramo que executaria em runtime". `if (real) cliente = apiClient; else
+//     cliente = { fake };` perdia o vínculo 'objeto' porque o `else`, visitado
+//     depois no texto, escrevia 'bloqueado' por cima. Corrigido na rodada de fix 1
+//     sobre o incremento com WRITE-ONCE: um vínculo POSITIVO ('objeto'/'membro') não
+//     é mais sobrescrito por uma atribuição solta subsequente — só um vínculo NÃO
+//     positivo pode. Ver o comentário de `processarAtribuicaoSolta` e
+//     `docs/smoke-coverage-limitations.md` para a prova e a consequência aceita
+//     (superinclusão deliberada de um caso: nome reatribuído de real para inofensivo
+//     DEPOIS de já vinculado permanece marcado — falso positivo, nunca negativo).
+//   - Ataque D (Important, OBRIGATÓRIO): uma redeclaração LOCAL do mesmo nome de um
+//     client canônico, com valor não-resolvível (`const apiClient = { get: ... }`
+//     dentro de uma função, com o import real presente no arquivo), não escrevia
+//     NADA no Map do escopo da função — a busca de escopo não encontrava sombra ali
+//     e subia para o escopo pai, onde o import real ainda resolvia, produzindo falso
+//     positivo (função marcada como consumidora de rede sem tocar rede de verdade).
+//     Fechado introduzindo um 3º tipo de vínculo, 'bloqueado': toda declaração local
+//     (identificador OU nome de destructuring) cujo inicializador não resolve para
+//     nada rastreável agora escreve 'bloqueado' em vez de omitir — a busca de escopo
+//     já para no primeiro vínculo que encontra, de QUALQUER tipo, então 'bloqueado'
+//     sombreia corretamente sem nunca contar como toque de rede positivo.
+// Ver `docs/smoke-coverage-limitations.md` para a prova de mutação de cada um (antes/
+// depois, nos 2 apps) e a fronteira atualizada.
 //
 // Também fecha, na mesma rodada (`task-81-review-rodada2.md` §1):
 //   - Ataque Y (Important): getter/setter de classe (`get x() { return
@@ -126,11 +177,19 @@ const TODOS_NOMES_CANONICOS_RASTREAVEIS = new Set<string>([
   ...METODOS_ESTATICOS_DE_REDE.keys(),
 ]);
 
-/** Um vínculo léxico: ou o identificador É um client canônico (transitivamente),
- *  ou é um MÉTODO desestruturado de um client canônico. */
+/** Um vínculo léxico: o identificador É um client canônico (transitivamente), é um
+ *  MÉTODO desestruturado de um client canônico, ou está BLOQUEADO — declarado
+ *  localmente (por `let x;` sem inicializador, ou `const x = <algo não-resolvível>`)
+ *  sem resolver para nada rastreável. 'bloqueado' existe para um propósito
+ *  específico, adicionado no incremento pós-G2 rodada 3 (Ataque D): fazer a busca de
+ *  escopo (`resolverNoEscopo`) PARAR nesse ponto em vez de subir ao escopo pai —
+ *  sem ele, uma redeclaração local com valor fake do MESMO NOME de um client
+ *  canônico não cria sombra própria (porque nada era escrito no Map), e a busca
+ *  encontrava por engano o vínculo do escopo pai. */
 type Vinculo =
   | { tipo: 'objeto'; nome: string }
-  | { tipo: 'membro'; objeto: string; propriedade: string };
+  | { tipo: 'membro'; objeto: string; propriedade: string }
+  | { tipo: 'bloqueado' };
 
 /** Escopo léxico: um `Map` de vínculos próprios do bloco + referência ao escopo pai
  *  (busca de dentro pra fora, parando no primeiro que encontrar — sombreamento
@@ -151,12 +210,48 @@ function resolverNoEscopo(escopo: Escopo, nome: string): Vinculo | undefined {
   return undefined;
 }
 
+/** Acha o ESCOPO (não o vínculo) onde `nome` já tem alguma entrada — usado por
+ *  `processarAtribuicaoSolta` para mutar o Map correto quando uma atribuição solta
+ *  (`cliente = apiClient`, sem `let`/`const`) acontece dentro de um bloco ANINHADO
+ *  (ex.: um `if`/`else`) em relação a onde a variável foi declarada. */
+function encontrarEscopoDono(escopo: Escopo, nome: string): Escopo | undefined {
+  let atual: Escopo | undefined = escopo;
+  while (atual) {
+    if (atual.vinculos.has(nome)) return atual;
+    atual = atual.pai;
+  }
+  return undefined;
+}
+
 /** Resolve o nome canônico de uma expressão (identificador simples — via busca de
  *  escopo, SEM fallback de texto cru — ou cadeia de propriedade, pelo último
  *  segmento). Usado tanto para o objeto de uma chamada `objeto.metodo(...)` quanto
  *  para a origem de um alias/destructuring (`const x = <expr>` /
- *  `const { a } = <expr>`). */
+ *  `const { a } = <expr>`).
+ *
+ *  Estendido no incremento pós-G2 rodada 3 (`task-81-review-rodada3.md`, Ataques A e
+ *  B) com 3 casos novos, mesma pilha de escopos, sem redesenho:
+ *   - `ParenthesizedExpression` — desembrulha parênteses antes de tentar os outros
+ *     casos (necessário para o ternário/`??` funcionarem como OBJETO de uma chamada
+ *     `(expr).metodo(...)`, onde `expr` chega envolta em parênteses pela própria
+ *     sintaxe: `(cond ? a : b).get(...)`).
+ *   - `ConditionalExpression` (ternário) — `cond ? a : b` resolve os DOIS ramos; o
+ *     primeiro que resolver para um nome canônico vence. Fecha o Ataque A
+ *     (`(preferirLuna ? lunaClient : apiClient).get(...)`).
+ *   - `BinaryExpression` com operador `??` — `a ?? b` resolve os 2 lados da mesma
+ *     forma. Fecha o Ataque B (`(clienteInjetado ?? apiClient).get(...)`).
+ *  Os dois casos novos deliberadamente NÃO tentam decidir qual ramo "vence" quando os
+ *  2 resolvem para nomes DIFERENTES (ex.: ternário entre `apiClient` e `lunaClient`)
+ *  — qualquer um dos 2 nomes basta para o chamador classificar a chamada como toque
+ *  de rede via `NOMES_CANONICOS_DE_REDE` (que não depende de qual dos 2 clients foi
+ *  o escolhido em runtime, só de que O OBJETO é um client real). A única perda
+ *  teórica é um ternário entre 2 âncoras de `METODOS_ESTATICOS_DE_REDE` com métodos
+ *  DIFERENTES — não observado em código real dos 2 apps, e fora do escopo deste
+ *  incremento (ver `docs/smoke-coverage-limitations.md`). */
 function resolverExpressaoParaCanonico(expressao: ts.Expression, escopo: Escopo): string | undefined {
+  if (ts.isParenthesizedExpression(expressao)) {
+    return resolverExpressaoParaCanonico(expressao.expression, escopo);
+  }
   if (ts.isIdentifier(expressao)) {
     const vinculo = resolverNoEscopo(escopo, expressao.text);
     return vinculo?.tipo === 'objeto' ? vinculo.nome : undefined;
@@ -169,6 +264,18 @@ function resolverExpressaoParaCanonico(expressao: ts.Expression, escopo: Escopo)
   if (ts.isElementAccessExpression(expressao) && ts.isStringLiteralLike(expressao.argumentExpression)) {
     // `ns['apiClient']` — mesma ideia, mas notação de colchete com literal de string.
     return expressao.argumentExpression.text;
+  }
+  if (ts.isConditionalExpression(expressao)) {
+    return (
+      resolverExpressaoParaCanonico(expressao.whenTrue, escopo) ??
+      resolverExpressaoParaCanonico(expressao.whenFalse, escopo)
+    );
+  }
+  if (ts.isBinaryExpression(expressao) && expressao.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
+    return (
+      resolverExpressaoParaCanonico(expressao.left, escopo) ??
+      resolverExpressaoParaCanonico(expressao.right, escopo)
+    );
   }
   return undefined;
 }
@@ -223,27 +330,59 @@ function popularEscopoComDeclaracoesDiretas(statements: readonly ts.Statement[],
     }
   }
 
+  // Fixpoint principal: para cada `const`/`let` do bloco, tenta resolver o
+  // inicializador para um vínculo positivo ('objeto'/'membro'). Quando NÃO resolve —
+  // seja por não ter inicializador (`let cliente;`) seja por inicializador
+  // não-rastreável (objeto literal, chamada de função, número...) — escreve um
+  // vínculo 'bloqueado' em vez de simplesmente pular a declaração.
+  //
+  // Isso corrige o Ataque D (`task-81-review-rodada3.md` §2): antes, uma
+  // redeclaração local do MESMO NOME de um client canônico com valor fake
+  // (`const apiClient = { get: ... }`) não escrevia NADA no Map deste escopo — a
+  // busca de `resolverNoEscopo` não encontrava `apiClient` aqui e subia para o
+  // escopo pai, onde o import real ainda tinha vínculo 'objeto', resolvendo por
+  // engano para o client de verdade. Um vínculo 'bloqueado' faz a busca de escopo
+  // PARAR neste ponto (`resolverNoEscopo` já retorna no primeiro vínculo que
+  // encontra, de QUALQUER tipo) sem nunca contar como toque de rede (nenhum dos
+  // `if (vinculo?.tipo === 'objeto'|'membro')` espalhados pelo arquivo trata
+  // 'bloqueado' como positivo).
+  //
+  // O mesmo raciocínio fecha, de brinde, a variante para `let cliente;` sem
+  // inicializador: registrar 'bloqueado' já no momento da declaração dá um ALVO na
+  // pilha de escopos para uma atribuição solta posterior (`cliente = apiClient`,
+  // ver `processarAtribuicaoSolta` — Ataque C) mutar em vez de precisar recriar a
+  // lógica de resolução do zero.
   for (let iteracao = 0; iteracao < 5; iteracao++) {
     let mudou = false;
     for (const stmt of statements) {
       if (!ts.isVariableStatement(stmt)) continue;
       for (const decl of stmt.declarationList.declarations) {
-        if (!decl.initializer) continue;
-
         if (ts.isIdentifier(decl.name)) {
+          if (!decl.initializer) {
+            const existente = escopo.vinculos.get(decl.name.text);
+            if (!existente) {
+              escopo.vinculos.set(decl.name.text, { tipo: 'bloqueado' });
+              mudou = true;
+            }
+            continue;
+          }
           const canonico = resolverExpressaoParaCanonico(decl.initializer, escopo);
-          if (!canonico) continue;
           const existente = escopo.vinculos.get(decl.name.text);
-          if (!existente || existente.tipo !== 'objeto' || existente.nome !== canonico) {
-            escopo.vinculos.set(decl.name.text, { tipo: 'objeto', nome: canonico });
+          if (canonico) {
+            if (!existente || existente.tipo !== 'objeto' || existente.nome !== canonico) {
+              escopo.vinculos.set(decl.name.text, { tipo: 'objeto', nome: canonico });
+              mudou = true;
+            }
+          } else if (!existente) {
+            escopo.vinculos.set(decl.name.text, { tipo: 'bloqueado' });
             mudou = true;
           }
           continue;
         }
 
         if (ts.isObjectBindingPattern(decl.name)) {
+          if (!decl.initializer) continue; // sintaticamente inválido — defesa
           const canonico = resolverExpressaoParaCanonico(decl.initializer, escopo);
-          if (!canonico) continue;
           for (const elemento of decl.name.elements) {
             if (elemento.dotDotDotToken) continue; // `...resto` — não rastreável
             if (!ts.isIdentifier(elemento.name)) continue; // padrão aninhado — não rastreável
@@ -251,6 +390,16 @@ function popularEscopoComDeclaracoesDiretas(statements: readonly ts.Statement[],
             if (nomePropriedade === undefined) continue; // ComputedPropertyName — não rastreável
             const nomeLocal = elemento.name.text;
             const existente = escopo.vinculos.get(nomeLocal);
+            if (!canonico) {
+              // Mesma correção do Ataque D, para a forma de destructuring: `const
+              // { apiClient } = configNaoRelacionada` também precisa sombrear um
+              // eventual `apiClient` do escopo pai, não deixar a busca subir.
+              if (!existente) {
+                escopo.vinculos.set(nomeLocal, { tipo: 'bloqueado' });
+                mudou = true;
+              }
+              continue;
+            }
             const jaIgual =
               existente?.tipo === 'membro' &&
               existente.objeto === canonico &&
@@ -437,6 +586,49 @@ function detectarToqueDeRede(n: ts.CallExpression, escopo: Escopo, ctx: Contexto
   });
 }
 
+/** Atribuição SOLTA (`cliente = apiClient`, sem `let`/`const`/`var` — Ataque C,
+ *  `task-81-review-rodada3.md` §2): diferente de uma declaração (`popularEscopoCom
+ *  DeclaracoesDiretas`, que só olha `VariableStatement`), isto é uma
+ *  `BinaryExpression` com operador `=` fora de qualquer declaração, tipicamente
+ *  usada para atribuir depois de um `let x;` sem inicializador (comum dentro de
+ *  `if`/`else`, cada ramo seu próprio escopo de `Block`).
+ *
+ *  A variável já precisa estar declarada em ALGUM escopo ancestral (`let cliente;`
+ *  vira vínculo 'bloqueado' no momento da declaração, ver `popularEscopoCom
+ *  DeclaracoesDiretas`) — `encontrarEscopoDono` acha ESSE escopo (que pode ser um
+ *  ancestral do escopo onde a atribuição realmente acontece, ex.: `let` no corpo da
+ *  função, atribuição dentro de um `if` aninhado) e MUTA o vínculo lá, não no escopo
+ *  local da atribuição — é isso que faz o valor ficar visível depois do `if`/`else`
+ *  terminar, na mesma função. Atribuição a um nome nunca declarado em escopo nenhum
+ *  (`globalImplicito = x`, prática não recomendada e rara no código real dos 2 apps)
+ *  é ignorada — sem alvo para mutar, sem invariante de escopo para preservar. */
+function processarAtribuicaoSolta(n: ts.BinaryExpression, escopo: Escopo): void {
+  if (!ts.isIdentifier(n.left)) return;
+  const dono = encontrarEscopoDono(escopo, n.left.text);
+  if (!dono) return;
+  // WRITE-ONCE para o lado positivo (fix rodada 1 sobre o incremento,
+  // `task-81-incremento-review.md` Critical-1): a mutação incondicional acima
+  // (herdada do incremento pós-G2 rodada 3) sobrescrevia o vínculo em ORDEM
+  // TEXTUAL de visita, sem modelar `if`/`else` como ramos mutuamente exclusivos —
+  // `let cliente; if (real) cliente = apiClient; else cliente = { fake };` perdia o
+  // vínculo 'objeto' do ramo `if` quando o `else` (visitado depois, no texto) escrevia
+  // 'bloqueado' por cima, mesmo sem exclusão mútua em runtime nenhuma ter sido
+  // observada. A partir daqui: uma vez que o nome já está vinculado a 'objeto' OU
+  // 'membro' (ambos POSITIVOS — tocam rede) NESTE escopo, uma atribuição solta
+  // POSTERIOR nunca apaga esse vínculo, mesmo que resolva para algo não-rastreável.
+  // Só um vínculo NÃO positivo (ausente ou já 'bloqueado') pode ser sobrescrito.
+  // Consequência aceita e declarada (ver `docs/smoke-coverage-limitations.md`): um
+  // nome legitimamente reatribuído de um client real para um valor inofensivo,
+  // DEPOIS de já ter sido vinculado a 'objeto'/'membro' no mesmo escopo, permanece
+  // marcado — o detector passa a SUPERINCLUIR esse caso (falso positivo), nunca a
+  // escondê-lo. Correto para um detector de cobertura: falso positivo faz teste
+  // falhar e alguém investigar; falso negativo é silencioso.
+  const existente = dono.vinculos.get(n.left.text);
+  if (existente?.tipo === 'objeto' || existente?.tipo === 'membro') return;
+  const canonico = resolverExpressaoParaCanonico(n.right, escopo);
+  dono.vinculos.set(n.left.text, canonico ? { tipo: 'objeto', nome: canonico } : { tipo: 'bloqueado' });
+}
+
 /** Anda a árvore com uma PILHA DE ESCOPOS explícita: todo `Block` (corpo de função
  *  com chaves, if/for/while/try aninhado) cria um escopo filho, populado com as
  *  declarações diretas daquele bloco, antes de recursar nos filhos. Corpo de arrow
@@ -445,6 +637,10 @@ function detectarToqueDeRede(n: ts.CallExpression, escopo: Escopo, ctx: Contexto
 function visitarComEscopo(n: ts.Node, escopo: Escopo, ctx: ContextoDeArquivo): void {
   if (ts.isCallExpression(n)) {
     detectarToqueDeRede(n, escopo, ctx);
+  }
+
+  if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+    processarAtribuicaoSolta(n, escopo);
   }
 
   if (ts.isBlock(n)) {
