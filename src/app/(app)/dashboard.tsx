@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { useTheme } from '@theme/index';
 import { lightColors, type BreakpointKey } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
@@ -19,8 +20,11 @@ import type { MetricTone } from '@components/domain/MetricCard';
 
 // Agrupa uma lista em sub-listas ("linhas") de até `size` itens, mantendo a
 // ordem — usado tanto para o grid de métricas quanto para as listas de
-// atendimentos/alertas. `size <= 1` devolve uma linha por item (mesmo
-// resultado do empilhamento de coluna única de antes da CQ-06).
+// atendimentos/alertas. `size <= 1` devolve uma linha por item. Não é o
+// mesmo shape estrutural do empilhamento de antes da CQ-06 (que era
+// `.map()` plano, sem `View` de linha nem `listRowItem`, com `marginBottom`
+// em vez do `gap: 10` do `listGrid`) — só o resultado visual (1 item por
+// linha) é equivalente.
 function chunk<T>(items: readonly T[], size: number): T[][] {
   if (size <= 1) return items.map((item) => [item]);
   const rows: T[][] = [];
@@ -30,6 +34,24 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
   return rows;
 }
 
+// CQ-06 G2 fix wave, achado B — quando a última linha de um `chunk()` fica
+// incompleta (contagem de itens não é múltipla de `columns`), o(s) filho(s)
+// que sobram têm `flex: 1` dentro de uma `View` `flexDirection: 'row'`
+// sozinhos na linha, e por semântica de Yoga/flexbox um único filho com
+// `flex: 1` ocupa 100% da largura da linha — não a mesma largura que um
+// item teria numa linha completa. Preenche a linha com espaçadores
+// invisíveis do mesmo `flex: 1` até `columns`, para que TODO item (inclusive
+// o de uma linha final com resto, inclusive uma lista de 1 item só) sempre
+// divida a largura da linha da mesma forma. O espaçador não recebe
+// `testID` — não deve aparecer nas queries `*-item` existentes; só conta
+// como filho a mais na árvore, o que é a prova estrutural do fix (o
+// `react-test-renderer` não computa largura em px, só a forma da árvore).
+function rowSpacers(itemCount: number, columns: number, style: StyleProp<ViewStyle>): React.ReactNode {
+  const missing = columns - itemCount;
+  if (missing <= 0) return null;
+  return Array.from({ length: missing }, (_, i) => <View key={`spacer-${i}`} style={style} />);
+}
+
 // CQ-06 — decisão de desenho: a contagem de colunas é resolvida em JS a
 // partir do breakpoint (`useBreakpoint().isAtLeast`), e a árvore renderizada
 // (quantos `MetricCard`/linhas existem) muda de fato entre viewports — não
@@ -37,8 +59,21 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
 // não computa layout Yoga (`onLayout` nunca dispara, `toJSON()` só ecoa o
 // estilo declarado), então só uma árvore que muda de verdade prova o
 // comportamento na suíte automatizada. Ver task-CQ-06-report.md.
+//
+// Corte `sm→1, md→2, lg→4, xl→4` — revisado na G2 fix wave (achado A). O
+// corte original tinha `lg→2`, e a G2 mediu que a partir de ~1200px de
+// viewport o `ScreenContainer` já satura `maxContentWidth` (1200px), então
+// a largura ÚTIL da linha de métricas para de crescer e fica congelada em
+// ~1136px — ou seja, em 1439px e 1440px o espaço disponível é literalmente
+// idêntico, mas o corte antigo desenhava 2 cards de ~563px num e 4 de
+// ~276px no outro: descontinuidade sem ganho de espaço nenhum por trás
+// dela. E no ponto mais estreito de `lg` (1024px), 4 colunas já dão ~232px
+// por card contra os ~276px que `xl` entrega — 16% de diferença, não
+// "espremido". A faixa 1024–1439 cobre 1280 e 1366, as larguras de
+// notebook mais comuns — hoje recebem a mesma contagem de colunas que um
+// monitor de desktop.
 function metricsColumnsFor(isAtLeast: (key: BreakpointKey) => boolean): 1 | 2 | 4 {
-  if (isAtLeast('xl')) return 4;
+  if (isAtLeast('lg')) return 4;
   if (isAtLeast('md')) return 2;
   return 1;
 }
@@ -125,6 +160,14 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingVertical: 20,
     },
     appointmentCard: { flex: 1 },
+    // CQ-06 G2 fix wave, achado H — `AppointmentRow` ganha altura igual entre
+    // os cards de uma mesma linha via `appointmentCard: { flex: 1 }` acima;
+    // `AlertCard` não tinha equivalente (achado H.2). `flex: 1` iguala a
+    // altura; `marginBottom: 0` neutraliza o `marginBottom: 8` do estilo
+    // base do `AlertCard` (achado H.1), redundante aqui com o `gap: 10` do
+    // `listGrid` — `luna.tsx`, que não passa esse override, mantém o
+    // `marginBottom: 8` original sem mudança de comportamento.
+    alertCardInGrid: { flex: 1, marginBottom: 0 },
     appointmentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     appointmentLeft: { flex: 1 },
     appointmentPet: {
@@ -304,6 +347,7 @@ export default function DashboardScreen() {
                     style={[styles.listRowItem, styles.skeletonRow, { backgroundColor: colors.border }]}
                   />
                 ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>
@@ -320,6 +364,7 @@ export default function DashboardScreen() {
                     <AppointmentRow item={item} />
                   </View>
                 ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>
@@ -339,6 +384,7 @@ export default function DashboardScreen() {
                     style={[styles.listRowItem, styles.skeletonRow, { backgroundColor: colors.border }]}
                   />
                 ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>
@@ -352,9 +398,10 @@ export default function DashboardScreen() {
               <View key={rowIndex} style={styles.listRow} testID="alerts-row">
                 {row.map((alerta: AlertaResponse) => (
                   <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
-                    <AlertCard alerta={alerta} />
+                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
                   </View>
                 ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>

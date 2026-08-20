@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCChip } from '@components/primitives/KCChip';
@@ -12,6 +13,18 @@ import type { ChipTone } from '@components/primitives/KCChip';
 
 export interface AlertCardProps {
   alerta: AlertaResponse;
+  /**
+   * Override opcional aplicado por cima do estilo base do card (CQ-06 G2
+   * fix wave, achado H.2). Único consumidor hoje: `dashboard.tsx`, que
+   * passa `{ flex: 1, marginBottom: 0 }` para (a) igualar a altura dos
+   * `AlertCard` numa mesma linha de 2 colunas — mesmo tratamento que
+   * `AppointmentRow` já recebe via `appointmentCard: { flex: 1 }` — e (b)
+   * neutralizar o `marginBottom` fixo do card base, redundante ali com o
+   * `gap: 10` do `listGrid` (achado H.1). `luna.tsx` continua sem passar
+   * `style`, então seu espaçamento vertical via `marginBottom` (lista de
+   * coluna única, sem `gap` externo) não muda.
+   */
+  style?: StyleProp<ViewStyle>;
 }
 
 type AlertStyle = { tone: ChipTone; icon: KCIconName; label: string };
@@ -72,14 +85,14 @@ const makeStyles = (colors: typeof lightColors) =>
     card: { marginBottom: 8 },
   });
 
-export function AlertCard({ alerta }: AlertCardProps) {
+export function AlertCard({ alerta, style }: AlertCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const alertStyle = getAlertStyle(alerta.dsTipoAlerta);
   const toneColors = getToneIconColor(alertStyle.tone, colors);
 
   return (
-    <KCCard style={styles.card}>
+    <KCCard style={[styles.card, style]}>
       <View style={styles.row}>
         <View style={[styles.iconCircle, { backgroundColor: toneColors.bg }]}>
           <KCIcon name={alertStyle.icon} size={18} color={toneColors.icon} />

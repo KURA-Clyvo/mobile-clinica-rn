@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, waitFor, within } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
@@ -168,19 +169,62 @@ describe('DashboardScreen — empty states', () => {
   });
 });
 
-// CQ-06: prova de mordida — falha contra o dashboard.tsx atual (grid fixo em
-// 2×2, `metricsRow` sempre com `flexDirection: 'row'` e sempre 2 filhos por
-// linha). Passa depois da implementação, que agrupa os `MetricCard` por
-// linha conforme a contagem de colunas derivada do breakpoint (branch em JS,
-// não CSS — `react-test-renderer` deste projeto não computa layout Yoga,
-// então só uma árvore que muda de fato entre viewports prova o
-// comportamento; ver brief da task).
+// CQ-06: prova de mordida — falha contra o dashboard.tsx de `main` (`0f23058`,
+// grid fixo em 2×2, `metricsRow` sempre com `flexDirection: 'row'` e sempre 2
+// filhos por linha) com `Unable to find an element with testID: metrics-row`
+// (e `metrics-skeleton-row`/`appointments-row`/`alerts-row` — esses testIDs
+// simplesmente não existiam na árvore antiga). Passa depois da implementação,
+// que agrupa os itens por linha conforme a contagem de colunas derivada do
+// breakpoint (branch em JS, não CSS — `react-test-renderer` deste projeto
+// não computa layout Yoga, então só uma árvore que muda de fato entre
+// viewports prova o comportamento; ver brief da task e task-CQ-06-report.md).
+//
+// G2 fix wave (2026-08-20): viewports da faixa `lg` (1024/1280, mais 1023
+// logo abaixo da fronteira) foram acrescentados — a suíte original só
+// diferenciava sm/md/xl e nunca testava um viewport que fosse `lg` sem
+// também ser `xl`, então nenhuma das duas mutações abaixo era pega
+// (achado E1). Ver "PROVA DE MUTAÇÃO" no fim deste describe.
 describe('DashboardScreen — responsive grid (CQ-06)', () => {
+  // Corte de métricas pós-G2 (achado A): sm→1, md→2, lg→4, xl→4 — `lg` e
+  // `xl` produzem a MESMA contagem de colunas (ver comentário de
+  // `metricsColumnsFor` em dashboard.tsx), então 1024/1280/1440 são
+  // esperados idênticos aqui de propósito, não por coincidência de teste.
   const METRIC_VIEWPORTS = [
     { label: '360×640 (sm) — 1 coluna', width: 360, height: 640, expectedColumns: 1, expectedRows: 4 },
     { label: '768×1024 (md) — 2 colunas', width: 768, height: 1024, expectedColumns: 2, expectedRows: 2 },
+    { label: '1023×768 (md, 1px abaixo de lg) — 2 colunas', width: 1023, height: 768, expectedColumns: 2, expectedRows: 2 },
+    { label: '1024×768 (lg, fronteira exata) — 4 colunas', width: 1024, height: 768, expectedColumns: 4, expectedRows: 1 },
+    { label: '1280×800 (lg, notebook real) — 4 colunas', width: 1280, height: 800, expectedColumns: 4, expectedRows: 1 },
     { label: '1440×900 (xl) — 4 colunas', width: 1440, height: 900, expectedColumns: 4, expectedRows: 1 },
   ];
+
+  // Corte de listas (inalterado pela G2, é literal do brief): sm/md→1,
+  // lg/xl→2 a partir de 1024.
+  const LIST_VIEWPORTS = [
+    { label: '768×1024 (md) — 1 coluna', width: 768, height: 1024, expectedColumns: 1 },
+    { label: '1023×768 (md, 1px abaixo de lg) — 1 coluna', width: 1023, height: 768, expectedColumns: 1 },
+    { label: '1024×768 (lg, fronteira exata) — 2 colunas', width: 1024, height: 768, expectedColumns: 2 },
+    { label: '1280×800 (lg, notebook real) — 2 colunas', width: 1280, height: 800, expectedColumns: 2 },
+    { label: '1440×900 (xl) — 2 colunas', width: 1440, height: 900, expectedColumns: 2 },
+  ];
+
+  // Confere que uma lista de `totalItems` itens (MOCK_*_3 = 3, ímpar de
+  // propósito) foi agrupada em linhas de até `columns` itens, e que TODA
+  // linha — inclusive a última, incompleta quando `totalItems % columns !==
+  // 0` — tem exatamente `columns` filhos diretos (itens reais + espaçadores
+  // invisíveis do fix do achado B). `row.children.length` é contagem
+  // estrutural da árvore (não lê `style`/px, que o react-test-renderer não
+  // computa) — é o que prova, sem medir largura, que o item solitário de
+  // uma linha ímpar deixou de ocupar a linha inteira sozinho.
+  function expectRowsGroupedIntoColumns(rows: ReactTestInstance[], itemTestId: string, totalItems: number, columns: number) {
+    const expectedRowCount = Math.ceil(totalItems / columns);
+    expect(rows).toHaveLength(expectedRowCount);
+    rows.forEach((row, i) => {
+      const itemsInThisRow = Math.min(columns, totalItems - i * columns);
+      expect(within(row).getAllByTestId(itemTestId)).toHaveLength(itemsInThisRow);
+      expect(row.children.length).toBe(columns);
+    });
+  }
 
   describe('loaded metrics grid', () => {
     beforeEach(() => {
@@ -232,46 +276,75 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
     );
   });
 
-  describe('appointments and alerts lists — 2 columns at >= lg', () => {
+  describe('appointments and alerts lists — column count across the lg band', () => {
     beforeEach(() => {
       mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
       mockUseAlertas.mockReturnValue({ data: MOCK_ALERTAS_3, isLoading: false, isError: false, refetch: REFETCH });
       mockUseRecentes.mockReturnValue({ data: MOCK_RECENTES_3, isLoading: false, isError: false, refetch: REFETCH });
     });
 
-    it('stacks 1 item per row below lg (768×1024, md)', () => {
-      setViewport(768, 1024);
-      const { getAllByTestId } = wrap(<DashboardScreen />);
+    it.each(LIST_VIEWPORTS)(
+      'groups 3 items into $expectedColumns column(s) per row at $label',
+      ({ width, height, expectedColumns }) => {
+        setViewport(width, height);
+        const { getAllByTestId } = wrap(<DashboardScreen />);
 
-      const appointmentRows = getAllByTestId('appointments-row');
-      const alertRows = getAllByTestId('alerts-row');
-      expect(appointmentRows).toHaveLength(3);
-      expect(alertRows).toHaveLength(3);
-      for (const row of appointmentRows) {
-        expect(within(row).getAllByTestId('appointments-item')).toHaveLength(1);
-      }
-      for (const row of alertRows) {
-        expect(within(row).getAllByTestId('alerts-item')).toHaveLength(1);
-      }
-    });
+        const appointmentRows = getAllByTestId('appointments-row');
+        const alertRows = getAllByTestId('alerts-row');
 
-    it('groups 2 items per row at >= lg (1440×900, xl)', () => {
+        // Achado B (G2): com 3 itens (ímpar) e 2 colunas, a última linha
+        // tem 1 item real — a asserção abaixo confere que essa linha ainda
+        // assim tem 2 filhos (item + espaçador), não 1.
+        expectRowsGroupedIntoColumns(appointmentRows, 'appointments-item', 3, expectedColumns);
+        expectRowsGroupedIntoColumns(alertRows, 'alerts-item', 3, expectedColumns);
+
+        // Sanity: todos os itens continuam presentes.
+        expect(getAllByTestId('appointments-item')).toHaveLength(3);
+        expect(getAllByTestId('alerts-item')).toHaveLength(3);
+      },
+    );
+  });
+
+  // Achado B (G2), caso extra explicitamente pedido no brief da fix wave:
+  // lista com 1 item só em ≥ lg (2 colunas). Sem o fix, o único filho da
+  // única linha tem `flex: 1` sozinho numa `View` `flexDirection: 'row'` e
+  // ocupa 100% da largura; com o fix, a linha ganha 1 espaçador e passa a
+  // ter 2 filhos, dividindo a largura como dividiria se houvesse um 2º item.
+  describe('single-item list at >= lg', () => {
+    it('pads the lone row with a spacer up to the column count', () => {
+      mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+      mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
+      mockUseRecentes.mockReturnValue({ data: [MOCK_RECENTE], isLoading: false, isError: false, refetch: REFETCH });
       setViewport(1440, 900);
+
       const { getAllByTestId } = wrap(<DashboardScreen />);
 
-      // 3 itens em pares de 2 => 2 linhas (2 + 1)
       const appointmentRows = getAllByTestId('appointments-row');
       const alertRows = getAllByTestId('alerts-row');
-      expect(appointmentRows).toHaveLength(2);
-      expect(alertRows).toHaveLength(2);
-      expect(within(appointmentRows[0]).getAllByTestId('appointments-item')).toHaveLength(2);
-      expect(within(appointmentRows[1]).getAllByTestId('appointments-item')).toHaveLength(1);
-      expect(within(alertRows[0]).getAllByTestId('alerts-item')).toHaveLength(2);
-      expect(within(alertRows[1]).getAllByTestId('alerts-item')).toHaveLength(1);
-
-      // Sanity: todos os itens continuam presentes.
-      expect(getAllByTestId('appointments-item')).toHaveLength(3);
-      expect(getAllByTestId('alerts-item')).toHaveLength(3);
+      expect(appointmentRows).toHaveLength(1);
+      expect(alertRows).toHaveLength(1);
+      expect(within(appointmentRows[0]).getAllByTestId('appointments-item')).toHaveLength(1);
+      expect(within(alertRows[0]).getAllByTestId('alerts-item')).toHaveLength(1);
+      // 2 colunas em xl: 1 item real + 1 espaçador = 2 filhos.
+      expect(appointmentRows[0].children.length).toBe(2);
+      expect(alertRows[0].children.length).toBe(2);
     });
   });
+
+  // PROVA DE MUTAÇÃO (achado E1) — documentada aqui em comentário porque a
+  // mutação é aplicada manualmente ao arquivo de produção e revertida em
+  // seguida; a saída literal de cada rodada está no task-CQ-06-report.md.
+  //
+  //   Mutação 1 (dashboard.tsx, metricsColumnsFor): `isAtLeast('lg')` →
+  //   `isAtLeast('xl')` — em 1024/1280 o grid de métricas passaria a
+  //   desenhar 2 colunas em vez de 4. Antes desta fix wave (viewports só em
+  //   360/768/1440), essa troca sobrevivia 17/17 verde. Com os viewports
+  //   1024/1280 acima, os testes `lays out 1 row(s) of 4 MetricCard(s) at
+  //   1024×768...`/`...1280×800...` passam a FALHAR sob a mutação.
+  //
+  //   Mutação 2 (dashboard.tsx, listColumnsFor): `isAtLeast('lg')` →
+  //   `isAtLeast('xl')` — em 1024/1280 as listas passariam a ficar em 1
+  //   coluna em vez de 2. Mesma lacuna antes desta fix wave. Com
+  //   LIST_VIEWPORTS acima, os testes `groups 3 items into 2 column(s) per
+  //   row at 1024×768.../1280×800...` passam a FALHAR sob a mutação.
 });
