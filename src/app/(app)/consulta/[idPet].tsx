@@ -27,6 +27,7 @@ import {
 } from '@hooks/useEventosClinicos';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
@@ -277,7 +278,18 @@ export default function ConsultaScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    // CQ-15: `paddingHorizontal={0}` — o header do pet, o form e o rodapé já
+    // controlam seu próprio respiro horizontal (cada um com um padding
+    // diferente). `style={{ paddingBottom: 0 }}` cancela o `paddingBottom:
+    // 24` que o modo flat do ScreenContainer aplicaria por padrão: o rodapé
+    // aqui é `position: 'absolute', bottom: 0` — ele é ancorado à borda
+    // inferior da CAIXA DE PADDING do container pai, então um paddingBottom
+    // > 0 nesse pai deslocaria o rodapé 24px para cima da borda real da
+    // tela, abrindo uma faixa de fundo vazia abaixo dele. Ganho real desta
+    // migração além do maxWidth: a tela não tinha NENHUM tratamento de
+    // safe-area antes (nem topo nem `home indicator`) — o SafeAreaView do
+    // ScreenContainer fecha essa lacuna de brinde.
+    <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       {/* Header do pet */}
       <View style={styles.petHeader}>
         <KCPetPortrait
@@ -433,6 +445,6 @@ export default function ConsultaScreen() {
           </>
         )}
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
