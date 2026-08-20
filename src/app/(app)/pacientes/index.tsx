@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePets } from '@hooks/usePets';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { PetListItem } from '@components/domain/PetListItem';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCButton } from '@components/primitives/KCButton';
@@ -140,7 +141,25 @@ export default function PacientesScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    // CQ-15: scroll={false} — a lista é uma FlatList, que já virtualiza e
+    // gerencia seu próprio scroll (`getItemLayout`, `removeClippedSubviews`);
+    // aninhar isso num ScrollView (o modo scroll=true padrão) dispararia o
+    // aviso "VirtualizedLists should never be nested inside plain
+    // ScrollViews" e derrotaria a virtualização. paddingHorizontal={0}
+    // porque searchWrapper/countRow já controlam seu próprio respiro.
+    //
+    // Caveat aceito e não corrigido nesta task: o FAB (`fabContainer`, mais
+    // abaixo) usa `position:'absolute', right:24` — isso ancora relativo à
+    // caixa de padding do container pai. Antes desta migração o pai era a
+    // largura cheia do dispositivo; agora, em telas ≥1200px, o FAB fica
+    // ancorado à borda direita da coluna de conteúdo centralizada (~1200px),
+    // não à borda física da tela. Julgamento: no smartphone/tablet (onde o
+    // FAB é usado de verdade) o comportamento é idêntico ao de hoje; em
+    // desktop largo, o FAB alinhado à borda da coluna de conteúdo é
+    // consistente com o resto da tela (nada mais nela toca a borda física
+    // da tela nesse breakpoint) — não uma regressão visível, mas vale
+    // registrar porque não foi medido visualmente, só por estilo declarado.
+    <ScreenContainer scroll={false} paddingHorizontal={0}>
       <View style={styles.searchWrapper}>
         <View style={styles.searchBar}>
           <KCIcon name="search" size={18} color={colors.textMute} />
@@ -212,6 +231,6 @@ export default function PacientesScreen() {
           + Novo
         </KCButton>
       </View>
-    </View>
+    </ScreenContainer>
   );
 }
