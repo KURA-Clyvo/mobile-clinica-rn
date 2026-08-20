@@ -44,6 +44,7 @@ cp .env.example .env
 npm start          # Expo Dev Server
 npm run android    # Android
 npm run ios        # iOS (macOS only)
+npm run web        # Web (react-native-web, Expo Router com output "static")
 npm test           # Jest
 npm run lint       # ESLint
 npm run type-check # TypeScript

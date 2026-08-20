@@ -50,3 +50,12 @@ jobs:
 
       - name: Type check
         run: npm run type-check
+
+      # CQ-02: prova que a plataforma web é buildável de verdade, não só
+      # declarada. "Plataforma que ninguém buildou não é suportada, é
+      # aspiracional" — regra de ouro v9 do ciclo. Sem este passo, o suporte
+      # web pode voltar a apodrecer em silêncio (react-native-web removido,
+      # código de módulo passando a acessar `window` etc.) sem que nenhum
+      # gate perceba.
+      - name: Web export (prova de build da plataforma web)
+        run: npx expo export --platform web
