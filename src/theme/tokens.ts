@@ -85,6 +85,17 @@ export const spacing = {
   16: 64,
 } as const;
 
+// Alvo de toque mínimo para elementos interativos. WCAG 2.2 SC 2.5.8 (AA) exige
+// piso de 24×24 CSS px; SC 2.5.5 (AAA) e a boa prática de mercado pedem 44×44 —
+// é esse o valor que usamos como meta (CQ-07). Vale só para componentes que
+// respondem a onPress — um rótulo não-interativo não é alvo de toque e a WCAG
+// 2.5.8 não se aplica a ele. Não é dimensão de espaçamento (não pertence a
+// `spacing`, que é gap/padding entre elementos, não o tamanho mínimo de um
+// elemento).
+export const touchTarget = {
+  min: 44,
+} as const;
+
 export const radius = {
   sm: 6,
   md: 10,

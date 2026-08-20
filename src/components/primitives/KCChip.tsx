@@ -8,7 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 
 export type ChipTone = 'sage' | 'amber' | 'clay' | 'ocean' | 'mute';
 
@@ -41,6 +41,17 @@ const makeStyles = (colors: typeof lightColors) =>
       width: 6,
       height: 6,
       borderRadius: 3,
+    },
+    // Alvo de toque WCAG 2.5.8/2.5.5 (ver `touchTarget` em tokens.ts). Aplicado
+    // SOMENTE quando o chip é interativo (`onPress` presente, ver KCChip abaixo)
+    // — os outros 12 usos de KCChip no app são rótulos (`Container` vira `View`)
+    // e não são alvo de toque, então não devem crescer (CQ-07, ruling do
+    // maestro: aplicar isso incondicionalmente em `base` regride 8 telas que
+    // ninguém pediu para mexer).
+    interactive: {
+      minHeight: touchTarget.min,
+      minWidth: touchTarget.min,
+      justifyContent: 'center',
     },
   });
 
@@ -79,6 +90,12 @@ export function KCChip({ tone = 'mute', dot = false, onPress, children, style, t
           backgroundColor: toneColors.bg,
           borderColor: toneColors.border,
         },
+        // Spread condicional (não `onPress && styles.interactive`) de propósito:
+        // `&&` deixaria um `undefined` extra no array de estilo mesmo para chip
+        // não-interativo, mudando o snapshot dos 5 tons sem mudar geometria
+        // nenhuma — ruído puro. O spread mantém o array idêntico ao original
+        // quando `onPress` está ausente.
+        ...(onPress ? [styles.interactive] : []),
         style,
       ]}
     >

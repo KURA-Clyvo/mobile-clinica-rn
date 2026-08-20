@@ -14,6 +14,23 @@ jest.mock('react-native-safe-area-context', () => ({
   },
 }));
 
+// CQ-07: mock do módulo interno específico (nunca 'react-native' inteiro —
+// ver tests/ScreenContainer.test.tsx, que documenta por que espalhar
+// requireActual('react-native') derruba a suíte). LunaScreen não consome
+// useBreakpoint hoje (a responsividade do reportHeader é resolvida por CSS
+// flexWrap, não por branch em JS) — o mock existe só para os 3 testes de
+// viewport abaixo poderem renderizar sob uma largura simulada e provar que o
+// estilo resolvido não muda no sentido errado entre elas.
+const mockUseWindowDimensions = jest.fn(() => ({ width: 400, height: 800, scale: 1, fontScale: 1 }));
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockUseWindowDimensions(),
+}));
+
+function setViewport(width: number, height: number) {
+  mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
+
 jest.mock('@hooks/useLuna', () => ({
   useLunaHealth: jest.fn(),
   useRelatorioTriagens: jest.fn(),
@@ -47,6 +64,13 @@ const MOCK_RELATORIO = {
   nrEncaminhadasParaVet: 29,
 };
 
+function mergedStyle(el: { props: { style: unknown } }) {
+  const styleArr = Array.isArray(el.props.style)
+    ? el.props.style.filter(Boolean)
+    : [el.props.style];
+  return Object.assign({}, ...styleArr);
+}
+
 function wrap(ui: React.ReactElement) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   qc.invalidateQueries = mockInvalidateQueries;
@@ -63,6 +87,7 @@ beforeEach(() => {
   mockUseLunaHealth.mockReturnValue({ data: MOCK_HEALTH_UP });
   mockUseRelatorioTriagens.mockReturnValue({ data: MOCK_RELATORIO, isLoading: false });
   mockUseAlertas.mockReturnValue({ data: [] });
+  setViewport(400, 800);
 });
 
 describe('LunaScreen', () => {
@@ -130,5 +155,36 @@ describe('LunaScreen', () => {
       await scrollView.props.refreshControl.props.onRefresh();
     });
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['luna'] });
+  });
+
+  // CQ-07 (Bloco 0 §2, B0.5): G4r exige os 3 viewports por teste automatizado,
+  // nunca captura de tela. O RN test renderer não computa layout Yoga real
+  // (sem measurement nativo neste ambiente jest-expo), então o que estas 3
+  // asserções provam é que o ESTILO que habilita o wrap (flexWrap: 'wrap' +
+  // flexShrink no título) está presente e não é acidentalmente sobrescrito em
+  // nenhuma das 3 larguras — é essa propriedade CSS, resolvida pelo motor de
+  // layout real do dispositivo/navegador, que faz o header quebrar quando
+  // necessário e ficar lado a lado quando sobra espaço; não há branch em JS
+  // por breakpoint neste componente (ver comentário em luna.tsx).
+  describe.each([
+    [360, 640],
+    [768, 1024],
+    [1440, 900],
+  ])('report header wrap at %ix%i (CQ-07)', (width, height) => {
+    beforeEach(() => setViewport(width, height));
+
+    it('reportHeader resolves flexWrap and reportTitle resolves flexShrink', () => {
+      const { getByTestId, getByText } = wrap(<LunaScreen />);
+      const header = mergedStyle(getByTestId('report-header'));
+      const title = mergedStyle(getByText('Relatório de Triagens'));
+      expect(header.flexWrap).toBe('wrap');
+      expect(title.flexShrink).toBe(1);
+    });
+
+    it('periodRow gap comes from the spacing scale, not the old literal 6', () => {
+      const { getByTestId } = wrap(<LunaScreen />);
+      const periodRow = mergedStyle(getByTestId('period-row'));
+      expect(periodRow.gap).toBeGreaterThan(6);
+    });
   });
 });

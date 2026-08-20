@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, spacing } from '@theme/tokens';
 import { useLunaHealth, useRelatorioTriagens } from '@hooks/useLuna';
 import { useAlertas } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -105,20 +105,36 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 11,
       marginTop: 2,
     },
+    // CQ-07: sem flexWrap, o título e os 3 chips de período disputavam a
+    // mesma linha e se comprimiam em telas estreitas (Bloco 0 §2, B0.5).
+    // flexWrap:'wrap' deixa o grupo de chips descer para uma segunda linha
+    // quando não cabe — em telas ≥ md normalmente sobra largura e o layout
+    // permanece lado a lado sem precisar de lógica de breakpoint em JS.
     reportHeader: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16,
-      marginTop: 16,
-      marginBottom: 8,
+      paddingHorizontal: spacing[4],
+      marginTop: spacing[4],
+      marginBottom: spacing[2],
+      rowGap: spacing[2],
     },
     reportTitle: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 15,
       color: colors.text,
+      // Permite ao título ceder espaço para o grupo de chips em vez de
+      // empurrá-lo pra fora da tela — parceiro do flexWrap acima.
+      flexShrink: 1,
     },
-    periodRow: { flexDirection: 'row', gap: 6 },
+    // gap: 6 não existe na escala de `spacing` e pressionava a exceção de
+    // espaçamento da WCAG 2.5.8 (SC 2.5.8 permite alvo abaixo de 24×24 se
+    // houver espaçamento suficiente entre alvos vizinhos). Com o chip
+    // interativo agora em 44×44 (ver KCChip.tsx), o alvo em si já atende o
+    // critério — o gap maior aqui é para respiro visual, não para cumprir a
+    // exceção.
+    periodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
     reportCard: { marginHorizontal: 16 },
     totalText: {
       fontFamily: 'Lexend_500Medium',
@@ -284,9 +300,9 @@ export default function LunaScreen() {
       )}
 
       {/* RELATÓRIO DE TRIAGENS */}
-      <View style={styles.reportHeader}>
+      <View style={styles.reportHeader} testID="report-header">
         <Text style={styles.reportTitle}>{STRINGS.LUNA.RELATORIO_TITLE}</Text>
-        <View style={styles.periodRow}>
+        <View style={styles.periodRow} testID="period-row">
           {PERIODOS.map(({ value, label }) => (
             <KCChip
               key={value}
