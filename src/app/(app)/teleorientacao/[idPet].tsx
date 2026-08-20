@@ -15,6 +15,7 @@ import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import { useTeleconsulta } from '@hooks/useTeleconsulta';
 import { useAuthStore } from '@store/authStore';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -23,7 +24,6 @@ import type { ApiError } from '../../../types/api';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.bg },
     bannerCard: {
       marginHorizontal: 16,
       marginTop: 12,
@@ -161,7 +161,15 @@ export default function TeleorientacaoScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    // CQ-15: verificado antes de migrar — apesar de o backlog listar esta
+    // tela como candidata a NÃO usar o container ("vídeo em tela cheia"), o
+    // vídeo de fato acontece fora do app via `Linking.openURL`
+    // (handleEntrarNaSala): o que esta tela renderiza é banner + cartão de
+    // status + notas, mesmo padrão de formulário das outras telas migradas.
+    // paddingHorizontal={0} porque banner/videoArea/notes/footer já
+    // controlam seu próprio respiro horizontal (todos com
+    // marginHorizontal/paddingHorizontal: 16 hoje).
+    <ScreenContainer scroll={false} paddingHorizontal={0}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* Banner CFMV */}
         <KCCard style={styles.bannerCard} testID="cfmv-banner">
@@ -297,6 +305,6 @@ export default function TeleorientacaoScreen() {
           Encerrar
         </KCButton>
       </View>
-    </View>
+    </ScreenContainer>
   );
 }

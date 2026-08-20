@@ -1,10 +1,11 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, Linking } from 'react-native';
+import { Alert, Linking, StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import TeleorientacaoScreen from '../src/app/(app)/teleorientacao/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
 import { CFMV_TELEORIENTACAO_BANNER } from '../src/constants/compliance';
+import { layout } from '../src/theme/tokens';
 
 const mockBack = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({ idPet: '1' } as Record<string, string>));
@@ -13,9 +14,29 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+// CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
+// tinha `useSafeAreaInsets`, o que derrubaria o render com "Element type is
+// invalid" assim que a tela passasse a importar ScreenContainer.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
+      React.createElement(View, { style }, children),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+// useWindowDimensions é o que useBreakpoint()/ScreenContainer consomem.
+const mockUseWindowDimensions = jest.fn(() => ({ width: 400, height: 800, scale: 1, fontScale: 1 }));
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockUseWindowDimensions(),
 }));
+
+function setViewport(width: number, height: number) {
+  mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
 
 jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
 jest.mock('@hooks/useTeleconsulta', () => ({ useTeleconsulta: jest.fn() }));
@@ -41,6 +62,7 @@ function wrap(ui: React.ReactElement) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setViewport(400, 800);
   useAuthStore.setState({ token: 'tok', expiresAt: new Date(Date.now() + 3_600_000).toISOString(), usuario: MOCK_VET });
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
   mockUseTeleconsulta.mockReturnValue({ query: IDLE_QUERY, mutation: IDLE_MUTATION });
@@ -174,5 +196,24 @@ describe('TeleorientacaoScreen — com idAgendamento (wired ao backend)', () => 
     expect(getByTestId('msg-erro-sala')).toBeTruthy();
     fireEvent.press(getByTestId('btn-tentar-novamente'));
     expect(IDLE_MUTATION.mutate).toHaveBeenCalledTimes(1);
+  });
+});
+
+// CQ-15: prova de mordida — falha contra a tela sem ScreenContainer (o
+// testID/estilo 'screen-container-content' não existe hoje), passa depois
+// da adoção. Achado de verificação: apesar de o backlog listar esta tela
+// como candidata a NÃO migrar ("vídeo em tela cheia"), o vídeo real acontece
+// fora do app (`Linking.openURL(sala.dsSalaUrl)`, linha ~148) — o que esta
+// tela renderiza é um cartão de status com ícone/texto/botão (`videoArea`,
+// já com `marginHorizontal: 16` igual ao banner e às notas), não uma
+// superfície de vídeo embutida. Por isso ela segue o mesmo tratamento das
+// telas de formulário deste ciclo, não o de exceção documentada.
+describe('TeleorientacaoScreen — ScreenContainer adoption (CQ-15)', () => {
+  it('respects layout.maxContentWidth at 1440×900 (xl)', () => {
+    setViewport(1440, 900);
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
 });
