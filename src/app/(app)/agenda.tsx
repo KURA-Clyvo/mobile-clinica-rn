@@ -289,6 +289,12 @@ export default function AgendaScreen() {
     // (o `ScrollView` da lista) em 24px. Sem efeito visível aqui (mesma cor
     // de fundo), mas aplicado pela mesma razão que em `teleorientacao`, para
     // não deixar a tela dependente de o fundo ser opaco pra mascarar o corte.
+    // G2 Minor #5, não corrigido: a tela usava `edges={['top']}` explícito
+    // antes da migração; o ScreenContainer aplica todas as bordas por
+    // padrão, então em landscape/notch lateral os insets left/right passam
+    // a encolher a `weekNav` (full-bleed). Provavelmente inofensivo — a
+    // primitiva agora tem a prop `edges` (ver ScreenContainer.tsx) pra
+    // restaurar isso caso vire regressão visível de verdade.
     <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       <View style={styles.weekNav}>
         <TouchableOpacity
