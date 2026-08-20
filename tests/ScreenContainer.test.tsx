@@ -239,3 +239,23 @@ describe('ScreenContainer — edges prop (CQ-15 fix wave)', () => {
     expect(getByTestId('mock-safe-area-view').props.edges).toEqual(['bottom', 'left', 'right']);
   });
 });
+
+// CQ-15 fix wave rodada 3 (G2 rodada 2, Important #1): `keyboardShouldPersistTaps`
+// repassado ao ScrollView interno — mesmo padrão de `maxWidth`/`edges`, prop
+// opcional e aditiva. Omitido = comportamento padrão da lib ('never'),
+// preservando os 9 consumidores que não passam essa prop hoje.
+describe('ScreenContainer — keyboardShouldPersistTaps prop (CQ-15 fix wave rodada 3)', () => {
+  it('does not pass a keyboardShouldPersistTaps prop to the inner ScrollView when omitted', () => {
+    const { UNSAFE_getByType } = wrap(
+      <ScreenContainer><Text>Content</Text></ScreenContainer>,
+    );
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBeUndefined();
+  });
+
+  it('forwards an explicit keyboardShouldPersistTaps value to the inner ScrollView', () => {
+    const { UNSAFE_getByType } = wrap(
+      <ScreenContainer keyboardShouldPersistTaps="handled"><Text>Content</Text></ScreenContainer>,
+    );
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
+  });
+});

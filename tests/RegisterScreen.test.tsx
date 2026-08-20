@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import RegisterScreen from '../src/app/register';
@@ -217,5 +217,15 @@ describe('RegisterScreen — ScreenContainer maxWidth adoption (CQ-15 fix wave)'
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(480);
+  });
+});
+
+// CQ-15 fix wave rodada 3 (G2 rodada 2, Important #1): mesma correção de
+// LoginScreen.test.tsx (ver lá para a análise completa) — mordida: falha se
+// a prop sumir de register.tsx ou do repasse em ScreenContainer.tsx.
+describe('RegisterScreen — keyboardShouldPersistTaps (CQ-15 fix wave rodada 3)', () => {
+  it('passes keyboardShouldPersistTaps="handled" to the inner ScrollView', () => {
+    const { UNSAFE_getByType } = wrap(<RegisterScreen />);
+    expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
   });
 });
