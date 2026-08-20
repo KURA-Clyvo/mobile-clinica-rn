@@ -15,7 +15,7 @@
 // `import.meta` fora de modulo e SyntaxError de parse: o arquivo inteiro
 // nunca executa, e nenhum try/catch interno salva.
 //
-// A opcao `unstable_transformImportMeta` liga um plugin baby ja existente em
+// A opcao `unstable_transformImportMeta` liga um plugin Babel ja existente em
 // `babel-preset-expo` (import-meta-transform-plugin.js) que substitui
 // `import.meta` por `globalThis.__ExpoImportMetaRegistry` no bundle web. Esse
 // global ja e registrado em runtime pelo proprio pacote `expo`

@@ -8,11 +8,13 @@
 // Fix: `babel.config.js` novo, com
 // `presets: [['babel-preset-expo', { web: { unstable_transformImportMeta: true } }]]`.
 //
-// Este teste NÃO roda `expo export` (isso já acontece 1x por push no CI —
+// Este teste NÃO roda `expo export` (isso já acontece 1x por push/PR no CI —
 // ver ".github/workflows/ci.yml", passo "Web export (prova de build da
-// plataforma web)", e de novo em ".github/workflows/*" via smoke E o teste
-// de shell em "scripts/check-web-bundle-import-meta.sh", que inspeciona o
-// bundle real gerado por esse passo — ver Camada A). Rodar outro export
+// plataforma web)" — e o teste de shell em
+// "scripts/check-web-bundle-import-meta.sh" inspeciona o bundle real gerado
+// por esse mesmo passo, ver Camada A). Não há segundo workflow nem passo de
+// "smoke" que rode export — ".github/workflows/" tem um único arquivo
+// (ci.yml), com uma única invocação de `expo export`. Rodar outro export
 // aqui duplicaria ~60-90s no mesmo run de CI sem ganhar fidelidade.
 //
 // Em vez disso, este teste chama o MESMO transformador Babel que o Metro
@@ -24,13 +26,17 @@
 // constrói o objeto `caller` (`getBabelCaller`) do mesmo jeito que o Metro
 // constrói em produção — este teste não monta esse objeto à mão.
 //
-// PONTO CEGO DECLARADO: este teste é cego a uma mudança na FORMA como o
-// Metro monta o objeto `options`/`caller` de bundling real (isso não é
-// exercitado aqui — usamos um objeto `options` mínimo, não o que o
-// `expo-router`/`@expo/cli` de fato passa em um export real). A Camada A
-// (script de shell sobre o bundle exportado de verdade, no CI) cobre esse
-// ponto cego: ela inspeciona a saída real do `expo export`, não uma
-// simulação do transformador.
+// PONTOS CEGOS DECLARADOS (2):
+// 1. Este teste é cego a uma mudança na FORMA como o Metro monta o objeto
+//    `options`/`caller` de bundling real (isso não é exercitado aqui —
+//    usamos um objeto `options` mínimo, não o que o `expo-router`/
+//    `@expo/cli` de fato passa em um export real).
+// 2. Este teste transforma UM ÚNICO ARQUIVO (`zustand/esm/middleware.mjs`).
+//    Ele não vê uma dependência NOVA que passe a usar `import.meta` amanhã
+//    — só o canário conhecido. A Camada A cobre os dois pontos cegos: ela
+//    inspeciona a saída real do `expo export`, sobre TODOS os bundles
+//    gerados, não uma simulação isolada do transformador sobre um arquivo
+//    escolhido a dedo.
 //
 // `transformer.transform(...)` devolve `{ ast, metadata }` (não `code`) —
 // o `babel-transformer.js` do `@expo/metro-config` sempre pede

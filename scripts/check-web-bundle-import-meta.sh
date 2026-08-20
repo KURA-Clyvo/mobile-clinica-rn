@@ -28,6 +28,23 @@
 # SEMPRE falha explicitamente se zero bundles forem encontrados, antes de
 # sequer tentar o grep de conteúdo.
 #
+# VARREDURA RECURSIVA (achado pela revisão G2 da CQ-16, 2026-08-20): a
+# primeira versão deste script usava o glob de uma variável então chamada
+# `BUNDLE_GLOB` (`"${BUNDLE_GLOB}"/*.js`), que só olha um nível de
+# diretório. O revisor demonstrou o falso negativo: um `.js` sujo criado em
+# `_expo/static/js/web/chunks/` (subdiretório) passava despercebido — o
+# script reportava "1 bundle(s) encontrado(s)" (só o arquivo do nível
+# raiz), nunca via o chunk, e saía com exit 0 mesmo contendo `import.meta`.
+# É a MESMA classe de falso negativo que a armadilha acima já descreve, só
+# que dentro do próprio script escrito pra matar essa classe. Hoje o export
+# deste app produz 1 único `.js` no nível raiz (sem code splitting/rotas
+# assíncronas), então não reproduz em produção — mas o detector existe pra
+# pegar REGRESSÃO futura, e um bump do Expo (ou `asyncRoutes`) pode passar
+# a emitir chunks em subdiretório a qualquer momento. Por isso a varredura
+# usa `find -type f -name '*.js'` (recursivo, qualquer profundidade) em vez
+# do glob de um nível só — e a variável foi renomeada para `BUNDLE_DIR`
+# (mesma revisão): ela guarda um diretório-raiz de busca, não mais um glob.
+#
 # NOTA DE AMBIENTE: no CI o checkout é limpo a cada run — não há cache do
 # Metro em disco de uma execução anterior, então `--clear` não é necessário
 # no passo "Web export" que roda antes deste script. Isso é diferente de
@@ -40,25 +57,32 @@
 set -euo pipefail
 
 DIST_DIR="${1:-dist}"
-BUNDLE_GLOB="${DIST_DIR}/_expo/static/js/web"
+BUNDLE_DIR="${DIST_DIR}/_expo/static/js/web"
 
-echo "CQ-16 detector (Camada A): procurando bundles web em ${BUNDLE_GLOB}/*.js"
+echo "CQ-16 detector (Camada A): procurando *.js recursivamente sob ${BUNDLE_DIR}"
 
-if [ ! -d "${BUNDLE_GLOB}" ]; then
-  echo "FALHA: diretório '${BUNDLE_GLOB}' não existe. Nada para inspecionar." >&2
+if [ ! -d "${BUNDLE_DIR}" ]; then
+  echo "FALHA: diretório '${BUNDLE_DIR}' não existe. Nada para inspecionar." >&2
   echo "Isso é falso negativo se tratado como sucesso — o export web pode ter" >&2
   echo "falhado antes deste passo, ou o layout de saída do Expo CLI mudou." >&2
   exit 1
 fi
 
-# Array com os bundles encontrados (evita o problema clássico de glob que
-# não casa nada expandir para o literal "*.js" e nunca entrar no `for`).
-shopt -s nullglob
-bundles=("${BUNDLE_GLOB}"/*.js)
-shopt -u nullglob
+# Array com os bundles encontrados, varredura RECURSIVA (ver nota no topo
+# do arquivo). Usa `find -print0` + `read -d ''` (NUL-delimited) em vez de
+# `find | while read`: um pipe roda o `while` numa subshell, e qualquer
+# variável setada ali (inclusive `bundles`) desaparece ao sair do pipe —
+# armadilha clássica de "propagação de status/estado não escapa do
+# subshell". Process substitution (`< <(...)`) mantém o `while` na shell
+# atual, então `bundles` sobrevive fora do loop. NUL-delimited (`-print0`
+# / `-d ''`) evita quebra em nome de arquivo com espaço (ou newline).
+bundles=()
+while IFS= read -r -d '' bundle_file; do
+  bundles+=("${bundle_file}")
+done < <(find "${BUNDLE_DIR}" -type f -name '*.js' -print0)
 
 if [ "${#bundles[@]}" -eq 0 ]; then
-  echo "FALHA: nenhum arquivo .js encontrado em '${BUNDLE_GLOB}'." >&2
+  echo "FALHA: nenhum arquivo .js encontrado em '${BUNDLE_DIR}'." >&2
   echo "Bundle web não foi gerado — detector não pode confirmar nada e" >&2
   echo "recusa reportar sucesso por omissão (essa é a armadilha que este" >&2
   echo "script existe para evitar, ver comentário no topo do arquivo)." >&2
@@ -70,11 +94,14 @@ echo "Encontrado(s) ${#bundles[@]} bundle(s): ${bundles[*]}"
 failed=0
 for bundle in "${bundles[@]}"; do
   if grep -o 'import\.meta' "${bundle}" > /dev/null 2>&1; then
-    echo "FALHA: '${bundle}' contém 'import.meta' fora de módulo." >&2
-    echo "Isso quebra o parse do bundle no browser real com" >&2
+    echo "FALHA: '${bundle}' contém a sequência 'import.meta'." >&2
+    echo "Se for um MetaProperty real (não dentro de string/comentário), isso" >&2
+    echo "quebra o parse do bundle no browser real com" >&2
     echo "'SyntaxError: Cannot use import.meta outside a module' (tela em branco)." >&2
-    echo "Verificar 'babel.config.js' — a chave" >&2
-    echo "'web.unstable_transformImportMeta' deve estar 'true'." >&2
+    echo "A busca é por substring, não por AST — pode casar dentro de um literal" >&2
+    echo "ou comentário (falso positivo). Conferir com 'grep -o import.meta" >&2
+    echo "${bundle}' antes de investigar 'babel.config.js' (chave" >&2
+    echo "'web.unstable_transformImportMeta')." >&2
     failed=1
   fi
 done
