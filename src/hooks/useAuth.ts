@@ -18,7 +18,7 @@ export function useLoginMutation() {
     mutationFn: (data) => login(data),
     onSuccess: (response) => {
       setSession(response.accessToken, response.expiresAt, response.usuario);
-      router.replace(ROUTES.app.dashboard as never);
+      router.replace(ROUTES.app.dashboard);
     },
   });
 }
@@ -31,7 +31,7 @@ export function useRegisterMutation() {
     mutationFn: (data) => registerClinica(data),
     onSuccess: (response) => {
       setSession(response.accessToken, response.expiresAt, response.usuario);
-      router.replace(ROUTES.app.dashboard as never);
+      router.replace(ROUTES.app.dashboard);
     },
   });
 }

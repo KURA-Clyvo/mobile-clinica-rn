@@ -1,16 +1,31 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { Link } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { KCIcon } from '@components/primitives/KCIcon';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import { useAuthStore } from '@store/authStore';
 import { STRINGS } from '@constants/strings';
+import { ROUTES } from '@constants/routes';
+
+// Nomes de tela do navigator do drawer (não são rotas/URL): chaves de
+// `ROUTES.app` cujo valor é uma string estática (exclui os helpers de rota
+// dinâmica, como `pacienteDetalhe`, que são funções). Cada item do drawer
+// precisa de DOIS papéis distintos — ver task CQ-03 (dev VsClaude,
+// KURA_BACKLOG_CLINICA_1, M2): `name` compara com `state.routes[].name` do
+// react-navigation para o realce do item ativo; `href` (derivado de `name`
+// via indexação em `ROUTES.app`, nunca duplicado à mão) alimenta o `<Link>`.
+// Renomear uma tela em `ROUTES.app` quebra este arquivo em `tsc`, porque o
+// tipo de `name` deixa de aceitar o valor antigo.
+type ScreenRouteName = {
+  [K in keyof typeof ROUTES.app]: (typeof ROUTES.app)[K] extends string ? K : never;
+}[keyof typeof ROUTES.app];
 
 interface NavItem {
-  name: string;
+  name: ScreenRouteName;
   icon: KCIconName;
   label: string;
 }
@@ -50,6 +65,11 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingHorizontal: 20,
     },
     navItemActive: { backgroundColor: colors.primarySoft },
+    // Repõe o feedback visual de toque que o TouchableOpacity dava de graça
+    // (activeOpacity padrão) — Pressable não tem isso embutido, então sem
+    // este estilo trocar TouchableOpacity por Pressable seria regressão de
+    // UX disfarçada de melhoria técnica (ver armadilha #1 da task CQ-03).
+    navItemPressed: { opacity: 0.6 },
     navLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
@@ -81,7 +101,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
-export function NavDrawer({ state, navigation }: DrawerContentComponentProps) {
+export function NavDrawer({ state }: DrawerContentComponentProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const { usuario, clearSession } = useAuthStore();
@@ -97,19 +117,27 @@ export function NavDrawer({ state, navigation }: DrawerContentComponentProps) {
       <ScrollView style={styles.nav} contentContainerStyle={styles.navContent}>
         {NAV_ITEMS.map((item) => {
           const isActive = activeRouteName === item.name;
+          // `href` deriva de `item.name` por indexação em ROUTES.app — nunca
+          // escrito à mão em paralelo, para não poder divergir do nome de
+          // tela sem quebrar em tsc (ver comentário de ScreenRouteName acima).
+          const href = ROUTES.app[item.name];
           return (
-            <TouchableOpacity
-              key={item.name}
-              style={[styles.navItem, isActive && styles.navItemActive]}
-              onPress={() => navigation.navigate(item.name)}
-              accessibilityRole="menuitem"
-              testID={`nav-item-${item.name}`}
-            >
-              <KCIcon name={item.icon} size={20} color={colors.textOnPrimary} />
-              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
+            <Link key={item.name} href={href} asChild>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.navItem,
+                  isActive && styles.navItemActive,
+                  pressed && styles.navItemPressed,
+                ]}
+                accessibilityRole="menuitem"
+                testID={`nav-item-${item.name}`}
+              >
+                <KCIcon name={item.icon} size={20} color={colors.textOnPrimary} />
+                <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            </Link>
           );
         })}
       </ScrollView>

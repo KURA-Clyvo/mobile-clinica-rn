@@ -181,7 +181,9 @@ describe('RegisterScreen', () => {
     fireEvent.press(getByText('Cadastrar'));
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/(app)/dashboard');
+      // URL canônica sem o segmento de grupo `(app)` — CQ-03 (dev VsClaude,
+      // KURA_BACKLOG_CLINICA_1). Trava de propósito, não afrouxar.
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard');
     });
   });
 });

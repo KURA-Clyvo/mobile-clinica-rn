@@ -55,7 +55,9 @@ describe('PatientsListScreen', () => {
       (el) => el.props.accessibilityRole === 'button',
     );
     fireEvent.press(items[0]!);
-    expect(mockPush).toHaveBeenCalledWith('/(app)/pacientes/1');
+    // URL canônica sem o segmento de grupo `(app)` — CQ-03 (dev VsClaude,
+    // KURA_BACKLOG_CLINICA_1). Trava de propósito, não afrouxar.
+    expect(mockPush).toHaveBeenCalledWith('/pacientes/1');
   });
 
   it('shows "Nenhum paciente encontrado" when list is empty with active search', async () => {

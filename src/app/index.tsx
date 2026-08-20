@@ -16,5 +16,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={(isAuthenticated() ? ROUTES.app.dashboard : ROUTES.login) as never} />;
+  return <Redirect href={isAuthenticated() ? ROUTES.app.dashboard : ROUTES.login} />;
 }

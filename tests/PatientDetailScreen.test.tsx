@@ -70,7 +70,9 @@ describe('PatientDetailScreen', () => {
   it('navigates to consulta route on Consulta button tap', () => {
     const { getByTestId } = wrap(<PatientDetailScreen />);
     fireEvent.press(getByTestId('btn-consulta'));
-    expect(mockPush).toHaveBeenCalledWith('/(app)/consulta/1');
+    // URL canônica sem o segmento de grupo `(app)` — CQ-03 (dev VsClaude,
+    // KURA_BACKLOG_CLINICA_1). Trava de propósito, não afrouxar.
+    expect(mockPush).toHaveBeenCalledWith('/consulta/1');
   });
 
   it('calls Clipboard.setStringAsync on tutor phone tap', async () => {

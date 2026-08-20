@@ -49,7 +49,13 @@ describe('AppHeader — CTAs vivos', () => {
     fireEvent.press(getByTestId('app-header-search'));
 
     expect(mockPush).toHaveBeenCalledTimes(1);
-    expect(mockPush).toHaveBeenCalledWith('/(app)/pacientes');
+    // Trava a URL CANÔNICA de propósito (sem o segmento de grupo `(app)`):
+    // task CQ-03 (dev VsClaude, KURA_BACKLOG_CLINICA_1) trocou ROUTES.app.*
+    // para a forma sem grupo — grupo é organização de arquivo, não faz
+    // parte da URL. Esta asserção existe para detectar regressão se alguém
+    // reintroduzir o segmento de grupo em routes.ts; não afrouxar para um
+    // matcher que aceite as duas formas.
+    expect(mockPush).toHaveBeenCalledWith('/pacientes');
   });
 
   it('não renderiza mais o botão de notificações (sino) — sem feature por trás', () => {

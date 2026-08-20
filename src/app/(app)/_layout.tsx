@@ -24,7 +24,7 @@ export default function AppLayout() {
           header: ({ navigation }) => (
             <AppHeader
               title={STRINGS.dashboard.titulo}
-              onMenuPress={() => (navigation as any).toggleDrawer?.()}
+              onMenuPress={() => navigation.toggleDrawer()}
             />
           ),
         }}
@@ -36,7 +36,7 @@ export default function AppLayout() {
           header: ({ navigation }) => (
             <AppHeader
               title="Agenda"
-              onMenuPress={() => (navigation as any).toggleDrawer?.()}
+              onMenuPress={() => navigation.toggleDrawer()}
             />
           ),
         }}
@@ -48,7 +48,7 @@ export default function AppLayout() {
           header: ({ navigation }) => (
             <AppHeader
               title={STRINGS.pacientes.titulo}
-              onMenuPress={() => (navigation as any).toggleDrawer?.()}
+              onMenuPress={() => navigation.toggleDrawer()}
             />
           ),
         }}
@@ -60,7 +60,7 @@ export default function AppLayout() {
           header: ({ navigation }) => (
             <AppHeader
               title={STRINGS.luna.titulo}
-              onMenuPress={() => (navigation as any).toggleDrawer?.()}
+              onMenuPress={() => navigation.toggleDrawer()}
             />
           ),
         }}
@@ -72,7 +72,7 @@ export default function AppLayout() {
           header: ({ navigation }) => (
             <AppHeader
               title={STRINGS.configuracoes.titulo}
-              onMenuPress={() => (navigation as any).toggleDrawer?.()}
+              onMenuPress={() => navigation.toggleDrawer()}
             />
           ),
         }}
