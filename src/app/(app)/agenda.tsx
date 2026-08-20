@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useAgendaSemana } from '@hooks/useAgenda';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -51,7 +51,6 @@ function statusLabel(sgStatus: AgendamentoResponse['sgStatus']): string {
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
     weekNav: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -279,7 +278,13 @@ export default function AgendaScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    // CQ-15: `paddingHorizontal={0}` — agenda já controla seu próprio respiro
+    // horizontal por região (weekNav, dayTabsContent, listContent), cada uma
+    // com um valor diferente; deixar o ScreenContainer aplicar o padding
+    // responsivo dele por cima somaria aos paddings locais em vez de
+    // substituí-los. O ganho aqui é `maxContentWidth` + centralização +
+    // SafeAreaView compartilhada, não o padding.
+    <ScreenContainer scroll={false} paddingHorizontal={0}>
       <View style={styles.weekNav}>
         <TouchableOpacity
           onPress={goToPrevWeek}
@@ -378,6 +383,6 @@ export default function AgendaScreen() {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

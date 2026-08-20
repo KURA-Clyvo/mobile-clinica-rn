@@ -1,8 +1,10 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import AgendaScreen from '../src/app/(app)/agenda';
 import { getMondayOf, addDays } from '../src/utils/date';
+import { layout } from '../src/theme/tokens';
 
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: jest.fn(),
@@ -12,6 +14,18 @@ const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
+
+// CQ-15: useWindowDimensions é o que useBreakpoint()/ScreenContainer consomem
+// (nunca Dimensions.get(), que não re-renderiza em resize de janela na web).
+const mockUseWindowDimensions = jest.fn(() => ({ width: 400, height: 800, scale: 1, fontScale: 1 }));
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockUseWindowDimensions(),
+}));
+
+function setViewport(width: number, height: number) {
+  mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
 
 import { useAgendaSemana } from '../src/hooks/useAgenda';
 const mockUseAgendaSemana = useAgendaSemana as jest.Mock;
@@ -71,6 +85,7 @@ function wrap(ui: React.ReactElement) {
 beforeEach(() => {
   jest.clearAllMocks();
   REFETCH.mockResolvedValue(undefined);
+  setViewport(400, 800);
 });
 
 describe('AgendaScreen — loading state', () => {
@@ -165,5 +180,21 @@ describe('AgendaScreen — week navigation', () => {
     const { getByTestId } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-prev-week'));
     expect(mockUseAgendaSemana).toHaveBeenCalledTimes(2);
+  });
+});
+
+// CQ-15: prova de mordida — falha contra a tela sem ScreenContainer (o
+// testID/estilo 'screen-container-content' não existe hoje), passa depois da
+// adoção. Segue o mesmo padrão de asserção de ScreenContainer.test.tsx: não
+// mede px calculado (o react-test-renderer não computa layout Yoga), só o
+// estilo declarado.
+describe('AgendaScreen — ScreenContainer adoption (CQ-15)', () => {
+  it('respects layout.maxContentWidth at 1440×900 (xl)', () => {
+    setViewport(1440, 900);
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    const { getByTestId } = wrap(<AgendaScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
 });
