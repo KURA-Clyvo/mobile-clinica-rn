@@ -30,7 +30,11 @@ interface NavItem {
   label: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
+// Exportado para o teste de sincronia com `_layout.tsx` (fix wave pós-G2, item
+// 2 da CQ-03 — ver `discoverDrawerScreenNames.ts` e
+// `tests/NavDrawer.drawerScreenSync.test.ts`): é o lado "o que o drawer
+// oferece" do acoplamento com "o que `_layout.tsx` registra como tela".
+export const NAV_ITEMS: NavItem[] = [
   { name: 'dashboard', icon: 'dashboard', label: STRINGS.dashboard.titulo },
   { name: 'agenda', icon: 'agenda', label: 'Agenda' },
   { name: 'pacientes', icon: 'patients', label: STRINGS.pacientes.titulo },
@@ -69,7 +73,12 @@ const makeStyles = (colors: typeof lightColors) =>
     // (activeOpacity padrão) — Pressable não tem isso embutido, então sem
     // este estilo trocar TouchableOpacity por Pressable seria regressão de
     // UX disfarçada de melhoria técnica (ver armadilha #1 da task CQ-03).
-    navItemPressed: { opacity: 0.6 },
+    // 0.2 é o valor real, conferido na fonte do RN nesta versão instalada
+    // (node_modules/react-native/Libraries/Components/Touchable/
+    // TouchableOpacity.js:247 — `this.props.activeOpacity ?? 0.2`), não 0.6
+    // (fix wave pós-G2, item 3 — o valor anterior deixava o item "acender"
+    // bem menos que o TouchableOpacity original).
+    navItemPressed: { opacity: 0.2 },
     navLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
