@@ -1,21 +1,42 @@
 import { Redirect } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useAuthStore } from '@store/authStore';
+import { useBreakpoint } from '@hooks/useBreakpoint';
+import type { BreakpointKey } from '@theme/tokens';
 import { NavDrawer } from '@components/layout/NavDrawer';
 import { AppHeader } from '@components/layout/AppHeader';
 import { STRINGS } from '@constants/strings';
 
+// CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — shell adaptativo: em
+// desktop o drawer overlay é o padrão errado, porque esconde a navegação
+// (5 itens, cabe na tela) atrás de um toque. Exportada como função pura
+// (mesmo padrão de `metricsColumnsFor`/`listColumnsFor` em dashboard.tsx —
+// CQ-06) para ser testável sem montar a árvore do Drawer inteira. O
+// argumento do corte `>= lg` e a ressalva sobre a faixa `md` (tablet
+// retrato, decisão de produto não tomada por esta task) estão documentados
+// em `breakpoints` (src/theme/tokens.ts) — nunca duplicar o número aqui.
+export function resolveDrawerType(isAtLeast: (key: BreakpointKey) => boolean): 'permanent' | 'front' {
+  return isAtLeast('lg') ? 'permanent' : 'front';
+}
+
 export default function AppLayout() {
   const { isAuthenticated } = useAuthStore();
+  const { isAtLeast } = useBreakpoint();
 
   if (!isAuthenticated()) {
     return <Redirect href="/login" />;
   }
 
+  const drawerType = resolveDrawerType(isAtLeast);
+  // Botão de menu só faz sentido quando o drawer é overlay — com sidebar
+  // permanente ele já está sempre visível, então o botão abriria o que já
+  // está aberto.
+  const showMenuButton = drawerType !== 'permanent';
+
   return (
     <Drawer
       drawerContent={(props) => <NavDrawer {...props} />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, drawerType }}
     >
       <Drawer.Screen
         name="dashboard"
@@ -25,6 +46,7 @@ export default function AppLayout() {
             <AppHeader
               title={STRINGS.dashboard.titulo}
               onMenuPress={() => navigation.toggleDrawer()}
+              showMenuButton={showMenuButton}
             />
           ),
         }}
@@ -37,6 +59,7 @@ export default function AppLayout() {
             <AppHeader
               title="Agenda"
               onMenuPress={() => navigation.toggleDrawer()}
+              showMenuButton={showMenuButton}
             />
           ),
         }}
@@ -49,6 +72,7 @@ export default function AppLayout() {
             <AppHeader
               title={STRINGS.pacientes.titulo}
               onMenuPress={() => navigation.toggleDrawer()}
+              showMenuButton={showMenuButton}
             />
           ),
         }}
@@ -61,6 +85,7 @@ export default function AppLayout() {
             <AppHeader
               title={STRINGS.luna.titulo}
               onMenuPress={() => navigation.toggleDrawer()}
+              showMenuButton={showMenuButton}
             />
           ),
         }}
@@ -73,6 +98,7 @@ export default function AppLayout() {
             <AppHeader
               title={STRINGS.configuracoes.titulo}
               onMenuPress={() => navigation.toggleDrawer()}
+              showMenuButton={showMenuButton}
             />
           ),
         }}

@@ -10,6 +10,13 @@ import { ROUTES } from '@constants/routes';
 export interface AppHeaderProps {
   title: string;
   onMenuPress: () => void;
+  /**
+   * CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1): esconde o botão de menu
+   * quando a sidebar já está permanentemente visível — um botão que abre o
+   * que já está aberto é ruído. Default `true` (comportamento anterior,
+   * inalterado para qualquer consumidor que não passe a prop).
+   */
+  showMenuButton?: boolean;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -42,7 +49,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
-export function AppHeader({ title, onMenuPress }: AppHeaderProps) {
+export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHeaderProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
@@ -50,14 +57,22 @@ export function AppHeader({ title, onMenuPress }: AppHeaderProps) {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
-        <TouchableOpacity
-          onPress={onMenuPress}
-          style={styles.iconBtn}
-          testID="app-header-menu"
-          accessibilityLabel="Abrir menu"
-        >
-          <KCIcon name="menu" size={22} color={colors.text} />
-        </TouchableOpacity>
+        {showMenuButton ? (
+          <TouchableOpacity
+            onPress={onMenuPress}
+            style={styles.iconBtn}
+            testID="app-header-menu"
+            accessibilityLabel="Abrir menu"
+          >
+            <KCIcon name="menu" size={22} color={colors.text} />
+          </TouchableOpacity>
+        ) : (
+          // Espaçador invisível do mesmo tamanho do botão — sem ele o título
+          // (centralizado por `flex: 1` + `textAlign: 'center'`) perde a
+          // simetria com o botão de busca do lado direito quando o de menu
+          // some (sidebar permanente).
+          <View style={styles.iconBtn} testID="app-header-menu-spacer" />
+        )}
 
         <Text style={styles.title} numberOfLines={1}>
           {title}

@@ -144,6 +144,23 @@ export const breakpoints = {
 
 export type BreakpointKey = keyof typeof breakpoints;
 
+// CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1): o shell do app da clínica
+// (`src/app/(app)/_layout.tsx`, `resolveDrawerType`) troca o drawer overlay
+// por sidebar PERMANENTE a partir de `lg` (1024px) — a navegação primária
+// tem só 5 itens e cabe em tela a partir de notebook pequeno, então esconder
+// ela atrás de um toque deixa de ter razão de ser. Abaixo de `lg` o overlay
+// continua sendo o padrão certo (tela sem espaço de sobra).
+//
+// ⚠️ Faixa `md` (768–1023, tablet em RETRATO) é zona cinzenta deliberada: o
+// backlog manda literal `>= lg`, então hoje um iPad em retrato (768×1024)
+// recebe overlay, não sidebar — e `drawerType: 'permanent'` desliga o
+// gesto de arraste do drawer, então a escolha nessa faixa não é
+// mecanicamente óbvia (ganhar sidebar permanente custa o gesto). Isso é
+// DECISÃO DE PRODUTO, não de implementação — não mudar este corte sem
+// validar com o Felipe. Ver task-CQ-05-report.md
+// (dev VsClaude/.superpowers/sdd/KURA_BACKLOG_CLINICA_1/) para o argumento
+// completo.
+
 export const layout = {
   // Largura de leitura confortável para um painel de gestão (dashboard,
   // relatório de triagens, agenda) — não é o mesmo critério de uma coluna de
