@@ -4,17 +4,16 @@ import {
   Text,
   StyleSheet,
   KeyboardAvoidingView,
-  ScrollView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -57,12 +56,15 @@ function getRegisterErrorMessage(error: unknown): string {
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
     flex: { flex: 1 },
-    scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 24 },
+    // CQ-15 fix wave: `paddingVertical: 24` do antigo `scroll` não tem
+    // equivalente direto no modo scroll do ScreenContainer (não expõe
+    // override de `contentContainerStyle`) — aproximado com `marginTop` no
+    // `header` em vez de alegado como equivalente.
     header: {
       flexDirection: 'row',
       alignItems: 'center',
+      marginTop: 24,
       marginBottom: 24,
       gap: 12,
     },
@@ -121,25 +123,19 @@ export default function RegisterScreen() {
     doRegister(registerData as RegisterClinicaRequest);
   };
 
-  // CQ-15: mesma decisão deliberada de NÃO adotar ScreenContainer que em
-  // login.tsx (ver o comentário lá para a análise completa) — o
-  // `maxContentWidth` de 1200px do container é calibrado para painel de
-  // gestão, não para um formulário centralizado como este; e
-  // `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` é
-  // comprovadamente inerte na web (react-native-web descarta a prop
-  // `behavior` e renderiza um <View> puro), então não há bug de
-  // `KeyboardAvoidingView` a corrigir aqui.
+  // CQ-15 fix wave (G2 vetor F — mesma correção de `login.tsx`, ver o
+  // comentário lá para a análise completa): migrada com a prop `maxWidth`
+  // explícita nova do ScreenContainer, `maxWidth={480}`, em vez de manter
+  // não migrada com a justificativa que a G2 provou falsa por execução.
+  // Mesmo caveat aceito e não corrigido: o ScrollView interno do
+  // ScreenContainer não expõe `keyboardShouldPersistTaps` (o antigo tinha
+  // `"handled"`), fora do escopo desta task.
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.flex}
+    >
+      <ScreenContainer maxWidth={480} paddingHorizontal={24}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.replace('/login')} testID="register-back">
               <KCIcon name="back" size={22} color={colors.text} />
@@ -374,8 +370,7 @@ export default function RegisterScreen() {
               <Text style={styles.loginLinkText}>Já tenho conta</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </ScreenContainer>
+    </KeyboardAvoidingView>
   );
 }

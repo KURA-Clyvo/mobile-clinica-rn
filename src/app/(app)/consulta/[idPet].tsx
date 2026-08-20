@@ -280,16 +280,23 @@ export default function ConsultaScreen() {
   return (
     // CQ-15: `paddingHorizontal={0}` — o header do pet, o form e o rodapé já
     // controlam seu próprio respiro horizontal (cada um com um padding
-    // diferente). `style={{ paddingBottom: 0 }}` cancela o `paddingBottom:
-    // 24` que o modo flat do ScreenContainer aplicaria por padrão: o rodapé
-    // aqui é `position: 'absolute', bottom: 0` — ele é ancorado à borda
-    // inferior da CAIXA DE PADDING do container pai, então um paddingBottom
-    // > 0 nesse pai deslocaria o rodapé 24px para cima da borda real da
-    // tela, abrindo uma faixa de fundo vazia abaixo dele. Ganho real desta
-    // migração além do maxWidth: a tela não tinha NENHUM tratamento de
-    // safe-area antes (nem topo nem `home indicator`) — o SafeAreaView do
-    // ScreenContainer fecha essa lacuna de brinde.
-    <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
+    // diferente). Ganho real desta migração além do maxWidth: a tela não
+    // tinha NENHUM tratamento de safe-area antes (nem topo nem `home
+    // indicator`) — o SafeAreaView do ScreenContainer fecha essa lacuna de
+    // brinde.
+    // CQ-15 fix wave (G2 Important #3, correção de modelo mental): o rodapé
+    // abaixo é `position:'absolute', bottom:0` — quando um filho absoluto
+    // TEM inset definido (`bottom:0`), o Yoga (RN 0.81.5,
+    // ReactCommon/yoga/yoga/algorithm/AbsoluteLayout.cpp:200-210) ancora só
+    // pela BORDA do pai, não pelo padding; o `paddingBottom` só entraria em
+    // jogo pra um filho absoluto SEM inset (posição estática). Ou seja, o
+    // `paddingBottom:24` do modo flat NÃO desloca este rodapé — o
+    // `style={{paddingBottom:0}}` que existia aqui antes era inócuo (só
+    // deixava o ScrollView interno 24px mais alto, sem efeito visível
+    // porque `form` já reserva `paddingBottom:120`) e foi removido. Comparar
+    // com `teleorientacao/[idPet].tsx`, cujo rodapé é filho FLEX comum — lá
+    // o cancelamento tem efeito real.
+    <ScreenContainer scroll={false} paddingHorizontal={0}>
       {/* Header do pet */}
       <View style={styles.petHeader}>
         <KCPetPortrait

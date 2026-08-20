@@ -7,10 +7,27 @@ import {
   ViewStyle,
   RefreshControlProps,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
 import { lightColors, layout, spacing, type BreakpointKey } from '@theme/tokens';
 import { useBreakpoint } from '@hooks/useBreakpoint';
+
+/**
+ * Filhos `position:'absolute'` ancoram na COLUNA DE CONTEÚDO centralizada
+ * (a `View` de `maxWidth: layout.maxContentWidth`/`maxWidth` custom), não na
+ * largura física da janela — porque essa coluna, e não o `SafeAreaView`
+ * externo, é o container relativo mais próximo que o Yoga enxerga para um
+ * `left:0`/`right:0`/`bottom:0` sem outro ancestral `position:relative` no
+ * meio. Acima do breakpoint em que a coluna para de crescer (hoje
+ * `layout.maxContentWidth` = 1200px), esses filhos deixam de tocar a borda
+ * física do monitor — casos reais neste app (CQ-15, G2 Important #8/Vetor E):
+ * o FAB de `pacientes/index.tsx` (`fabContainer`) e os rodapés de ação de
+ * `consulta/[idPet].tsx` e `receituario/[idPet].tsx` (`footer`, ambos
+ * `left:0, right:0, bottom:0`). Aceito como consequência do próprio
+ * contrato do primitivo (a coluna de leitura é o que baliza a tela), não
+ * como bug — corrigir exigiria uma API nova de slot "full-bleed" fora do
+ * wrapper de `maxWidth`, fora do escopo até haver uma tela real que precise.
+ */
 
 export interface ScreenContainerProps {
   children: React.ReactNode;
@@ -22,7 +39,38 @@ export interface ScreenContainerProps {
    * abaixo) — passar este prop sempre vence o responsivo, em qualquer viewport.
    */
   paddingHorizontal?: number;
+  /**
+   * Override explícito da largura máxima do conteúdo. Quando omitido, usa
+   * `layout.maxContentWidth` (1200px, calibrado para largura de leitura de
+   * painel de gestão). Telas de formulário centralizado — ex. login/registro
+   * — querem algo bem menor (~400-480px); passar este prop em vez de tentar
+   * sobrescrever via `style` (que só vence no modo flat, por ordem de array,
+   * e não no modo scroll, onde `style` vai para o `ScrollView` — capacidade
+   * acidental, não API. CQ-15, G2 vetor F).
+   */
+  maxWidth?: number;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Bordas em que o `SafeAreaView` interno aplica o inset como padding.
+   * Omitido = comportamento padrão da lib (todas as bordas). Uma tela cujo
+   * próprio header pinta uma faixa de cor sob a status bar (ex.:
+   * `colors.primary` full-bleed) deve excluir `'top'` daqui e voltar a
+   * somar `insets.top` manualmente no padding desse header — do contrário
+   * o `SafeAreaView` pinta o inset com `colors.bg` por baixo da faixa
+   * colorida, abrindo uma tira clara acima dela (CQ-15, Important #1 da
+   * G2). Ver `pacientes/[id].tsx` para o padrão de uso.
+   *
+   * Nativo (iOS/Android): uma borda ausente do array recebe `'off'` — o
+   * `SafeAreaView` nativo desliga o inset dela de verdade (verificado em
+   * `node_modules/react-native-safe-area-context/src/SafeAreaView.tsx`).
+   * Web (`SafeAreaView.web.tsx`): uma borda ausente do array cai no `default`
+   * do switch de `getEdgeValue`, que soma o inset do mesmo jeito que
+   * `'additive'` — ou seja, no alvo web esta prop não desliga uma borda
+   * excluída, só reforça as incluídas. Comportamento do upstream, não desta
+   * prop; registrado aqui para não ser lido como "funciona igual nas duas
+   * plataformas".
+   */
+  edges?: readonly Edge[];
 }
 
 // Respiro horizontal padrão por breakpoint. Os valores vêm de `spacing`
@@ -65,7 +113,9 @@ export function ScreenContainer({
   scroll = true,
   refreshControl,
   paddingHorizontal,
+  maxWidth,
   style,
+  edges,
 }: ScreenContainerProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -73,14 +123,15 @@ export function ScreenContainer({
 
   const resolvedPaddingHorizontal =
     paddingHorizontal ?? PADDING_HORIZONTAL_BY_BREAKPOINT[breakpoint];
+  const resolvedMaxWidth = maxWidth ?? layout.maxContentWidth;
 
   const contentStyle = [
     styles.content,
-    { maxWidth: layout.maxContentWidth, paddingHorizontal: resolvedPaddingHorizontal },
+    { maxWidth: resolvedMaxWidth, paddingHorizontal: resolvedPaddingHorizontal },
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={edges}>
       {scroll ? (
         <ScrollView
           showsVerticalScrollIndicator={false}

@@ -7,6 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -242,6 +243,7 @@ export default function PacienteDetailScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabKey>('timeline');
 
@@ -254,8 +256,16 @@ export default function PacienteDetailScreen() {
       // faixa colorida de borda a borda (`backgroundColor: colors.primary`
       // com padding, não margin) — um paddingHorizontal do container por
       // cima a encolheria para um cartão flutuante em vez de faixa cheia.
-      <ScreenContainer paddingHorizontal={0}>
-        <View testID="loading-skeleton" style={[styles.header, { paddingTop: 16 }]}>
+      // CQ-15 fix wave (G2 Important #1): `edges={['bottom','left','right']}`
+      // exclui o topo do SafeAreaView interno — sem isso, o inset do notch
+      // vira padding de um contêiner pintado de `colors.bg`, abrindo uma
+      // tira clara ACIMA da faixa `colors.primary` do header (o respiro
+      // total ficava idêntico, a aparência não). Com o topo excluído, o
+      // header volta a pintar a própria área do notch, e `insets.top + 16`
+      // volta a ser somado manualmente no `paddingTop` do header, como
+      // antes da migração.
+      <ScreenContainer paddingHorizontal={0} edges={['bottom', 'left', 'right']}>
+        <View testID="loading-skeleton" style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={styles.skeletonCircle} />
           <View style={[styles.skeletonText, { width: 120, marginTop: 12 }]} />
           <View style={[styles.skeletonText, { width: 80, marginTop: 6 }]} />
@@ -294,12 +304,14 @@ export default function PacienteDetailScreen() {
 
   return (
     // CQ-15: mesmo raciocínio do bloco de loading acima — paddingHorizontal={0}
-    // porque o `header` é faixa colorida de borda a borda, e `paddingTop: 16`
-    // (sem `insets.top +`) porque o SafeAreaView do ScreenContainer já cobre
-    // o inset do topo uma vez; somar os dois duplicaria o respiro do notch.
-    <ScreenContainer paddingHorizontal={0}>
+    // porque o `header` é faixa colorida de borda a borda. CQ-15 fix wave
+    // (G2 Important #1): `edges={['bottom','left','right']}` exclui o topo
+    // do SafeAreaView interno, para o header voltar a pintar a área do
+    // notch em vez de uma tira `colors.bg` aparecer acima dele; por isso
+    // `insets.top + 16` volta a ser somado manualmente aqui.
+    <ScreenContainer paddingHorizontal={0} edges={['bottom', 'left', 'right']}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: 16 }]}>
+      <View testID="pet-header" style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <KCPetPortrait palette={racaToPalette(pet.nmRaca)} size={96} ring />
         <Text style={styles.petName}>{pet.nmPet}</Text>
         <Text style={styles.petSubtitle}>{`${pet.nmRaca} · ${pet.nmEspecie}`}</Text>

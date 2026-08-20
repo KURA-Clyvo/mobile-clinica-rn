@@ -18,13 +18,25 @@ jest.mock('expo-router', () => ({
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
 // tinha `useSafeAreaInsets`, o que derrubaria o render com "Element type is
 // invalid" assim que a tela passasse a importar ScreenContainer.
+// CQ-15 fix wave (G2 Important #1): `edges` é repassado pra dentro da View
+// mockada (via testID fixo) pra poder ser inspecionado pelas mordidas
+// abaixo; `insets.top` deixou de ser 0 (valor que mascararia a soma
+// `insets.top + 16` restaurada no header) — 44 é um valor de notch real
+// plausível (iPhone com Dynamic Island), só pra tornar a soma observável.
 jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
-      React.createElement(View, { style }, children),
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+    SafeAreaView: ({
+      children,
+      style,
+      edges,
+    }: {
+      children: React.ReactNode;
+      style?: unknown;
+      edges?: unknown;
+    }) => React.createElement(View, { style, edges, testID: 'mock-safe-area-view' }, children),
+    useSafeAreaInsets: () => ({ top: 44, bottom: 0, left: 0, right: 0 }),
   };
 });
 
@@ -114,9 +126,16 @@ describe('PatientDetailScreen', () => {
 
   it('renders skeleton during loading', () => {
     mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: true, isError: false });
-    const { getByTestId, queryByTestId } = wrap(<PatientDetailScreen />);
+    const { getByTestId, queryByText } = wrap(<PatientDetailScreen />);
     expect(getByTestId('loading-skeleton')).toBeTruthy();
-    expect(queryByTestId('pet-detail-scroll')).toBeNull();
+    // CQ-15 fix wave (G2 Important #4): a asserção antiga
+    // (`queryByTestId('pet-detail-scroll')`) virou tautologia — a migração
+    // removeu esse testID do ScrollView do ramo de sucesso, então a query
+    // já era `null` para sempre, independentemente do código (decaimento
+    // silencioso introduzido pela própria task). Substituída por uma
+    // asserção que prova o que se queria provar de fato: o conteúdo do
+    // ramo de sucesso (nome do pet) não aparece junto com o skeleton.
+    expect(queryByText(MOCK_PET.nmPet)).toBeNull();
   });
 
   it('shows error state with back button on invalid id', () => {
@@ -139,5 +158,53 @@ describe('PatientDetailScreen — ScreenContainer adoption (CQ-15)', () => {
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
+  });
+
+  // CQ-15 fix wave (G2 Important #6/Minor #6): mordida — a G2 reproduziu que
+  // remover `paddingHorizontal={0}` das ramificações de loading/sucesso
+  // deixava a suíte inteira verde (a mordida só travava `maxWidth`). O
+  // `header` é uma faixa colorida de borda a borda; um respiro do container
+  // por cima a encolheria pra um cartão flutuante.
+  it('applies paddingHorizontal:0 in the loading branch (full-bleed header)', () => {
+    mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
+    expect(flatStyle.paddingHorizontal).toBe(0);
+  });
+
+  it('applies paddingHorizontal:0 in the success branch (full-bleed header)', () => {
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
+    expect(flatStyle.paddingHorizontal).toBe(0);
+  });
+
+  // CQ-15 fix wave (G2 Important #1): a faixa colorida do header parava de
+  // cobrir a status bar porque o SafeAreaView do ScreenContainer pintava o
+  // inset do topo com colors.bg. Fix: excluir 'top' de `edges` e voltar a
+  // somar `insets.top` manualmente no header.
+  it('excludes the top edge from the inner SafeAreaView so the header paints under the status bar', () => {
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const safeArea = getByTestId('mock-safe-area-view');
+    expect(safeArea.props.edges).toEqual(['bottom', 'left', 'right']);
+  });
+
+  it('restores insets.top manually in the header padding when top edge is excluded', () => {
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const header = getByTestId('pet-header');
+    const flatStyle = StyleSheet.flatten(header.props.style) as { paddingTop?: number };
+    // mock de useSafeAreaInsets devolve top: 44 — ver o mock no topo do arquivo.
+    expect(flatStyle.paddingTop).toBe(44 + 16);
+  });
+
+  it('also excludes the top edge in the loading branch', () => {
+    mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const safeArea = getByTestId('mock-safe-area-view');
+    expect(safeArea.props.edges).toEqual(['bottom', 'left', 'right']);
+    const header = getByTestId('loading-skeleton');
+    const flatStyle = StyleSheet.flatten(header.props.style) as { paddingTop?: number };
+    expect(flatStyle.paddingTop).toBe(44 + 16);
   });
 });

@@ -169,7 +169,17 @@ export default function TeleorientacaoScreen() {
     // paddingHorizontal={0} porque banner/videoArea/notes/footer já
     // controlam seu próprio respiro horizontal (todos com
     // marginHorizontal/paddingHorizontal: 16 hoje).
-    <ScreenContainer scroll={false} paddingHorizontal={0}>
+    // CQ-15 fix wave (G2 Important #2/#3): diferente de consulta/receituario,
+    // o `footer` aqui é filho FLEX comum (sibling do ScrollView, sem
+    // `position:'absolute'`) — o `paddingBottom:24` que o modo flat do
+    // ScreenContainer aplica por padrão reduz a altura útil do content box e
+    // empurra esse rodapé 24px pra cima da borda real, abrindo uma faixa de
+    // `colors.bg` sob a barra `bgElev`/`borderTop`. `style={{paddingBottom:0}}`
+    // cancela isso. (Em `consulta`/`receituario` o rodapé É absoluto com
+    // `bottom:0` — nesse caso o Yoga usa só a borda pra ancorar, não o
+    // padding, então lá o mesmo cancelamento é inócuo; ver os comentários
+    // daquelas duas telas.)
+    <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
         {/* Banner CFMV */}
         <KCCard style={styles.bannerCard} testID="cfmv-banner">

@@ -284,7 +284,12 @@ export default function AgendaScreen() {
     // responsivo dele por cima somaria aos paddings locais em vez de
     // substituí-los. O ganho aqui é `maxContentWidth` + centralização +
     // SafeAreaView compartilhada, não o padding.
-    <ScreenContainer scroll={false} paddingHorizontal={0}>
+    // CQ-15 fix wave (G2 Important #2, por consistência): `style={{paddingBottom:0}}`
+    // cancela o `paddingBottom:24` do modo flat, que encolheria o filho flex
+    // (o `ScrollView` da lista) em 24px. Sem efeito visível aqui (mesma cor
+    // de fundo), mas aplicado pela mesma razão que em `teleorientacao`, para
+    // não deixar a tela dependente de o fundo ser opaco pra mascarar o corte.
+    <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       <View style={styles.weekNav}>
         <TouchableOpacity
           onPress={goToPrevWeek}

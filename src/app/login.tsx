@@ -4,17 +4,16 @@ import {
   Text,
   StyleSheet,
   KeyboardAvoidingView,
-  ScrollView,
   Platform,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -40,10 +39,15 @@ function getLoginErrorMessage(error: unknown): string {
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    safe: { flex: 1, backgroundColor: colors.bg },
     flex: { flex: 1 },
-    scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
-    brandBlock: { alignItems: 'center', marginBottom: 48 },
+    // CQ-15 fix wave: `paddingVertical: 40` do antigo `scroll`
+    // (`flexGrow:1, justifyContent:'center', ...`) não tem equivalente
+    // direto no modo scroll do ScreenContainer — ele não expõe override de
+    // `contentContainerStyle`, só `style` (aplicado ao próprio ScrollView).
+    // Aproximado com marginTop/marginBottom no brandBlock em vez de
+    // centralização vertical via flex; não é pixel-idêntico ao layout
+    // anterior, registrado aqui em vez de alegado como equivalente.
+    brandBlock: { alignItems: 'center', marginTop: 40, marginBottom: 48 },
     brand: {
       fontFamily: 'Cormorant_500Medium',
       fontSize: 36,
@@ -81,97 +85,94 @@ export default function LoginScreen() {
     doLogin(data);
   };
 
-  // CQ-15: decisão deliberada de NÃO adotar ScreenContainer aqui — verificada,
-  // não presumida. Duas razões:
-  // 1) `layout.maxContentWidth` (1200px) é calibrado para "largura de
-  //    leitura de painel de gestão" (dashboard, agenda, formulários em
-  //    grade — ver o comentário em tokens.ts), não para um formulário de
-  //    login centralizado, que quer algo perto de 400-480px. Adotar o
-  //    container aqui daria a impressão de "responsividade resolvida"
-  //    enquanto os campos continuariam esticando quase de borda a borda em
-  //    desktop — pior que não mexer, porque parece corrigido sem estar.
-  //    ScreenContainer não expõe um `maxWidth` customizável hoje, e criar
-  //    essa variante só para 2 telas está fora do escopo desta task.
-  // 2) `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` — verificado
-  //    contra o código-fonte do react-native-web
-  //    (KeyboardAvoidingView/index.js): a prop `behavior` é desestruturada e
-  //    DESCARTADA, o componente web renderiza um <View> puro. Ou seja, na
-  //    web esse condicional é morto — 'padding' e 'height' produzem
-  //    exatamente o mesmo resultado (nenhum). Não é um bug a corrigir, só
-  //    uma armadilha de leitura: o código parece ter um comportamento
-  //    Platform-dependente na web que na prática não existe.
+  // CQ-15 fix wave (G2 vetor F — a G2 provou por execução que a alegação
+  // anterior aqui era falsa: `ScreenContainer` sempre aceitou um `maxWidth`
+  // sobrescrito via `style` no modo flat; o problema real era que isso era
+  // capacidade acidental, não API, e não funcionava no modo scroll). Migrada
+  // com a prop `maxWidth` explícita nova (~3 linhas em ScreenContainer.tsx),
+  // não com a variante que a G2 rejeitou. `maxWidth={480}` — largura de
+  // formulário de login/registro, bem menor que `layout.maxContentWidth`
+  // (1200px, calibrado para painel de gestão, não formulário centralizado).
+  // `KeyboardAvoidingView` continua fora do `ScreenContainer` (que não expõe
+  // slot pra isso) — comportamento `behavior={Platform.OS === 'ios' ?
+  // 'padding' : 'height'}` verificado contra o código-fonte do
+  // react-native-web (KeyboardAvoidingView/index.js): a prop `behavior` é
+  // desestruturada e DESCARTADA lá, então o condicional é morto SÓ no alvo
+  // web — em iOS/Android nativo o `behavior` tem efeito real. Não é um bug a
+  // corrigir, é uma armadilha de leitura documentada.
+  // Caveat aceito, não corrigido: o `ScrollView` interno do ScreenContainer
+  // não expõe `keyboardShouldPersistTaps` (o antigo tinha `"handled"`) — sem
+  // isso, o padrão nativo é `"never"`: um toque no botão "Entrar" enquanto o
+  // campo de senha está focado pode primeiro fechar o teclado em vez de
+  // disparar o submit, exigindo um segundo toque. `ScreenContainer` não
+  // expõe hoje um jeito de repassar props arbitrárias de `ScrollView` — fora
+  // do escopo desta task (que autorizou só a prop `maxWidth`).
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.brandBlock}>
-            <KCIcon name="paw" size={48} color={colors.primary} />
-            <Text style={styles.brand}>{STRINGS.app.name}</Text>
-            <Text style={styles.brandSub}>Acesso veterinário</Text>
-          </View>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.flex}
+    >
+      <ScreenContainer maxWidth={480} paddingHorizontal={24}>
+        <View style={styles.brandBlock}>
+          <KCIcon name="paw" size={48} color={colors.primary} />
+          <Text style={styles.brand}>{STRINGS.app.name}</Text>
+          <Text style={styles.brandSub}>Acesso veterinário</Text>
+        </View>
 
-          <View style={styles.form}>
-            <Controller
-              control={control}
-              name="dsEmail"
-              render={({ field, fieldState }) => (
-                <KCTextField
-                  label={STRINGS.auth.email}
-                  placeholder={STRINGS.auth.emailPlaceholder}
-                  value={field.value}
-                  onChangeText={field.onChange}
-                  onBlur={field.onBlur}
-                  error={fieldState.error?.message}
-                  keyboardType="email-address"
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="dsSenha"
-              render={({ field, fieldState }) => (
-                <KCTextField
-                  label={STRINGS.auth.senha}
-                  placeholder={STRINGS.auth.senhaPlaceholder}
-                  value={field.value}
-                  onChangeText={field.onChange}
-                  onBlur={field.onBlur}
-                  error={fieldState.error?.message}
-                  secureTextEntry
-                />
-              )}
-            />
-
-            {error !== null && (
-              <KCChip tone="clay">{getLoginErrorMessage(error)}</KCChip>
+        <View style={styles.form}>
+          <Controller
+            control={control}
+            name="dsEmail"
+            render={({ field, fieldState }) => (
+              <KCTextField
+                label={STRINGS.auth.email}
+                placeholder={STRINGS.auth.emailPlaceholder}
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                keyboardType="email-address"
+              />
             )}
+          />
 
-            <KCButton
-              onPress={handleSubmit(onSubmit)}
-              loading={isPending}
-              style={styles.submitBtn}
-            >
-              {STRINGS.auth.login}
-            </KCButton>
+          <Controller
+            control={control}
+            name="dsSenha"
+            render={({ field, fieldState }) => (
+              <KCTextField
+                label={STRINGS.auth.senha}
+                placeholder={STRINGS.auth.senhaPlaceholder}
+                value={field.value}
+                onChangeText={field.onChange}
+                onBlur={field.onBlur}
+                error={fieldState.error?.message}
+                secureTextEntry
+              />
+            )}
+          />
 
-            <TouchableOpacity
-              onPress={() => router.push('/register')}
-              style={styles.registerLink}
-              testID="login-register-link"
-            >
-              <Text style={styles.registerLinkText}>Cadastrar clínica</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          {error !== null && (
+            <KCChip tone="clay">{getLoginErrorMessage(error)}</KCChip>
+          )}
+
+          <KCButton
+            onPress={handleSubmit(onSubmit)}
+            loading={isPending}
+            style={styles.submitBtn}
+          >
+            {STRINGS.auth.login}
+          </KCButton>
+
+          <TouchableOpacity
+            onPress={() => router.push('/register')}
+            style={styles.registerLink}
+            testID="login-register-link"
+          >
+            <Text style={styles.registerLinkText}>Cadastrar clínica</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenContainer>
+    </KeyboardAvoidingView>
   );
 }
