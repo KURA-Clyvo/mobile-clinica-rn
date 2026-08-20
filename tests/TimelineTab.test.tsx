@@ -10,9 +10,18 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn() }),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
+// CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
+// tinha `useSafeAreaInsets`, o que derrubaria o render com "Element type is
+// invalid" assim que a tela passasse a importar ScreenContainer.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
+      React.createElement(View, { style }, children),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
 
 jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
 jest.mock('@hooks/usePetTimeline', () => ({ usePetTimeline: jest.fn() }));

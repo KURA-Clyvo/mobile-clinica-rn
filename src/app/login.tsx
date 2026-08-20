@@ -81,6 +81,25 @@ export default function LoginScreen() {
     doLogin(data);
   };
 
+  // CQ-15: decisão deliberada de NÃO adotar ScreenContainer aqui — verificada,
+  // não presumida. Duas razões:
+  // 1) `layout.maxContentWidth` (1200px) é calibrado para "largura de
+  //    leitura de painel de gestão" (dashboard, agenda, formulários em
+  //    grade — ver o comentário em tokens.ts), não para um formulário de
+  //    login centralizado, que quer algo perto de 400-480px. Adotar o
+  //    container aqui daria a impressão de "responsividade resolvida"
+  //    enquanto os campos continuariam esticando quase de borda a borda em
+  //    desktop — pior que não mexer, porque parece corrigido sem estar.
+  //    ScreenContainer não expõe um `maxWidth` customizável hoje, e criar
+  //    essa variante só para 2 telas está fora do escopo desta task.
+  // 2) `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` — verificado
+  //    contra o código-fonte do react-native-web
+  //    (KeyboardAvoidingView/index.js): a prop `behavior` é desestruturada e
+  //    DESCARTADA, o componente web renderiza um <View> puro. Ou seja, na
+  //    web esse condicional é morto — 'padding' e 'height' produzem
+  //    exatamente o mesmo resultado (nenhum). Não é um bug a corrigir, só
+  //    uma armadilha de leitura: o código parece ter um comportamento
+  //    Platform-dependente na web que na prática não existe.
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView

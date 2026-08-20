@@ -121,6 +121,14 @@ export default function RegisterScreen() {
     doRegister(registerData as RegisterClinicaRequest);
   };
 
+  // CQ-15: mesma decisão deliberada de NÃO adotar ScreenContainer que em
+  // login.tsx (ver o comentário lá para a análise completa) — o
+  // `maxContentWidth` de 1200px do container é calibrado para painel de
+  // gestão, não para um formulário centralizado como este; e
+  // `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` é
+  // comprovadamente inerte na web (react-native-web descarta a prop
+  // `behavior` e renderiza um <View> puro), então não há bug de
+  // `KeyboardAvoidingView` a corrigir aqui.
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
