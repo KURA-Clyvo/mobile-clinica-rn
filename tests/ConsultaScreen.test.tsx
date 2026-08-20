@@ -299,4 +299,14 @@ describe('ConsultaScreen — ScreenContainer adoption (CQ-15)', () => {
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
+
+  // CQ-15 fix wave rodada 3 (G2 rodada 2, Minor #3): a G2 reproduziu que
+  // remover `paddingHorizontal={0}` deixava a suíte inteira verde — o header
+  // do pet, o form e o rodapé já controlam seu próprio respiro horizontal.
+  it('applies paddingHorizontal:0 (header/form/footer control their own horizontal padding)', () => {
+    const { getByTestId } = wrap(<ConsultaScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
+    expect(flatStyle.paddingHorizontal).toBe(0);
+  });
 });

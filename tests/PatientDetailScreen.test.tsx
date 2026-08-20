@@ -207,4 +207,16 @@ describe('PatientDetailScreen — ScreenContainer adoption (CQ-15)', () => {
     const flatStyle = StyleSheet.flatten(header.props.style) as { paddingTop?: number };
     expect(flatStyle.paddingTop).toBe(44 + 16);
   });
+
+  // CQ-15 fix wave rodada 3 (G2 rodada 2, Minor #3): a G2 reproduziu que
+  // remover `justifyContent:'center'` do ramo de erro deixava a suíte
+  // inteira verde — sem ele o cartão de erro fica colado no topo em vez de
+  // centralizado verticalmente na tela (scroll={false}, flex:1).
+  it('centers the error card vertically in the error branch', () => {
+    mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { justifyContent?: string };
+    expect(flatStyle.justifyContent).toBe('center');
+  });
 });

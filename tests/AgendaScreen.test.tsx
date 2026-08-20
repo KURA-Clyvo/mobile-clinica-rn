@@ -197,4 +197,16 @@ describe('AgendaScreen — ScreenContainer adoption (CQ-15)', () => {
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
+
+  // CQ-15 fix wave rodada 3 (G2 rodada 2, Minor #3): a G2 reproduziu que
+  // remover `paddingHorizontal={0}` deixava a suíte inteira verde — a tela
+  // já controla o próprio respiro (listContent: padding:16), e um respiro
+  // do container por cima duplicaria a margem lateral.
+  it('applies paddingHorizontal:0 (the screen controls its own horizontal padding)', () => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    const { getByTestId } = wrap(<AgendaScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
+    expect(flatStyle.paddingHorizontal).toBe(0);
+  });
 });

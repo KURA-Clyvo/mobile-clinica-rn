@@ -166,4 +166,14 @@ describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
     // padrão, disparando "VirtualizedLists should never be nested").
     expect(UNSAFE_queryAllByType(ScrollView).length).toBe(1);
   });
+
+  // CQ-15 fix wave rodada 3 (G2 rodada 2, Minor #3): a G2 reproduziu que
+  // remover `paddingHorizontal={0}` deixava a suíte inteira verde — a
+  // FlatList já controla seu próprio respiro (listContent: paddingBottom:80).
+  it('applies paddingHorizontal:0 (the list controls its own horizontal padding)', () => {
+    const { getByTestId } = wrap(<PacientesScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
+    expect(flatStyle.paddingHorizontal).toBe(0);
+  });
 });
