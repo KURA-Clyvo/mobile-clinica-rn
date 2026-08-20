@@ -282,7 +282,15 @@ export default function DashboardScreen() {
   const appointmentRows = chunk(recentes ?? [], listColumns);
   const alertRows = chunk(alertas ?? [], listColumns);
   const skeletonAppointmentRows = chunk([0, 1, 2] as const, listColumns);
-  const skeletonAlertRows = chunk([0, 1] as const, listColumns);
+  // CQ-06 G2 fix wave, RODADA 2 (I-2): eram 2 placeholders (`[0, 1]`). Com
+  // `listColumns` só assumindo 1 ou 2, 2 itens dividem SEMPRE exato
+  // (2÷1=2 linhas de 1, 2÷2=1 linha de 2) — `missing` em `rowSpacers()`
+  // nunca passava de 0 ali, então a chamada daquele call site era
+  // matematicamente inerte e nenhum teste conseguiria provar sua remoção.
+  // 3 placeholders (igual ao de atendimentos) faz `lg`/`xl` produzirem uma
+  // linha incompleta de verdade, tornando o call site observável. Não
+  // muda dado real — só a contagem de barras cinzas durante o loading.
+  const skeletonAlertRows = chunk([0, 1, 2] as const, listColumns);
 
   return (
     <ScreenContainer

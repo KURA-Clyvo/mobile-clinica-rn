@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
@@ -216,6 +217,21 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
   // estrutural da árvore (não lê `style`/px, que o react-test-renderer não
   // computa) — é o que prova, sem medir largura, que o item solitário de
   // uma linha ímpar deixou de ocupar a linha inteira sozinho.
+  //
+  // CQ-06 G2 fix wave, RODADA 2 (I-1/M-1/M-3/M-5): a contagem de nós sozinha
+  // NÃO prova que o espaçador cumpre a função — um `<View />` sem `style`
+  // conta como filho igual a um com `flex: 1`, mas tem largura 0 em Yoga e
+  // deixa o item solitário voltar a ocupar 100% da linha (o defeito B de
+  // volta). A restrição real do `react-test-renderer` é não computar
+  // LAYOUT (px, `onLayout`), não "não enxergar estilo" — `toJSON()` ecoa o
+  // estilo declarado (ver comentário de `rowSpacers` em dashboard.tsx), e
+  // ler esse estilo é exatamente o que faltava. Por isso, além da
+  // cardinalidade, também asseramos: (a) todo filho direto da linha — item
+  // real E espaçador — carrega `flex: 1`, o que faz cada um dividir a
+  // largura igualmente; (b) a própria `View` da linha é de fato uma linha
+  // flex (`flexDirection: 'row'`) com o `gap: 10` correto — sem isso a tela
+  // vira 1 coluna empilhada ou perde o espaçamento entre colunas sem
+  // nenhum sinal na contagem de filhos.
   function expectRowsGroupedIntoColumns(rows: ReactTestInstance[], itemTestId: string, totalItems: number, columns: number) {
     const expectedRowCount = Math.ceil(totalItems / columns);
     expect(rows).toHaveLength(expectedRowCount);
@@ -223,6 +239,10 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
       const itemsInThisRow = Math.min(columns, totalItems - i * columns);
       expect(within(row).getAllByTestId(itemTestId)).toHaveLength(itemsInThisRow);
       expect(row.children.length).toBe(columns);
+      expect(StyleSheet.flatten(row.props.style)).toMatchObject({ flexDirection: 'row', gap: 10 });
+      row.children.forEach((child) => {
+        expect(StyleSheet.flatten((child as ReactTestInstance).props.style)).toMatchObject({ flex: 1 });
+      });
     });
   }
 
@@ -301,6 +321,42 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
         // Sanity: todos os itens continuam presentes.
         expect(getAllByTestId('appointments-item')).toHaveLength(3);
         expect(getAllByTestId('alerts-item')).toHaveLength(3);
+
+        // CQ-06 G2 fix wave, RODADA 2 (M-2/mutação "chunk() inverte a
+        // ordem"): `row.children.length`/`flex: 1` provam COLUNA, não
+        // ORDEM — `chunk()` invertendo os itens dentro de uma linha (ex.:
+        // `.slice().reverse()`) não muda cardinalidade nem estilo, só
+        // ordem. A ordem de "próximos atendimentos"/"alertas" é relevante
+        // para quem usa a tela, então comparamos o `item`/`alerta` de
+        // verdade que cada wrapper `testID="appointments-item"`/
+        // `"alerts-item"` recebeu (via `.children[0].props`, o componente
+        // filho direto — `AppointmentRow`/`AlertCard` — antes de qualquer
+        // render interno) contra a ordem original do mock, em sequência
+        // através de TODAS as linhas.
+        const appointmentIds = getAllByTestId('appointments-item').map(
+          (view) => (view.children[0] as ReactTestInstance).props.item.id,
+        );
+        expect(appointmentIds).toEqual(MOCK_RECENTES_3.map((item) => item.id));
+
+        const alertIds = getAllByTestId('alerts-item').map(
+          (view) => (view.children[0] as ReactTestInstance).props.alerta.id,
+        );
+        expect(alertIds).toEqual(MOCK_ALERTAS_3.map((alerta) => alerta.id));
+
+        // CQ-06 G2 fix wave, RODADA 2 (M-4/mutações M6+M7 — fix do achado
+        // H.2 inteiro): nem `alertCardInGrid: { flex: 1, marginBottom: 0 }`
+        // nem a passagem do prop `style` de `dashboard.tsx` para
+        // `<AlertCard>` tinham qualquer teste — reverter os dois (ou só um)
+        // não derrubava nenhum sinal. `view.children[0]` é a instância
+        // composta de `<AlertCard>` dentro do wrapper `alerts-item`, e
+        // `.props.style` é exatamente o que `dashboard.tsx` passou —
+        // achatamos e conferimos as duas metades do fix H.2 em conjunto.
+        const alertCardStyles = getAllByTestId('alerts-item').map((view) =>
+          StyleSheet.flatten((view.children[0] as ReactTestInstance).props.style),
+        );
+        alertCardStyles.forEach((style) => {
+          expect(style).toMatchObject({ flex: 1, marginBottom: 0 });
+        });
       },
     );
   });
@@ -321,14 +377,56 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
 
       const appointmentRows = getAllByTestId('appointments-row');
       const alertRows = getAllByTestId('alerts-row');
-      expect(appointmentRows).toHaveLength(1);
-      expect(alertRows).toHaveLength(1);
-      expect(within(appointmentRows[0]).getAllByTestId('appointments-item')).toHaveLength(1);
-      expect(within(alertRows[0]).getAllByTestId('alerts-item')).toHaveLength(1);
-      // 2 colunas em xl: 1 item real + 1 espaçador = 2 filhos.
-      expect(appointmentRows[0].children.length).toBe(2);
-      expect(alertRows[0].children.length).toBe(2);
+      // CQ-06 G2 fix wave, RODADA 2 (I-1): reaproveita a mesma
+      // `expectRowsGroupedIntoColumns` do bloco acima — 2 colunas em xl, 1
+      // item real e 1 espaçador por linha, e o espaçador tem que carregar
+      // `flex: 1` de verdade (não só existir como nó) para provar que ele
+      // ocupa a coluna, não só a contagem de filhos.
+      expectRowsGroupedIntoColumns(appointmentRows, 'appointments-item', 1, 2);
+      expectRowsGroupedIntoColumns(alertRows, 'alerts-item', 1, 2);
     });
+  });
+
+  // CQ-06 G2 fix wave, RODADA 2 (I-2) — os 2 call sites de SKELETON do
+  // achado B (`appointments-skeleton-row` em dashboard.tsx:350,
+  // `alerts-skeleton-row` em :387) não tinham nenhum teste: removendo
+  // `rowSpacers(...)` das duas linhas, a suíte inteira continuava verde. A
+  // rodada 1 já tinha nomeado `appointments-skeleton-row` explicitamente no
+  // achado B ("a terceira barra cinza nasce com o dobro da largura").
+  //
+  // `skeletonAppointmentRows = chunk([0,1,2], listColumns)` já produzia
+  // resto em `lg`/`xl` (2 colunas: linha de 2 + linha de 1) — coberto
+  // diretamente. `skeletonAlertRows`, porém, tinha só 2 placeholders
+  // (`chunk([0,1], listColumns)`): com `listColumns` só assumindo 1 ou 2,
+  // `missing = columns - itemsInRow` é SEMPRE 0 (2÷1=2 linhas de 1 cada,
+  // 2÷2=1 linha de 2) — ou seja, a chamada de `rowSpacers` naquele call
+  // site era matematicamente inerte para qualquer viewport testável, e
+  // nenhum teste, por mais bem escrito que fosse, conseguiria provar a
+  // remoção dela sem mudar o dado de origem. Por isso `skeletonAlertRows`
+  // passou a usar 3 placeholders (`[0,1,2]`, igual ao de atendimentos) —
+  // mudança mínima de produto, feita só para tornar o call site
+  // observável; não muda nenhum comportamento de dado real (é só a
+  // contagem de barras cinzas exibidas durante o loading).
+  describe('appointments and alerts skeleton lists — column count across the lg band', () => {
+    beforeEach(() => {
+      mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+      mockUseAlertas.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: REFETCH });
+      mockUseRecentes.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: REFETCH });
+    });
+
+    it.each(LIST_VIEWPORTS)(
+      'pads incomplete skeleton rows to $expectedColumns column(s) per row at $label',
+      ({ width, height, expectedColumns }) => {
+        setViewport(width, height);
+        const { getAllByTestId } = wrap(<DashboardScreen />);
+
+        const appointmentSkeletonRows = getAllByTestId('appointments-skeleton-row');
+        const alertSkeletonRows = getAllByTestId('alerts-skeleton-row');
+
+        expectRowsGroupedIntoColumns(appointmentSkeletonRows, 'skeleton', 3, expectedColumns);
+        expectRowsGroupedIntoColumns(alertSkeletonRows, 'skeleton', 3, expectedColumns);
+      },
+    );
   });
 
   // PROVA DE MUTAÇÃO (achado E1) — documentada aqui em comentário porque a
