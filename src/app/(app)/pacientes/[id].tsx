@@ -2,18 +2,17 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import { usePetTimeline } from '@hooks/usePetTimeline';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCCard } from '@components/primitives/KCCard';
@@ -243,7 +242,6 @@ export default function PacienteDetailScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabKey>('timeline');
 
@@ -251,8 +249,13 @@ export default function PacienteDetailScreen() {
 
   if (isLoading) {
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} testID="loading-skeleton">
-        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      // CQ-15: paddingHorizontal={0} — header/actionRow/KCCard já controlam
+      // seu próprio respiro horizontal, e o `header` em especial é uma
+      // faixa colorida de borda a borda (`backgroundColor: colors.primary`
+      // com padding, não margin) — um paddingHorizontal do container por
+      // cima a encolheria para um cartão flutuante em vez de faixa cheia.
+      <ScreenContainer paddingHorizontal={0}>
+        <View testID="loading-skeleton" style={[styles.header, { paddingTop: 16 }]}>
           <View style={styles.skeletonCircle} />
           <View style={[styles.skeletonText, { width: 120, marginTop: 12 }]} />
           <View style={[styles.skeletonText, { width: 80, marginTop: 6 }]} />
@@ -266,13 +269,13 @@ export default function PacienteDetailScreen() {
           <View style={[styles.skeletonText, { width: '70%', marginBottom: 8 }]} />
           <View style={[styles.skeletonText, { width: '50%' }]} />
         </KCCard>
-      </ScrollView>
+      </ScreenContainer>
     );
   }
 
   if (isError || !pet) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center' }}>
+      <ScreenContainer scroll={false} style={{ justifyContent: 'center' }}>
         <KCCard style={styles.errorCard}>
           <KCIcon name="alert" size={40} color={colors.danger} />
           <Text style={styles.errorText}>Paciente não encontrado</Text>
@@ -280,7 +283,7 @@ export default function PacienteDetailScreen() {
             {STRINGS.acoes.voltar}
           </KCButton>
         </KCCard>
-      </View>
+      </ScreenContainer>
     );
   }
 
@@ -290,9 +293,13 @@ export default function PacienteDetailScreen() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} testID="pet-detail-scroll">
+    // CQ-15: mesmo raciocínio do bloco de loading acima — paddingHorizontal={0}
+    // porque o `header` é faixa colorida de borda a borda, e `paddingTop: 16`
+    // (sem `insets.top +`) porque o SafeAreaView do ScreenContainer já cobre
+    // o inset do topo uma vez; somar os dois duplicaria o respiro do notch.
+    <ScreenContainer paddingHorizontal={0}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <View style={[styles.header, { paddingTop: 16 }]}>
         <KCPetPortrait palette={racaToPalette(pet.nmRaca)} size={96} ring />
         <Text style={styles.petName}>{pet.nmPet}</Text>
         <Text style={styles.petSubtitle}>{`${pet.nmRaca} · ${pet.nmEspecie}`}</Text>
@@ -404,6 +411,6 @@ export default function PacienteDetailScreen() {
         {activeTab === 'vacinas' && <StubTab label="Vacinas em breve" />}
         {activeTab === 'docs' && <StubTab label="Documentos em breve" />}
       </View>
-    </ScrollView>
+    </ScreenContainer>
   );
 }
