@@ -111,3 +111,36 @@ export const fonts = {
   bodyMedium: 'Lexend_500Medium',
   mono: 'JetBrainsMono_400Regular',
 } as const;
+
+// Breakpoints de viewport (largura mínima, em px, para cada faixa).
+// `sm` é a faixa "base" (celular em pé) e começa em 0 de propósito — todo
+// layout parte do menor viewport e vai ganhando espaço a partir daí (mobile-first).
+// `md` (768) é o limiar clássico de tablet retrato (iPad = 768×1024 em pontos,
+// e é o valor que Bootstrap/Tailwind usam para "tablet"), `lg` (1024) é
+// paisagem de tablet / notebook pequeno, `xl` (1440) é monitor de desktop —
+// o app agora roda em web (CQ-02) e o painel de gestão da clínica é usado de
+// notebook/monitor com frequência real, não só de celular.
+//
+// Regra dura desta task (CQ-04): nenhum número de largura de viewport pode
+// existir fora deste arquivo. `useBreakpoint` e `ScreenContainer` importam
+// daqui — nunca reescrever 768/1024/1440 em outro arquivo.
+export const breakpoints = {
+  sm: 0,
+  md: 768,
+  lg: 1024,
+  xl: 1440,
+} as const;
+
+export type BreakpointKey = keyof typeof breakpoints;
+
+export const layout = {
+  // Largura de leitura confortável para um painel de gestão (dashboard,
+  // relatório de triagens, agenda) — não é o mesmo critério de uma coluna de
+  // texto corrido (~65-75 caracteres, ~600-700px), é largura de conteúdo
+  // *estruturado* (cards, tabelas, formulários em grade). 1200px é o valor
+  // que Bootstrap/Material usam para o container "xl" de aplicações de
+  // gestão, e cabe com folga abaixo do breakpoint `xl` (1440) — em monitor
+  // de 1440px sobra ~120px de respiro de cada lado antes mesmo de contar o
+  // padding interno, em vez de esticar o conteúdo de borda a borda.
+  maxContentWidth: 1200,
+} as const;
