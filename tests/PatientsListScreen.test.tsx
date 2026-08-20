@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
@@ -147,5 +147,23 @@ describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
+  });
+
+  // CQ-15 fix wave (G2 Important #6/vetor I.1): mordida — a G2 reproduziu que
+  // remover `scroll={false}` (a decisão que protege a virtualização da
+  // FlatList de ser aninhada num ScrollView) deixava a suíte inteira verde,
+  // sem sequer o aviso "VirtualizedLists should never be nested". A FlatList
+  // já virtualiza sozinha (`getItemLayout`/`removeClippedSubviews`); se
+  // `scroll={false}` sumir, o ScreenContainer volta ao modo scroll padrão e
+  // passa a envolver a FlatList num ScrollView — nested VirtualizedLists.
+  it('does not nest the virtualized FlatList inside a ScrollView (scroll={false})', () => {
+    const { UNSAFE_queryAllByType } = wrap(<PacientesScreen />);
+    // FlatList é construída sobre VirtualizedList, que já renderiza o
+    // próprio ScrollView internamente — por isso a asserção não é "zero
+    // ScrollView na árvore", é "só o ScrollView interno da própria
+    // FlatList", nunca um segundo envolvendo tudo (o que aconteceria se
+    // `scroll={false}` sumisse e o ScreenContainer voltasse ao modo scroll
+    // padrão, disparando "VirtualizedLists should never be nested").
+    expect(UNSAFE_queryAllByType(ScrollView).length).toBe(1);
   });
 });

@@ -9,8 +9,15 @@ jest.mock('react-native-safe-area-context', () => {
   const React = require('react');
   const { View } = require('react-native');
   return {
-    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
-      React.createElement(View, { style }, children),
+    SafeAreaView: ({
+      children,
+      style,
+      edges,
+    }: {
+      children: React.ReactNode;
+      style?: unknown;
+      edges?: unknown;
+    }) => React.createElement(View, { style, edges, testID: 'mock-safe-area-view' }, children),
     useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
   };
 });
@@ -169,5 +176,66 @@ describe('ScreenContainer — responsive (CQ-04)', () => {
       getByTestId('screen-container-content').props.style,
     ) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
+  });
+
+  // CQ-15 fix wave (G2 vetor F): a G2 provou por execução que a alegação de
+  // "ScreenContainer não expõe um maxWidth customizável" era falsa —
+  // sobrescrever via `style` já funcionava no modo flat (capacidade
+  // acidental, por ordem de array), só não no modo scroll. A prop
+  // `maxWidth` explícita substitui essa capacidade acidental por uma API
+  // real, retrocompatível (default = layout.maxContentWidth nos dois modos
+  // — as 8 telas que já consomem ScreenContainer sem passar `maxWidth`
+  // continuam com o valor de sempre, provado pelas próprias mordidas delas
+  // que continuam verdes sem alteração).
+  it('explicit maxWidth prop overrides layout.maxContentWidth in scroll mode', () => {
+    setViewport(1440, 900);
+    const { getByTestId } = wrap(
+      <ScreenContainer maxWidth={480}><Text>Content</Text></ScreenContainer>,
+    );
+    const flatStyle = StyleSheet.flatten(
+      getByTestId('screen-container-content').props.style,
+    ) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(480);
+  });
+
+  it('explicit maxWidth prop overrides layout.maxContentWidth in flat mode too', () => {
+    setViewport(1440, 900);
+    const { getByTestId } = wrap(
+      <ScreenContainer scroll={false} maxWidth={480}><Text>Content</Text></ScreenContainer>,
+    );
+    const flatStyle = StyleSheet.flatten(
+      getByTestId('screen-container-content').props.style,
+    ) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(480);
+  });
+
+  it('omitting maxWidth keeps the default layout.maxContentWidth (backward compatible)', () => {
+    setViewport(1440, 900);
+    const { getByTestId } = wrap(
+      <ScreenContainer><Text>Content</Text></ScreenContainer>,
+    );
+    const flatStyle = StyleSheet.flatten(
+      getByTestId('screen-container-content').props.style,
+    ) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
+  });
+});
+
+// CQ-15 fix wave (G2 Important #1): `edges` repassado ao SafeAreaView
+// interno — omitido = comportamento padrão da lib (todas as bordas),
+// preservando as 8 telas que já usam ScreenContainer sem essa prop.
+describe('ScreenContainer — edges prop (CQ-15 fix wave)', () => {
+  it('does not pass an edges prop to the inner SafeAreaView when omitted (default = all edges)', () => {
+    const { getByTestId } = wrap(
+      <ScreenContainer><Text>Content</Text></ScreenContainer>,
+    );
+    expect(getByTestId('mock-safe-area-view').props.edges).toBeUndefined();
+  });
+
+  it('forwards an explicit edges array to the inner SafeAreaView', () => {
+    const { getByTestId } = wrap(
+      <ScreenContainer edges={['bottom', 'left', 'right']}><Text>Content</Text></ScreenContainer>,
+    );
+    expect(getByTestId('mock-safe-area-view').props.edges).toEqual(['bottom', 'left', 'right']);
   });
 });

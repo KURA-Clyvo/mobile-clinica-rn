@@ -216,4 +216,18 @@ describe('TeleorientacaoScreen — ScreenContainer adoption (CQ-15)', () => {
     const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
     expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
+
+  // CQ-15 fix wave (G2 Important #2/#3): diferente de consulta/receituario,
+  // o rodapé desta tela (`footer`) é filho FLEX comum, não
+  // `position:'absolute'` — o `paddingBottom:24` que o modo flat do
+  // ScreenContainer aplica por padrão encolhia a altura útil do content box
+  // e empurrava o rodapé 24px pra cima da borda real, abrindo uma faixa de
+  // `colors.bg` visível sob a barra `bgElev`/`borderTop`.
+  // `style={{paddingBottom:0}}` cancela isso.
+  it('cancels the flat-mode default paddingBottom:24 so the flex footer sits flush with the bottom edge', () => {
+    const { getByTestId } = wrap(<TeleorientacaoScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingBottom?: number };
+    expect(flatStyle.paddingBottom).toBe(0);
+  });
 });

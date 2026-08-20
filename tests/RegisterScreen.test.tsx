@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import RegisterScreen from '../src/app/register';
@@ -204,5 +205,17 @@ describe('LoginScreen register link', () => {
     const { getByTestId } = wrap(<LoginScreen />);
     fireEvent.press(getByTestId('login-register-link'));
     expect(mockPush).toHaveBeenCalledWith('/register');
+  });
+});
+
+// CQ-15 fix wave (G2 vetor F): mesma correção de LoginScreen.test.tsx (ver
+// lá para a análise completa) — migrada com a prop `maxWidth` explícita
+// nova do ScreenContainer.
+describe('RegisterScreen — ScreenContainer maxWidth adoption (CQ-15 fix wave)', () => {
+  it('constrains the form to maxWidth={480}, not layout.maxContentWidth (1200px)', () => {
+    const { getByTestId } = wrap(<RegisterScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(480);
   });
 });

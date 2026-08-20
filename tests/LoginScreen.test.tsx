@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import LoginScreen from '../src/app/login';
@@ -136,5 +137,21 @@ describe('LoginScreen', () => {
     fireEvent.press(getByText('Entrar'));
 
     await findByText('Sem conexão. Verifique sua internet.');
+  });
+});
+
+// CQ-15 fix wave (G2 vetor F): a G2 provou que a justificativa anterior pra
+// NÃO migrar esta tela ("ScreenContainer não expõe maxWidth customizável")
+// era falsa por execução, e que a alternativa real não migrada era pior
+// (1872px de largura livre num monitor 1920, sem nenhuma restrição) do que
+// os 1200px que o backlog original queria evitar. Migrada com a prop
+// `maxWidth` explícita nova — mordida: falha contra a tela sem
+// ScreenContainer/maxWidth={480}, passa depois da adoção.
+describe('LoginScreen — ScreenContainer maxWidth adoption (CQ-15 fix wave)', () => {
+  it('constrains the form to maxWidth={480}, not layout.maxContentWidth (1200px)', () => {
+    const { getByTestId } = wrap(<LoginScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(480);
   });
 });
