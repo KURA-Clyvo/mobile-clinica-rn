@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
 import type { PetResponse } from '../src/types/api';
+import { layout } from '../src/theme/tokens';
 
 const mockPush = jest.fn();
 
@@ -17,6 +18,20 @@ jest.mock('@hooks/usePets', () => ({
 
 import { usePets } from '../src/hooks/usePets';
 const mockUsePets = usePets as jest.Mock;
+
+// CQ-15: useWindowDimensions é o que useBreakpoint()/ScreenContainer
+// consomem. Este arquivo não mockava react-native-safe-area-context — o
+// mock padrão do preset jest-expo já resolve SafeAreaView de verdade, então
+// nenhuma mudança foi necessária ali.
+const mockUseWindowDimensions = jest.fn(() => ({ width: 400, height: 800, scale: 1, fontScale: 1 }));
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockUseWindowDimensions(),
+}));
+
+function setViewport(width: number, height: number) {
+  mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
 
 const MOCK_REFETCH = jest.fn().mockResolvedValue(undefined);
 
@@ -38,6 +53,7 @@ function wrap(ui: React.ReactElement) {
 beforeEach(() => {
   jest.clearAllMocks();
   mockUsePets.mockReturnValue({ data: MOCK_PETS, isLoading: false, refetch: MOCK_REFETCH });
+  setViewport(400, 800);
 });
 
 describe('PatientsListScreen', () => {
@@ -118,5 +134,18 @@ describe('PatientsListScreen', () => {
     const cta = getByTestId('btn-novo-paciente');
     expect(cta.props.accessibilityRole).toBe('button');
     expect(cta.props.accessibilityLabel).toBe('Novo paciente — funcionalidade em breve');
+  });
+});
+
+// CQ-15: prova de mordida — falha contra a tela sem ScreenContainer (o
+// testID/estilo 'screen-container-content' não existe hoje), passa depois
+// da adoção. Estilo declarado, não px calculado.
+describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
+  it('respects layout.maxContentWidth at 1440×900 (xl)', () => {
+    setViewport(1440, 900);
+    const { getByTestId } = wrap(<PacientesScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
 });
