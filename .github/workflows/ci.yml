@@ -59,3 +59,18 @@ jobs:
       # gate perceba.
       - name: Web export (prova de build da plataforma web)
         run: npx expo export --platform web
+
+      # CQ-16 — Camada A do detector automatizado (não roda outro export;
+      # inspeciona a saída do passo acima, em "dist/", o default do
+      # `expo export`). Falha se algum bundle web contiver `import.meta`
+      # fora de módulo (quebra o parse no browser real, tela em branco) E
+      # falha também se nenhum bundle for encontrado — um `grep` que só
+      # roda quando há match "passaria" em silêncio se o export tivesse
+      # falhado ou mudado de layout, que é exatamente a classe de falso
+      # negativo que este ciclo persegue. Ver
+      # scripts/check-web-bundle-import-meta.sh para o raciocínio completo
+      # e tests/babel-web-import-meta.test.ts para a Camada B (roda em todo
+      # `npm test`, mais rápida, mas cega a mudanças no layout de saída do
+      # Expo CLI — as duas camadas são complementares, não substitutas).
+      - name: Web bundle não deve conter import.meta (CQ-16)
+        run: bash scripts/check-web-bundle-import-meta.sh dist
