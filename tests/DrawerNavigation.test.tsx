@@ -5,6 +5,10 @@ import { ThemeProvider } from '../src/theme';
 import { AppHeader } from '../src/components/layout/AppHeader';
 import { useAuthStore } from '../src/store/authStore';
 
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
@@ -27,10 +31,12 @@ describe('AppHeader', () => {
     expect(getByText('Dashboard')).toBeTruthy();
   });
 
-  it('renders search and bell action buttons', () => {
-    const { getByTestId } = wrap(<AppHeader title="Test" onMenuPress={() => {}} />);
+  it('renders the search action button and no bell (removido — CQ-14, sem feature por trás)', () => {
+    const { getByTestId, queryByTestId } = wrap(
+      <AppHeader title="Test" onMenuPress={() => {}} />,
+    );
     expect(getByTestId('app-header-search')).toBeTruthy();
-    expect(getByTestId('app-header-bell')).toBeTruthy();
+    expect(queryByTestId('app-header-bell')).toBeNull();
   });
 
   it('calls onMenuPress when menu button is pressed', () => {
