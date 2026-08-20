@@ -27,6 +27,7 @@ import {
 } from '@hooks/useEventosClinicos';
 import type { DocumentoResponse } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
+import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
@@ -269,7 +270,12 @@ export default function ReceituarioScreen() {
   const tutor = pet?.tutores[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    // CQ-15: mesma decisão da tela de consulta (mesmo padrão estrutural) —
+    // paddingHorizontal={0} porque header/form/rodapé já controlam seu
+    // próprio respiro, e style={{paddingBottom:0}} cancela o paddingBottom
+    // padrão do modo flat, que deslocaria o rodapé `position:absolute`
+    // para cima da borda real da tela.
+    <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       {/* Header do pet */}
       <View style={styles.petHeader}>
         <KCPetPortrait palette={racaToPalette(pet?.nmRaca ?? '')} size={44} />
@@ -489,6 +495,6 @@ export default function ReceituarioScreen() {
           }
         />
       )}
-    </View>
+    </ScreenContainer>
   );
 }

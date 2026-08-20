@@ -1,9 +1,10 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
+import { layout } from '../src/theme/tokens';
 
 const mockBack = jest.fn();
 const mockMutate = jest.fn();
@@ -24,9 +25,29 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
 }));
 
-jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+// CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
+// tinha `useSafeAreaInsets`, o que derrubaria o render com "Element type is
+// invalid" assim que a tela passasse a importar ScreenContainer.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
+      React.createElement(View, { style }, children),
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  };
+});
+
+// useWindowDimensions é o que useBreakpoint()/ScreenContainer consomem.
+const mockUseWindowDimensions = jest.fn(() => ({ width: 400, height: 800, scale: 1, fontScale: 1 }));
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockUseWindowDimensions(),
 }));
+
+function setViewport(width: number, height: number) {
+  mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
 
 jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
 
@@ -108,6 +129,7 @@ function wrap(ui: React.ReactElement) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  setViewport(400, 800);
   useAuthStore.setState({
     token: 'tok',
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
@@ -385,5 +407,23 @@ describe('ReceituarioScreen', () => {
     await waitFor(() => getByTestId('btn-voltar'));
     fireEvent.press(getByTestId('btn-voltar'));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());
+  });
+});
+
+// CQ-15: prova de mordida — falha contra a tela sem ScreenContainer (o
+// testID/estilo 'screen-container-content' não existe hoje), passa depois da
+// adoção. Estilo declarado, não px calculado.
+describe('ReceituarioScreen — ScreenContainer adoption (CQ-15)', () => {
+  it('respects layout.maxContentWidth at 1440×900 (xl)', () => {
+    setViewport(1440, 900);
+    mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
+    mockUseMedicamentos.mockReturnValue({ data: [], isLoading: false });
+    mockUseCriarPrescricao.mockReturnValue({ mutate: mockMutate, isPending: false });
+    mockUseGerarReceituario.mockReturnValue({ mutate: mockMutateGerarReceituario, isPending: false });
+    mockUseBaixarReceituario.mockReturnValue({ mutate: mockMutateBaixarReceituario, isPending: false });
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    const inner = getByTestId('screen-container-content');
+    const flatStyle = StyleSheet.flatten(inner.props.style) as { maxWidth?: number };
+    expect(flatStyle.maxWidth).toBe(layout.maxContentWidth);
   });
 });
