@@ -127,15 +127,16 @@ export default function RegisterScreen() {
   // comentário lá para a análise completa): migrada com a prop `maxWidth`
   // explícita nova do ScreenContainer, `maxWidth={480}`, em vez de manter
   // não migrada com a justificativa que a G2 provou falsa por execução.
-  // Mesmo caveat aceito e não corrigido: o ScrollView interno do
-  // ScreenContainer não expõe `keyboardShouldPersistTaps` (o antigo tinha
-  // `"handled"`), fora do escopo desta task.
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.flex}
     >
-      <ScreenContainer maxWidth={480} paddingHorizontal={24}>
+      <ScreenContainer
+        maxWidth={480}
+        paddingHorizontal={24}
+        keyboardShouldPersistTaps="handled"
+      >
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.replace('/login')} testID="register-back">
               <KCIcon name="back" size={22} color={colors.text} />

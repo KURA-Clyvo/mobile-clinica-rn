@@ -6,6 +6,7 @@ import {
   StyleProp,
   ViewStyle,
   RefreshControlProps,
+  ScrollViewProps,
 } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
@@ -71,6 +72,17 @@ export interface ScreenContainerProps {
    * plataformas".
    */
   edges?: readonly Edge[];
+  /**
+   * Repassado ao `ScrollView` interno (só tem efeito no modo `scroll`, o
+   * padrão). Omitido = comportamento padrão da lib, `'never'`: com o teclado
+   * aberto, um toque fora do campo focado é consumido pelo dismiss do
+   * teclado e **não chega aos filhos** — inclusive um botão de submit logo
+   * abaixo do campo (`ScrollView.js` do RN, comentário do default). Telas de
+   * formulário com teclado (`login`, `register`) devem passar `"handled"`,
+   * mesmo padrão já usado em `consulta/[idPet].tsx` e
+   * `receituario/[idPet].tsx` (CQ-15, G2 rodada 2, Important #1).
+   */
+  keyboardShouldPersistTaps?: ScrollViewProps['keyboardShouldPersistTaps'];
 }
 
 // Respiro horizontal padrão por breakpoint. Os valores vêm de `spacing`
@@ -116,6 +128,7 @@ export function ScreenContainer({
   maxWidth,
   style,
   edges,
+  keyboardShouldPersistTaps,
 }: ScreenContainerProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -138,6 +151,7 @@ export function ScreenContainer({
           contentContainerStyle={styles.scrollContent}
           refreshControl={refreshControl}
           style={style}
+          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
         >
           <View style={contentStyle} testID="screen-container-content">
             {children}

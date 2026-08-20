@@ -100,19 +100,16 @@ export default function LoginScreen() {
   // desestruturada e DESCARTADA lá, então o condicional é morto SÓ no alvo
   // web — em iOS/Android nativo o `behavior` tem efeito real. Não é um bug a
   // corrigir, é uma armadilha de leitura documentada.
-  // Caveat aceito, não corrigido: o `ScrollView` interno do ScreenContainer
-  // não expõe `keyboardShouldPersistTaps` (o antigo tinha `"handled"`) — sem
-  // isso, o padrão nativo é `"never"`: um toque no botão "Entrar" enquanto o
-  // campo de senha está focado pode primeiro fechar o teclado em vez de
-  // disparar o submit, exigindo um segundo toque. `ScreenContainer` não
-  // expõe hoje um jeito de repassar props arbitrárias de `ScrollView` — fora
-  // do escopo desta task (que autorizou só a prop `maxWidth`).
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.flex}
     >
-      <ScreenContainer maxWidth={480} paddingHorizontal={24}>
+      <ScreenContainer
+        maxWidth={480}
+        paddingHorizontal={24}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.brandBlock}>
           <KCIcon name="paw" size={48} color={colors.primary} />
           <Text style={styles.brand}>{STRINGS.app.name}</Text>
