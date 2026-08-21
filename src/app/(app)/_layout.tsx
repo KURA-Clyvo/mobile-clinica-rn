@@ -65,7 +65,20 @@ export default function AppLayout() {
         }}
       />
       <Drawer.Screen
-        name="pacientes"
+        // Fix wave pós-G2 (item 1): o nome REAL da rota, segundo o
+        // expo-router (`getMockConfig('src/app')`), é "pacientes/index" —
+        // não há `_layout.tsx` dentro de `src/app/(app)/pacientes/`, então
+        // o router não colapsa o nome do arquivo. `name="pacientes"`
+        // (valor anterior, pré-existente desde `main`) não casa com
+        // nenhuma rota registrada: o expo-router descarta as `options`
+        // deste `Drawer.Screen` inteiras (node_modules/expo-router/build/
+        // useScreens.js:69-71) e a tela real entra com `props: {}` — sem
+        // `header`, sem `showMenuButton`. Efeito real, medido pela G2: a
+        // tela de Pacientes rodava sem `AppHeader`, e o realce do item
+        // "Pacientes" em NavDrawer.tsx nunca acendia (state.routes[].name
+        // é "pacientes/index", nunca "pacientes"). Ver
+        // tests/AppLayoutSidebar.routeNames.test.tsx.
+        name="pacientes/index"
         options={{
           headerShown: true,
           header: ({ navigation }) => (

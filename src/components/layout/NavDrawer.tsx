@@ -15,17 +15,36 @@ import { ROUTES } from '@constants/routes';
 // `ROUTES.app` cujo valor é uma string estática (exclui os helpers de rota
 // dinâmica, como `pacienteDetalhe`, que são funções). Cada item do drawer
 // precisa de DOIS papéis distintos — ver task CQ-03 (dev VsClaude,
-// KURA_BACKLOG_CLINICA_1, M2): `name` compara com `state.routes[].name` do
-// react-navigation para o realce do item ativo; `href` (derivado de `name`
-// via indexação em `ROUTES.app`, nunca duplicado à mão) alimenta o `<Link>`.
-// Renomear uma tela em `ROUTES.app` quebra este arquivo em `tsc`, porque o
-// tipo de `name` deixa de aceitar o valor antigo.
+// KURA_BACKLOG_CLINICA_1, M2): `name` alimenta `href` (derivado via
+// indexação em `ROUTES.app`, nunca duplicado à mão) para o `<Link>`; o
+// realce do item ativo compara contra `routeName ?? name` (ver
+// `NavItem.routeName` abaixo — fix wave pós-G2, CQ-05 item 1: `name` e o
+// nome real de tela do navigator podem divergir quando o arquivo de rota
+// mora numa subpasta com `index.tsx`). Renomear uma tela em `ROUTES.app`
+// quebra este arquivo em `tsc`, porque o tipo de `name` deixa de aceitar o
+// valor antigo.
 type ScreenRouteName = {
   [K in keyof typeof ROUTES.app]: (typeof ROUTES.app)[K] extends string ? K : never;
 }[keyof typeof ROUTES.app];
 
 interface NavItem {
   name: ScreenRouteName;
+  /**
+   * Fix wave pós-G2 da CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 1:
+   * nome REGISTRADO pelo expo-router para esta tela (o valor real de
+   * `state.routes[].name` em runtime), quando diverge de `name`. Só
+   * "pacientes" precisa disso hoje: o arquivo de rota vive em
+   * `src/app/(app)/pacientes/index.tsx`, sem `_layout.tsx` dentro da pasta,
+   * então o expo-router registra a tela como "pacientes/index" — não
+   * "pacientes" (confirmado por `getMockConfig('src/app')`, ver
+   * `discoverRealAppRouteNames.ts`). Comparar o realce contra "pacientes"
+   * (valor pré-existente até este fix) comparava contra um nome que o
+   * navigator nunca produz — o item "Pacientes" nunca acendia. `href`
+   * continua vindo de `ROUTES.app[name]` (a URL, não o nome de tela) — as
+   * duas coisas divergem de propósito, ver comentário em `routes.ts`.
+   * Ausente = igual a `name`.
+   */
+  routeName?: string;
   icon: KCIconName;
   label: string;
 }
@@ -33,11 +52,19 @@ interface NavItem {
 // Exportado para o teste de sincronia com `_layout.tsx` (fix wave pós-G2, item
 // 2 da CQ-03 — ver `discoverDrawerScreenNames.ts` e
 // `tests/NavDrawer.drawerScreenSync.test.ts`): é o lado "o que o drawer
-// oferece" do acoplamento com "o que `_layout.tsx` registra como tela".
+// oferece" do acoplamento com "o que `_layout.tsx` registra como tela". A
+// comparação usa `routeName ?? name` (não `name` puro), porque é
+// `routeName` — quando presente — que corresponde ao `name=` real do
+// `<Drawer.Screen>` em `_layout.tsx`.
 export const NAV_ITEMS: NavItem[] = [
   { name: 'dashboard', icon: 'dashboard', label: STRINGS.dashboard.titulo },
   { name: 'agenda', icon: 'agenda', label: 'Agenda' },
-  { name: 'pacientes', icon: 'patients', label: STRINGS.pacientes.titulo },
+  {
+    name: 'pacientes',
+    routeName: 'pacientes/index',
+    icon: 'patients',
+    label: STRINGS.pacientes.titulo,
+  },
   { name: 'luna', icon: 'luna', label: STRINGS.luna.titulo },
   { name: 'settings', icon: 'settings', label: STRINGS.configuracoes.titulo },
 ];
@@ -125,7 +152,11 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
 
       <ScrollView style={styles.nav} contentContainerStyle={styles.navContent}>
         {NAV_ITEMS.map((item) => {
-          const isActive = activeRouteName === item.name;
+          // Realce do item ativo compara contra o nome REGISTRADO no
+          // navigator (`routeName`, quando presente), não contra `item.name`
+          // puro — ver comentário de `NavItem.routeName` acima (fix wave
+          // pós-G2, CQ-05 item 1).
+          const isActive = activeRouteName === (item.routeName ?? item.name);
           // `href` deriva de `item.name` por indexação em ROUTES.app — nunca
           // escrito à mão em paralelo, para não poder divergir do nome de
           // tela sem quebrar em tsc (ver comentário de ScreenRouteName acima).

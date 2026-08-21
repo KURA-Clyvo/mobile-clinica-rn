@@ -36,7 +36,16 @@ jest.mock('expo-router', () => {
   };
 });
 
-const ROUTE_NAMES = ['dashboard', 'agenda', 'pacientes', 'luna', 'settings'] as const;
+// Fix wave pós-G2 da CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 1:
+// "pacientes/index" é o nome REAL registrado pelo expo-router para esta tela
+// (confirmado por `getMockConfig('src/app')`, ver
+// `discoverRealAppRouteNames.ts`), não "pacientes" — o arquivo de rota vive
+// em `src/app/(app)/pacientes/index.tsx`, sem `_layout.tsx` dentro da pasta.
+// Usar o nome real aqui é o que prova a mordida: contra `NavDrawer.tsx`
+// ANTES do fix (`isActive = activeRouteName === item.name`, sem
+// `routeName`), o item "Pacientes" nunca receberia `isActive=true` neste
+// teste, porque `state.routes[].name` real nunca é "pacientes".
+const ROUTE_NAMES = ['dashboard', 'agenda', 'pacientes/index', 'luna', 'settings'] as const;
 
 function makeDrawerState(index: number): DrawerContentComponentProps['state'] {
   return {
