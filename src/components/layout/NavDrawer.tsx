@@ -7,6 +7,7 @@ import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { KCIcon } from '@components/primitives/KCIcon';
 import type { KCIconName } from '@components/primitives/KCIcon';
+import { KuraMark } from '@components/brand/KuraMark';
 import { useAuthStore } from '@store/authStore';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
@@ -146,7 +147,11 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
   return (
     <View style={styles.container} testID="nav-drawer">
       <SafeAreaView style={styles.header} edges={['top']}>
-        <KCIcon name="paw" size={32} color={colors.textOnPrimary} />
+        {/* Marca canônica em knockout (ruling D-3, dev VsClaude,
+            KURA_BACKLOG_CLINICA_1, CQ-12): fundo do header é colors.primary
+            (ocean), então a marca precisa de colors.textOnPrimary para não
+            violar contraste mínimo 4.5:1. Aposenta o ícone de pata antigo. */}
+        <KuraMark size={32} color={colors.textOnPrimary} />
         <Text style={styles.brandName}>{STRINGS.app.name}</Text>
       </SafeAreaView>
 
