@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet, ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../src/theme';
+import { ThemeProvider, lightColors } from '../src/theme';
 import RegisterScreen from '../src/app/register';
 import LoginScreen from '../src/app/login';
 import * as authService from '../src/services/auth.service';
@@ -227,5 +227,39 @@ describe('RegisterScreen — keyboardShouldPersistTaps (CQ-15 fix wave rodada 3)
   it('passes keyboardShouldPersistTaps="handled" to the inner ScrollView', () => {
     const { UNSAFE_getByType } = wrap(<RegisterScreen />);
     expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
+  });
+});
+
+// Fix wave da CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 2: mesma
+// correção de LoginScreen.test.tsx (ver lá para a análise completa) — o
+// cadastro também é uma tela de entrada, e ficou sem marca. Prova por
+// aria-label + mutação de cor: `colors.textOnPrimary` aqui deixaria a marca
+// quase invisível sobre o fundo claro do ScreenContainer (ruling D-3).
+describe('RegisterScreen — marca canônica na tela de entrada (CQ-12 fix wave)', () => {
+  it('renderiza o KuraMark (aria-label "Kura mark") acima do título "Cadastrar Clínica"', () => {
+    const { getAllByTestId } = wrap(<RegisterScreen />);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    expect(mark).toBeDefined();
+  });
+
+  it('usa colors.primary (superfície clara), não colors.textOnPrimary (knockout)', () => {
+    const { getAllByTestId } = wrap(<RegisterScreen />);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    if (!mark) throw new Error('KuraMark não encontrado na tela de cadastro');
+
+    // Pré-condição da mordida: os dois tokens têm que divergir no tema
+    // claro, senão trocar um pelo outro não faria nenhuma asserção falhar.
+    expect(lightColors.primary).not.toBe(lightColors.textOnPrimary);
+    const circles = within(mark).getAllByTestId('Circle');
+    expect(circles).toHaveLength(3);
+    circles.forEach((circle) => {
+      // Mutação: mudar o `color` passado ao KuraMark em register.tsx de
+      // `colors.primary` para `colors.textOnPrimary` faz esta linha falhar
+      // — é exatamente o erro que deixaria a marca quase invisível na
+      // demo, sobre o fundo claro do ScreenContainer.
+      expect(circle.props.fill).toBe(lightColors.primary);
+    });
   });
 });

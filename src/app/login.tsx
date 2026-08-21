@@ -17,7 +17,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
-import { KCIcon } from '@components/primitives/KCIcon';
+import { KuraMark } from '@components/brand/KuraMark';
 import { useLoginMutation } from '@hooks/useAuth';
 import { STRINGS } from '@constants/strings';
 
@@ -111,7 +111,16 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.brandBlock}>
-          <KCIcon name="paw" size={48} color={colors.primary} />
+          {/* Fix wave da CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1): tela
+              de entrada — a marca precisa funcionar como identidade, não
+              como ícone de barra, daí 56px (acima do mínimo de 48px do
+              brand book, e maior que os 32px do header do NavDrawer, que é
+              barra de navegação). Superfície clara (fundo do
+              ScreenContainer), então `colors.primary` — knockout
+              (`colors.textOnPrimary`) ficaria quase branco aqui e violaria
+              contraste (ruling D-3). Aposenta o `KCIcon name="paw"` usado
+              antes. */}
+          <KuraMark size={56} color={colors.primary} />
           <Text style={styles.brand}>{STRINGS.app.name}</Text>
           <Text style={styles.brandSub}>Acesso veterinário</Text>
         </View>

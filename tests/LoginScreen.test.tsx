@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, within } from '@testing-library/react-native';
 import { StyleSheet, ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider } from '../src/theme';
+import { ThemeProvider, lightColors } from '../src/theme';
 import LoginScreen from '../src/app/login';
 import * as authService from '../src/services/auth.service';
 import { useAuthStore } from '../src/store/authStore';
@@ -165,5 +165,43 @@ describe('LoginScreen — keyboardShouldPersistTaps (CQ-15 fix wave rodada 3)', 
   it('passes keyboardShouldPersistTaps="handled" to the inner ScrollView', () => {
     const { UNSAFE_getByType } = wrap(<LoginScreen />);
     expect(UNSAFE_getByType(ScrollView).props.keyboardShouldPersistTaps).toBe('handled');
+  });
+});
+
+// Fix wave da CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 2: login é a
+// primeira tela que qualquer pessoa vê, e ficou sem marca quando a CQ-12
+// trocou o KCIcon "paw" do NavDrawer pelo KuraMark — só o drawer ganhou a
+// marca canônica. Mesmo padrão de prova do NavDrawer.test.tsx: identifica o
+// KuraMark pelo `aria-label="Kura mark"` (único entre os SVGs da tela) e
+// prova a cor por mutação — trocar `colors.primary` por
+// `colors.textOnPrimary` aqui faria a marca ficar quase invisível sobre o
+// fundo claro do ScreenContainer (ruling D-3), e TEM que deixar a asserção
+// de cor vermelha.
+describe('LoginScreen — marca canônica na tela de entrada (CQ-12 fix wave)', () => {
+  it('renderiza o KuraMark (aria-label "Kura mark") acima do nome do app', () => {
+    const { getAllByTestId } = wrap(<LoginScreen />);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    expect(mark).toBeDefined();
+  });
+
+  it('usa colors.primary (superfície clara), não colors.textOnPrimary (knockout)', () => {
+    const { getAllByTestId } = wrap(<LoginScreen />);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    if (!mark) throw new Error('KuraMark não encontrado na tela de login');
+
+    // Pré-condição da mordida: os dois tokens têm que divergir no tema
+    // claro, senão trocar um pelo outro não faria nenhuma asserção falhar.
+    expect(lightColors.primary).not.toBe(lightColors.textOnPrimary);
+    const circles = within(mark).getAllByTestId('Circle');
+    expect(circles).toHaveLength(3);
+    circles.forEach((circle) => {
+      // Mutação: mudar o `color` passado ao KuraMark em login.tsx de
+      // `colors.primary` para `colors.textOnPrimary` faz esta linha falhar
+      // — é exatamente o erro que deixaria a marca quase invisível na
+      // demo, sobre o fundo claro do ScreenContainer.
+      expect(circle.props.fill).toBe(lightColors.primary);
+    });
   });
 });

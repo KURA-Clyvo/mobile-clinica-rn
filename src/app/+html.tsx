@@ -1,17 +1,28 @@
 import React from 'react';
 import { ScrollViewStyleReset } from 'expo-router/html';
-import { STRINGS } from '@constants/strings';
 
 /**
  * Documento raiz do export web (`expo export --platform web`).
  *
  * Sem este arquivo, o expo-router usa o `Html` default de
- * `expo-router/build/static/html.js`, que NÃO inclui `<title>` — a aba do
- * navegador mostrava o host (`127.0.0.1:8090`) em vez do nome do app. Ver
- * task CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1): `app.json` já declara
- * `expo.name: "KURA Clínica"`, mas essa chave não vira `<title>` sozinha —
- * precisa deste componente. `STRINGS.app.name` reaproveita o mesmo literal
- * já usado no `NavDrawer` em vez de duplicá-lo.
+ * `expo-router/build/static/html.js`, que não declara `lang="pt-BR"`.
+ * Mantido por causa desse atributo (e dos metas abaixo) — não pelo título.
+ *
+ * ⚠️ Fix wave da CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1): este arquivo
+ * ATÉ chegou a declarar `<title>{STRINGS.app.name}</title>` aqui, e o
+ * `grep` no HTML estático exportado passava — mas a aba do navegador
+ * continuava vazia. Causa medida por CDP em browser real: o expo-router
+ * usa `react-helmet-async` (`expo-router/vendor/react-helmet-async`)
+ * internamente, e `renderStaticContent.js` SEMPRE injeta o resultado do
+ * Helmet no INÍCIO do `<head>` — mesmo sem nenhum `<Head>` explícito no
+ * app, o Helmet gera um `<title data-rh="true"></title>` vazio, que
+ * `document.title` lê primeiro (o browser usa o primeiro `<title>` do
+ * documento). O `<title>` deste arquivo nascia sempre em segundo lugar e
+ * nunca valia. Correção: o título agora é declarado via
+ * `<Head><title>...</Head>` de `expo-router/head` em `_layout.tsx` — o
+ * MESMO mecanismo (Helmet) que estava competindo com este arquivo. Ver
+ * `.superpowers/sdd/KURA_BACKLOG_CLINICA_1/task-CQ-12-report.md` (dev
+ * VsClaude) para a medição CDP antes/depois.
  */
 export default function Root({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +34,6 @@ export default function Root({ children }: { children: React.ReactNode }) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no"
         />
-        <title>{STRINGS.app.name}</title>
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>

@@ -18,6 +18,7 @@ import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { KuraMark } from '@components/brand/KuraMark';
 import { useRegisterMutation } from '@hooks/useAuth';
 import { STRINGS } from '@constants/strings';
 import type { RegisterClinicaRequest } from '../types/api';
@@ -61,10 +62,11 @@ const makeStyles = (colors: typeof lightColors) =>
     // equivalente direto no modo scroll do ScreenContainer (não expõe
     // override de `contentContainerStyle`) — aproximado com `marginTop` no
     // `header` em vez de alegado como equivalente.
+    brandBlock: { alignItems: 'center', marginTop: 24, marginBottom: 8 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 24,
+      marginTop: 8,
       marginBottom: 24,
       gap: 12,
     },
@@ -137,6 +139,15 @@ export default function RegisterScreen() {
         paddingHorizontal={24}
         keyboardShouldPersistTaps="handled"
       >
+          <View style={styles.brandBlock}>
+            {/* Fix wave da CQ-12 (dev VsClaude, KURA_BACKLOG_CLINICA_1): a
+                marca faltava nesta tela de entrada — mesma decisão de
+                `login.tsx` (56px, acima do mínimo 48 do brand book;
+                `colors.primary` porque a superfície é clara, knockout
+                ficaria quase invisível aqui — ruling D-3). */}
+            <KuraMark size={56} color={colors.primary} />
+          </View>
+
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.replace('/login')} testID="register-back">
               <KCIcon name="back" size={22} color={colors.text} />
