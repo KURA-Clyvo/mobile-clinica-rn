@@ -215,9 +215,15 @@ function AgendaAppointmentCard({ appointment: a }: AgendaAppointmentCardProps) {
             <Text style={styles.petName} numberOfLines={1}>{a.pet.nmPet}</Text>
             <KCChip tone={statusTone(a.sgStatus)}>{statusLabel(a.sgStatus)}</KCChip>
           </View>
-          <Text style={styles.petDetail} numberOfLines={1}>
-            {a.pet.nmEspecie} · {a.pet.nmRaca}
-          </Text>
+          {/* Separador so aparece quando ha os DOIS lados. Sem esta guarda,
+              um agendamento sem especie/raca renderiza um '·' orfao numa
+              linha propria — medido na demo de 2026-08-20, tela Agenda, onde
+              o contrato de agendamento nao carrega dados do pet. */}
+          {[a.pet.nmEspecie, a.pet.nmRaca].filter(Boolean).length > 0 && (
+            <Text style={styles.petDetail} numberOfLines={1}>
+              {[a.pet.nmEspecie, a.pet.nmRaca].filter(Boolean).join(' · ')}
+            </Text>
+          )}
           <Text style={styles.tutorText} numberOfLines={1}>{a.tutor.nmTutor}</Text>
           {a.sgStatus !== 'CANCELADA' && (
             <TouchableOpacity
