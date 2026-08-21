@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { render, within } from '@testing-library/react-native';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
-import { ThemeProvider } from '../src/theme';
+import { ThemeProvider, lightColors } from '../src/theme';
 import { NavDrawer } from '../src/components/layout/NavDrawer';
 import { useAuthStore } from '../src/store/authStore';
 
@@ -132,5 +132,48 @@ describe('NavDrawer — navegação tipada via <Link> (CQ-03)', () => {
     const settingsWhenActive = StyleSheet.flatten(getByTestIdIdx4('nav-item-settings').props.style);
     expect(dashboardWhenInactive.backgroundColor).toBeFalsy();
     expect(settingsWhenActive.backgroundColor).toBeTruthy();
+  });
+});
+
+describe('NavDrawer — marca canônica em knockout (CQ-12)', () => {
+  it('renderiza o KuraMark (aria-label "Kura mark") no header, não o ícone de pata antigo', () => {
+    const { getAllByTestId } = wrap(0);
+    // `react-native-svg` é mockado (jest.config.js) e tanto `KuraMark`
+    // quanto o antigo `KCIcon name="paw"` renderizam um elemento com
+    // testID "Svg" — o `aria-label="Kura mark"` (só o KuraMark declara) é
+    // o que distingue os dois de verdade. Contra o NavDrawer ANTES do fix
+    // (`<KCIcon name="paw" .../>`, sem `aria-label`), nenhum "Svg" carrega
+    // esse label e este `find` devolve `undefined`.
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    expect(mark).toBeDefined();
+  });
+
+  it('usa colors.textOnPrimary (knockout) para o KuraMark do header, não colors.primary', () => {
+    const { getAllByTestId } = wrap(0);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    if (!mark) throw new Error('KuraMark não encontrado no header');
+
+    // O fundo do header é colors.primary (ocean) — ver `styles.header` em
+    // NavDrawer.tsx, `borderBottomColor: colors.primarySoft` no mesmo tom.
+    // Mark sobre fundo da mesma cor violaria contraste mínimo 4.5:1 (ruling
+    // D-3). `lightColors.textOnPrimary` e `lightColors.primary` têm valores
+    // diferentes no tema claro, então mutar o `color` passado ao KuraMark de
+    // volta para `colors.primary` faz esta asserção falhar (v12).
+    expect(lightColors.textOnPrimary).not.toBe(lightColors.primary);
+    const circles = within(mark).getAllByTestId('Circle');
+    expect(circles).toHaveLength(3);
+    circles.forEach((circle) => {
+      expect(circle.props.fill).toBe(lightColors.textOnPrimary);
+    });
+  });
+
+  it('preserva a proporção 5:6 do KuraMark no header (width 32 → height 38.4)', () => {
+    const { getAllByTestId } = wrap(0);
+    const svgs = getAllByTestId('Svg');
+    const mark = svgs.find((svg) => svg.props['aria-label'] === 'Kura mark');
+    expect(mark?.props.width).toBe(32);
+    expect(mark?.props.height).toBeCloseTo(32 * (48 / 40));
   });
 });
