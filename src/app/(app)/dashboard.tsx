@@ -34,6 +34,19 @@ function chunk<T>(items: readonly T[], size: number): T[][] {
   return rows;
 }
 
+// `formatDateFull` já devolve a string correta em pt-BR, inteiramente
+// minúscula ("20 de agosto de 2026, quinta-feira") — quem capitalizava
+// errado era o CSS `textTransform: 'capitalize'` do `dateText` (removido),
+// que maiúsculiza TODA palavra, inclusive preposições ("De Agosto De...").
+// Regra pt-BR correta: só a primeira letra da frase. Função local — a
+// própria `formatDateFull` (compartilhada com `consulta/[idPet].tsx` e
+// `receituario/[idPet].tsx`, nenhum dos quais aplica `capitalize`) não
+// precisa mudar.
+function capitalizeFirst(text: string): string {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 // CQ-06 G2 fix wave, achado B — quando a última linha de um `chunk()` fica
 // incompleta (contagem de itens não é múltipla de `columns`), o(s) filho(s)
 // que sobram têm `flex: 1` dentro de uma `View` `flexDirection: 'row'`
@@ -126,7 +139,6 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 12,
       color: colors.textMute,
       marginTop: 2,
-      textTransform: 'capitalize',
     },
     metricsGrid: { gap: 10, marginBottom: 24 },
     metricsRow: { flexDirection: 'row', gap: 10 },
@@ -307,7 +319,7 @@ export default function DashboardScreen() {
         <Text style={styles.greetingText}>
           {getGreeting()}{name ? `, ${name}` : ''}
         </Text>
-        <Text style={styles.dateText}>{formatDateFull(new Date())}</Text>
+        <Text style={styles.dateText}>{capitalizeFirst(formatDateFull(new Date()))}</Text>
       </View>
 
       {loadingHoje ? (

@@ -126,6 +126,29 @@ describe('DashboardScreen — loaded state', () => {
     expect(getAllByText(/Dr\./)).toBeTruthy();
   });
 
+  // Prova por mordida (dev VsClaude, KURA_BACKLOG_CLINICA_1, task
+  // navdrawer-web-layout-fix): `formatDateFull` já devolve tudo minúsculo
+  // ("20 de agosto de 2026, quinta-feira"). Contra o `dateText` ANTES do
+  // fix (`textTransform: 'capitalize'` no StyleSheet), o snapshot HTML/DOM
+  // real ficaria "20 De Agosto De 2026, Quinta-Feira" — mas em
+  // `react-native-testing-library` (sem motor CSS) `textTransform` nunca é
+  // aplicado ao texto lido por `getByText`, então este teste teria passado
+  // mesmo contra o bug (é layout/CSS, não string). A asserção que prova a
+  // mordida de verdade é a de `style`: contra o código antigo,
+  // `dateStyle.textTransform` seria `'capitalize'`; depois do fix, a
+  // propriedade não existe mais — a maiúscula única fica a cargo de
+  // `capitalizeFirst()` no próprio texto (string), não do CSS.
+  it('capitaliza só a primeira letra da data (pt-BR), não cada palavra via CSS', () => {
+    const { getByTestId } = wrap(<DashboardScreen />);
+    const dateNode = within(getByTestId('greeting-block')).getByText(
+      /^\d{1,2} de [a-zà-ÿ]+ de \d{4}, [a-zà-ÿ-]+$/,
+    );
+    expect(dateNode).toBeTruthy();
+
+    const dateStyle = StyleSheet.flatten(dateNode.props.style);
+    expect(dateStyle.textTransform).toBeUndefined();
+  });
+
   it('renders metrics grid with correct values', () => {
     const { getAllByTestId } = wrap(<DashboardScreen />);
     const values = getAllByTestId('metric-value').map((el) => el.props.children);

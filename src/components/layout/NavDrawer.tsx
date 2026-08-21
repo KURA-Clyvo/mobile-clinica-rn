@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Pressable, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
@@ -138,6 +138,69 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
+// Item de navegação isolado num componente próprio — necessário para poder
+// chamar `useState` (feedback de toque) por item, o que não é permitido
+// dentro do callback de `.map()` do componente pai (regra dos hooks).
+//
+// Causa raiz confirmada (task navdrawer-web-layout-fix, dev VsClaude,
+// KURA_BACKLOG_CLINICA_1): com `<Link asChild>`, o expo-router troca o
+// `Component` por `Slot` (`expo-router/build/ui/Slot.js`, que envolve
+// `@radix-ui/react-slot`). O `Slot` do Radix clona o filho único mesclando
+// as próprias props com as do filho via `mergeProps`
+// (`@radix-ui/react-slot/dist/index.mjs`), e para a prop `style` a mesclagem
+// é literalmente `{ ...slotStyle, ...childStyle }` — um spread de objeto
+// puro, que assume que `style` é sempre um objeto plano. O `Pressable` daqui
+// passava `style` como FUNÇÃO (`({pressed}) => [...]`, a forma idiomática de
+// dar feedback de toque); espalhar uma função com `{...fn}` produz `{}` (função
+// não tem propriedade própria enumerável por padrão), então o estilo inteiro
+// era descartado silenciosamente — sobravam só os defaults do
+// react-native-web pra `View` (`flexDirection:'column'`, sem padding), que é
+// exatamente o que a medição por CDP mostrou. Um `style` em forma de ARRAY
+// (`[styles.navItem, ...]`) sofre o mesmo destino: `{...array}` produz um
+// objeto com chaves numéricas (`{0: ..., 1: ...}`), não um array, e o
+// react-native-web não reconhece isso como estilo válido. A única forma que
+// sobrevive ao `{...a, ...b}` do Radix intacta é um objeto plano já
+// achatado — daí `StyleSheet.flatten(...)` aqui, em vez de função ou array.
+// O feedback de toque (`navItemPressed`) foi preservado trocando a forma-
+// função por estado próprio (`onPressIn`/`onPressOut`), não removido.
+function NavDrawerItem({
+  item,
+  isActive,
+  styles,
+  colors,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  styles: ReturnType<typeof makeStyles>;
+  colors: typeof lightColors;
+}) {
+  const [pressed, setPressed] = useState(false);
+  // `href` deriva de `item.name` por indexação em ROUTES.app — nunca
+  // escrito à mão em paralelo, para não poder divergir do nome de tela sem
+  // quebrar em tsc (ver comentário de ScreenRouteName acima).
+  const href = ROUTES.app[item.name];
+  const itemStyle = StyleSheet.flatten([
+    styles.navItem,
+    isActive && styles.navItemActive,
+    pressed && styles.navItemPressed,
+  ]);
+
+  return (
+    <Link href={href} asChild>
+      <Pressable
+        style={itemStyle}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        accessibilityRole="menuitem"
+        testID={`nav-item-${item.name}`}
+      >
+        <KCIcon name={item.icon} size={20} color={colors.textOnPrimary} />
+        <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
+      </Pressable>
+    </Link>
+  );
+}
+
 export function NavDrawer({ state }: DrawerContentComponentProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -162,27 +225,14 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
           // puro — ver comentário de `NavItem.routeName` acima (fix wave
           // pós-G2, CQ-05 item 1).
           const isActive = activeRouteName === (item.routeName ?? item.name);
-          // `href` deriva de `item.name` por indexação em ROUTES.app — nunca
-          // escrito à mão em paralelo, para não poder divergir do nome de
-          // tela sem quebrar em tsc (ver comentário de ScreenRouteName acima).
-          const href = ROUTES.app[item.name];
           return (
-            <Link key={item.name} href={href} asChild>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.navItem,
-                  isActive && styles.navItemActive,
-                  pressed && styles.navItemPressed,
-                ]}
-                accessibilityRole="menuitem"
-                testID={`nav-item-${item.name}`}
-              >
-                <KCIcon name={item.icon} size={20} color={colors.textOnPrimary} />
-                <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            </Link>
+            <NavDrawerItem
+              key={item.name}
+              item={item}
+              isActive={isActive}
+              styles={styles}
+              colors={colors}
+            />
           );
         })}
       </ScrollView>
