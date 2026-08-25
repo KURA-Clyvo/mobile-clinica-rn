@@ -6,6 +6,8 @@ import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { ROUTES } from '@constants/routes';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 
 export interface AppHeaderProps {
   title: string;
@@ -53,6 +55,11 @@ export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHead
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+  // CQ-08: um estado de hover/foco POR botão — compartilhar um único estado
+  // entre os 2 faria o botão de busca "acender" quando o de menu recebe
+  // foco (e vice-versa), que é o oposto do que "foco visível" precisa provar.
+  const menuInteraction = useWebInteractionState();
+  const searchInteraction = useWebInteractionState();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -60,8 +67,13 @@ export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHead
         {showMenuButton ? (
           <TouchableOpacity
             onPress={onMenuPress}
-            style={styles.iconBtn}
+            onMouseEnter={menuInteraction.onMouseEnter}
+            onMouseLeave={menuInteraction.onMouseLeave}
+            onFocus={menuInteraction.onFocus}
+            onBlur={menuInteraction.onBlur}
+            style={[styles.iconBtn, getWebInteractionStyle(menuInteraction, colors.borderFocus)]}
             testID="app-header-menu"
+            accessibilityRole="button"
             accessibilityLabel="Abrir menu"
           >
             <KCIcon name="menu" size={22} color={colors.text} />
@@ -81,8 +93,13 @@ export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHead
         <View style={styles.actions}>
           <TouchableOpacity
             onPress={() => router.push(ROUTES.app.pacientes)}
-            style={styles.iconBtn}
+            onMouseEnter={searchInteraction.onMouseEnter}
+            onMouseLeave={searchInteraction.onMouseLeave}
+            onFocus={searchInteraction.onFocus}
+            onBlur={searchInteraction.onBlur}
+            style={[styles.iconBtn, getWebInteractionStyle(searchInteraction, colors.borderFocus)]}
             testID="app-header-search"
+            accessibilityRole="button"
             accessibilityLabel="Buscar"
           >
             <KCIcon name="search" size={22} color={colors.text} />

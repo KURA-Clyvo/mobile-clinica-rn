@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 
 export interface KCButtonProps {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -25,8 +27,18 @@ export interface KCButtonProps {
   testID?: string;
 }
 
+// CQ-08 (dev VsClaude, KURA_BACKLOG_CLINICA_1): `sm` era 36px — abaixo do
+// alvo de toque mínimo (`touchTarget.min`, tokens.ts, 44px, WCAG 2.5.5/AAA).
+// Decisão (não allowlist): subir para 44, não parquear. Diferente da ruling
+// de `KCChip` (CQ-07), que aplicou geometria SÓ no caminho interativo porque
+// `KCChip` tem uso misto (12 usos-rótulo + 2 interativos) — TODO uso de
+// `KCButton` é interativo por contrato da própria API (sempre um botão, nunca
+// um rótulo), então não há população não-interativa para regredir. Os 5 usos
+// reais de `size="sm"` no app (`pacientes/[id].tsx` back button + 3 botões de
+// ação; `teleorientacao/[idPet].tsx` 1 botão) são todos texto curto em linha
+// com espaço de sobra — +8px de altura não força quebra de layout em nenhum.
 const SIZE_SPEC = {
-  sm: { height: 36, paddingHorizontal: 12, fontSize: 13 },
+  sm: { height: 44, paddingHorizontal: 12, fontSize: 13 },
   md: { height: 48, paddingHorizontal: 18, fontSize: 15 },
   lg: { height: 54, paddingHorizontal: 24, fontSize: 17 },
 } as const;
@@ -100,12 +112,25 @@ export function KCButton({
     | 'textSecondary'
     | 'textGhost'
     | 'textDanger';
+  // CQ-08: hover/foco visível na web. `hovered`/`focused` são forçados a
+  // `false` quando desabilitado — sem essa guarda, passar o mouse sobre um
+  // botão desabilitado ganharia o mesmo tratamento visual de um habilitado
+  // (opacidade de hover por cima da opacidade de disabled), mentindo estado.
+  const webInteractionRaw = useWebInteractionState();
+  const webInteraction = {
+    hovered: webInteractionRaw.hovered && !isDisabled,
+    focused: webInteractionRaw.focused && !isDisabled,
+  };
 
   return (
     <TouchableOpacity
       onPress={isDisabled ? undefined : onPress}
       activeOpacity={0.75}
       disabled={isDisabled}
+      onMouseEnter={webInteractionRaw.onMouseEnter}
+      onMouseLeave={webInteractionRaw.onMouseLeave}
+      onFocus={webInteractionRaw.onFocus}
+      onBlur={webInteractionRaw.onBlur}
       style={[
         styles.base,
         variantContainerStyle,
@@ -115,6 +140,7 @@ export function KCButton({
           opacity: isDisabled ? 0.45 : 1,
           gap: 8,
         },
+        getWebInteractionStyle(webInteraction, colors.borderFocus),
         style,
       ]}
       accessibilityRole="button"

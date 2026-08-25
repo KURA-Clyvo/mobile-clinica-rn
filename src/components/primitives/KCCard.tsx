@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 
 export interface KCCardProps {
   children: React.ReactNode;
@@ -36,12 +38,25 @@ export function KCCard({ children, onPress, elevated = false, style, testID }: K
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const elevation = elevated ? 4 : 2;
+  // CQ-08: hook chamado incondicionalmente (regra dos hooks) — só USADO no
+  // ramo `onPress` abaixo, igual ao padrão já usado por `KCChip`/`KCButton`.
+  const webInteraction = useWebInteractionState();
 
   const cardStyle = [styles.card, { elevation }, style];
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.92} onPress={onPress} style={cardStyle} testID={testID}>
+      <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={onPress}
+        onMouseEnter={webInteraction.onMouseEnter}
+        onMouseLeave={webInteraction.onMouseLeave}
+        onFocus={webInteraction.onFocus}
+        onBlur={webInteraction.onBlur}
+        style={[...cardStyle, getWebInteractionStyle(webInteraction, colors.borderFocus)]}
+        testID={testID}
+        accessibilityRole="button"
+      >
         {children}
       </TouchableOpacity>
     );

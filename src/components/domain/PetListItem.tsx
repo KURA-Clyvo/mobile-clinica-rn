@@ -8,6 +8,8 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { racaToPalette } from '@utils/mappers';
 import { calcularIdade } from '@utils/date';
 import { STRINGS } from '@constants/strings';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 import type { PetResponse } from '../../types/api';
 
 export interface PetListItemProps {
@@ -52,12 +54,17 @@ export function PetListItem({ pet, onPress }: PetListItemProps) {
   const tutor = pet.tutores[0]?.nmTutor ?? STRINGS.PACIENTES.NO_TUTOR;
   const idade = calcularIdade(pet.dtNascimento);
   const sexo = pet.sgSexo === 'M' ? 'M' : 'F';
+  const webInteraction = useWebInteractionState();
 
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       onPress={onPress}
-      style={styles.row}
+      onMouseEnter={webInteraction.onMouseEnter}
+      onMouseLeave={webInteraction.onMouseLeave}
+      onFocus={webInteraction.onFocus}
+      onBlur={webInteraction.onBlur}
+      style={[styles.row, getWebInteractionStyle(webInteraction, colors.borderFocus)]}
       accessibilityRole="button"
     >
       <KCPetPortrait palette={racaToPalette(pet.nmRaca)} size={52} ring />

@@ -4,7 +4,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
-import { layout } from '../src/theme/tokens';
+import { layout, touchTarget } from '../src/theme/tokens';
 
 const mockBack = jest.fn();
 const mockMutate = jest.fn();
@@ -188,6 +188,24 @@ describe('ReceituarioScreen', () => {
     fireEvent.press(getByTestId('med-item-1'));
     expect(getByText('Amoxicilina 250mg')).toBeTruthy();
     expect(queryByTestId('search-med')).toBeNull();
+  });
+
+  // CQ-08 (dev VsClaude, KURA_BACKLOG_CLINICA_1): item parqueado da CQ-07 —
+  // este era o "2º chip interativo" do app (o 1º, em luna.tsx, também não
+  // tinha cobertura de geometria NO LOCAL DE USO; só a variante genérica em
+  // tests/KCChip.test.tsx cobria a geometria do primitivo isolado). A
+  // geometria em si já vinha de `KCChip.tsx` (`styles.interactive`, CQ-07) —
+  // este teste prova que ela chega intacta até a TELA renderizada de
+  // verdade, não só até o primitivo isolado.
+  it('chip de medicamento selecionado resolve minHeight/minWidth >= touchTarget.min (CQ-08)', () => {
+    const { getByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+
+    const chip = getByTestId('chip-medicamento-selecionado');
+    const flat = StyleSheet.flatten(chip.props.style);
+    expect(flat.minHeight).toBeGreaterThanOrEqual(touchTarget.min);
+    expect(flat.minWidth).toBeGreaterThanOrEqual(touchTarget.min);
   });
 
   it('calls criarPrescricao with correct payload on valid submit', async () => {

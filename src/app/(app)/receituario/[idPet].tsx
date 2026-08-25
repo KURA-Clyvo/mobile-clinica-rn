@@ -298,6 +298,7 @@ export default function ReceituarioScreen() {
               <KCChip
                 tone="ocean"
                 onPress={handleClearMed}
+                testID="chip-medicamento-selecionado"
               >
                 {medSelecionado.nmMedicamento}
               </KCChip>

@@ -1,8 +1,9 @@
 import React from 'react';
-import { TouchableOpacity, Pressable } from 'react-native';
+import { TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { AppHeader } from '../src/components/layout/AppHeader';
+import { touchTarget } from '../src/theme/tokens';
 
 const mockPush = jest.fn();
 
@@ -62,5 +63,38 @@ describe('AppHeader — CTAs vivos', () => {
     const { queryByTestId } = wrap(<AppHeader title="Dashboard" onMenuPress={() => {}} />);
 
     expect(queryByTestId('app-header-bell')).toBeNull();
+  });
+
+  // CQ-08 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — item parqueado da G2 da
+  // CQ-14: os 2 botões (menu, busca) tinham accessibilityLabel mas não
+  // accessibilityRole="button" — leitor de tela não anunciava "botão".
+  it.each(['app-header-menu', 'app-header-search'])(
+    'botão "%s" tem accessibilityRole="button"',
+    (testID) => {
+      const { getByTestId } = wrap(<AppHeader title="Dashboard" onMenuPress={() => {}} />);
+      expect(getByTestId(testID).props.accessibilityRole).toBe('button');
+    },
+  );
+
+  // CQ-08 — item parqueado da G2 da CQ-05: o comentário do próprio código
+  // ("espaçador invisível do MESMO TAMANHO do botão") nunca tinha asserção —
+  // mutação sobrevivente. Trava que o espaçador resolve exatamente o mesmo
+  // width/height do botão real (44×44, `touchTarget.min`), não um valor
+  // solto que só "parece" igual.
+  it('espaçador do menu (showMenuButton=false) tem o MESMO tamanho do botão de menu real', () => {
+    const { getByTestId: getWithButton } = wrap(
+      <AppHeader title="Dashboard" onMenuPress={() => {}} showMenuButton />,
+    );
+    const botaoReal = StyleSheet.flatten(getWithButton('app-header-menu').props.style);
+
+    const { getByTestId: getWithSpacer } = wrap(
+      <AppHeader title="Dashboard" onMenuPress={() => {}} showMenuButton={false} />,
+    );
+    const espacador = StyleSheet.flatten(getWithSpacer('app-header-menu-spacer').props.style);
+
+    expect(espacador.width).toBe(botaoReal.width);
+    expect(espacador.height).toBe(botaoReal.height);
+    expect(espacador.width).toBeGreaterThanOrEqual(touchTarget.min);
+    expect(espacador.height).toBeGreaterThanOrEqual(touchTarget.min);
   });
 });

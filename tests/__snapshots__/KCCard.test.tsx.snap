@@ -2,6 +2,7 @@
 
 exports[`KCCard snapshot — pressable card 1`] = `
 <View
+  accessibilityRole="button"
   accessibilityState={
     {
       "busy": undefined,

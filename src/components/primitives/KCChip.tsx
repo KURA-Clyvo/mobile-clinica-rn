@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useTheme } from '@theme/index';
 import { lightColors, touchTarget } from '@theme/tokens';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 
 export type ChipTone = 'sage' | 'amber' | 'clay' | 'ocean' | 'mute';
 
@@ -80,10 +82,27 @@ export function KCChip({ tone = 'mute', dot = false, onPress, children, style, t
 
   const Container = onPress ? TouchableOpacity : View;
 
+  // CQ-08: hover/foco visível na web — só faz sentido (e só é aplicado) no
+  // caminho interativo, mesma ruling de escopo do `styles.interactive`
+  // acima (CQ-07): os 12 usos-rótulo continuam `View` pura, sem handler de
+  // mouse/foco nenhum.
+  const webInteraction = useWebInteractionState();
+
   return (
     <Container
       onPress={onPress}
       testID={testID}
+      // Mesmo raciocínio do spread condicional de `styles.interactive`
+      // abaixo: só passar os handlers de mouse/foco quando `onPress` existe
+      // evita props extras (mesmo que inertes) na variante-rótulo.
+      {...(onPress
+        ? {
+            onMouseEnter: webInteraction.onMouseEnter,
+            onMouseLeave: webInteraction.onMouseLeave,
+            onFocus: webInteraction.onFocus,
+            onBlur: webInteraction.onBlur,
+          }
+        : {})}
       style={[
         styles.base,
         {
@@ -95,7 +114,9 @@ export function KCChip({ tone = 'mute', dot = false, onPress, children, style, t
         // não-interativo, mudando o snapshot dos 5 tons sem mudar geometria
         // nenhuma — ruído puro. O spread mantém o array idêntico ao original
         // quando `onPress` está ausente.
-        ...(onPress ? [styles.interactive] : []),
+        ...(onPress
+          ? [styles.interactive, getWebInteractionStyle(webInteraction, colors.borderFocus)]
+          : []),
         style,
       ]}
     >

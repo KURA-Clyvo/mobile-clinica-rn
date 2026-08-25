@@ -11,6 +11,8 @@ import { KuraMark } from '@components/brand/KuraMark';
 import { useAuthStore } from '@store/authStore';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
+import { useWebInteractionState } from '@hooks/useWebInteractionState';
+import { getWebInteractionStyle } from '@theme/webInteraction';
 
 // Nomes de tela do navigator do drawer (não são rotas/URL): chaves de
 // `ROUTES.app` cujo valor é uma string estática (exclui os helpers de rota
@@ -175,6 +177,13 @@ function NavDrawerItem({
   colors: typeof lightColors;
 }) {
   const [pressed, setPressed] = useState(false);
+  // CQ-08: hover/foco visível na web. `getWebInteractionStyle(...)` entra
+  // ANTES de `pressed && styles.navItemPressed` no array — `StyleSheet.
+  // flatten` resolve por ordem (o último presente vence), e press precisa
+  // continuar dominando hover quando os dois coincidem (mouse ainda sobre o
+  // item no instante do clique), senão o feedback de toque do CQ-03
+  // desapareceria bem na hora do clique.
+  const webInteraction = useWebInteractionState();
   // `href` deriva de `item.name` por indexação em ROUTES.app — nunca
   // escrito à mão em paralelo, para não poder divergir do nome de tela sem
   // quebrar em tsc (ver comentário de ScreenRouteName acima).
@@ -182,6 +191,7 @@ function NavDrawerItem({
   const itemStyle = StyleSheet.flatten([
     styles.navItem,
     isActive && styles.navItemActive,
+    getWebInteractionStyle(webInteraction, colors.textOnPrimary),
     pressed && styles.navItemPressed,
   ]);
 
@@ -191,6 +201,10 @@ function NavDrawerItem({
         style={itemStyle}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
+        onMouseEnter={webInteraction.onMouseEnter}
+        onMouseLeave={webInteraction.onMouseLeave}
+        onFocus={webInteraction.onFocus}
+        onBlur={webInteraction.onBlur}
         accessibilityRole="menuitem"
         testID={`nav-item-${item.name}`}
       >
@@ -206,6 +220,7 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
   const styles = makeStyles(colors);
   const { usuario, clearSession } = useAuthStore();
   const activeRouteName = state.routes[state.index]?.name;
+  const logoutInteraction = useWebInteractionState();
 
   return (
     <View style={styles.container} testID="nav-drawer">
@@ -218,7 +233,16 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
         <Text style={styles.brandName}>{STRINGS.app.name}</Text>
       </SafeAreaView>
 
-      <ScrollView style={styles.nav} contentContainerStyle={styles.navContent}>
+      {/* CQ-08 (G2 da CQ-03, achado parqueado): cada item do drawer já
+          carregava accessibilityRole="menuitem", mas sem ancestral com role
+          "menu"/"menubar" — role órfão, pior para leitor de tela do que role
+          nenhum (anuncia "item de menu" sem contexto de menu ao redor). O
+          ScrollView vira o ancestral com role "menu". */}
+      <ScrollView
+        style={styles.nav}
+        contentContainerStyle={styles.navContent}
+        accessibilityRole="menu"
+      >
         {NAV_ITEMS.map((item) => {
           // Realce do item ativo compara contra o nome REGISTRADO no
           // navigator (`routeName`, quando presente), não contra `item.name`
@@ -247,7 +271,13 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
           </View>
           <TouchableOpacity
             onPress={clearSession}
+            onMouseEnter={logoutInteraction.onMouseEnter}
+            onMouseLeave={logoutInteraction.onMouseLeave}
+            onFocus={logoutInteraction.onFocus}
+            onBlur={logoutInteraction.onBlur}
+            style={getWebInteractionStyle(logoutInteraction, colors.textOnPrimary)}
             testID="nav-drawer-logout"
+            accessibilityRole="button"
             accessibilityLabel={STRINGS.configuracoes.sair}
           >
             <KCIcon name="close" size={20} color={colors.textOnPrimary} />
