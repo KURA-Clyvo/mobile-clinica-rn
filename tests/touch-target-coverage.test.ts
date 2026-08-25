@@ -69,6 +69,13 @@ describe('touch-target-coverage — detector de lacuna de alvo de toque (CQ-08)'
   it.each(meetsMin.map(([k, v]) => [k, v] as const))(
     "entrada 'meets-min' resolve geometria >= touchTarget.min por render real: %s",
     (_chave, entrada) => {
+      // Achado 3 da G2 (fix wave 2a): sem isto, um `verify: () => {}` vazio
+      // PASSA — Jest não reprova teste sem asserção nenhuma. Reproduzido
+      // pela G2: uma entrada 'meets-min' com corpo vazio passava 28/28, o
+      // que deixaria um componente abaixo do mínimo (ex. KCTextField, ~24px)
+      // virar 'meets-min' no resumo sem ninguém perceber. `hasAssertions()`
+      // faz o teste falhar se `entrada.verify()` não chamar nenhum `expect`.
+      expect.hasAssertions();
       entrada.verify();
     },
   );
@@ -84,6 +91,8 @@ describe('touch-target-coverage — detector de lacuna de alvo de toque (CQ-08)'
   it.each(semGeometria.map(([k, v]) => [k, v] as const))(
     'entrada não-conforme confirma o estado declarado por render real: %s',
     (_chave, entrada) => {
+      // Mesmo raciocínio do bloco 'meets-min' acima (achado 3 da G2).
+      expect.hasAssertions();
       entrada.verify();
     },
   );
