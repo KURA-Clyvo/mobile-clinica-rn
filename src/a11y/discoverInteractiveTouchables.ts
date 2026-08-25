@@ -40,12 +40,32 @@ export interface TouchableConsumer {
 /** Tags JSX que, sozinhas, já são o alvo de toque — não precisam de resolução
  *  de escopo porque a interatividade é da PRÓPRIA tag, não de uma chamada que
  *  ela faz. `Link` do expo-router NÃO entra aqui de propósito: quando usado
- *  com `asChild`, o filho real (`Pressable`/`TouchableOpacity`) já aparece
- *  como tag JSX própria dentro dele — é esse filho, não o `<Link>`, que
- *  carrega a geometria (ver `NavDrawer.tsx`). Um `<Link>` sem `asChild`
+ *  com `asChild`, o filho real (`Pressable`/`TouchableOpacity`/etc.) já
+ *  aparece como tag JSX própria dentro dele — é esse filho, não o `<Link>`,
+ *  que carrega a geometria (ver `NavDrawer.tsx`). Um `<Link>` sem `asChild`
  *  renderiza `<a>` nativo do react-native-web, fora do escopo de geometria
- *  declarada por `StyleSheet` que este detector verifica. */
-const INTERACTIVE_TAGS = new Set(['TouchableOpacity', 'Pressable']);
+ *  declarada por `StyleSheet` que este detector verifica.
+ *
+ *  ⚠️ Fix wave (achado do maestro no G1, não visto pela rodada original de
+ *  mutação): a lista original só tinha `TouchableOpacity`/`Pressable` — os
+ *  outros 3 tocáveis que o próprio `react-native` exporta
+ *  (`TouchableHighlight`, `TouchableWithoutFeedback`,
+ *  `TouchableNativeFeedback` — nomes confirmados em
+ *  `node_modules/react-native/types/index.d.ts:97-101`, reexportados de
+ *  `Libraries/Components/Touchable/*.d.ts`) ficavam INVISÍVEIS ao walker,
+ *  mesma forma de fraqueza do `check:no-ocean` que o brief da CQ-08 citou
+ *  como exemplo a não repetir (guarda que pega só uma forma da coisa e
+ *  deixa passar as outras em silêncio). Mordida: um `TouchableHighlight`
+ *  com `height: 12, width: 12` inserido em `KCBadge.tsx` passava por
+ *  `tsc` limpo e pela suíte de cobertura 28/28 verde antes desta correção —
+ *  ver task-CQ-08-report.md, seção "Fix wave". */
+const INTERACTIVE_TAGS = new Set([
+  'TouchableOpacity',
+  'Pressable',
+  'TouchableHighlight',
+  'TouchableWithoutFeedback',
+  'TouchableNativeFeedback',
+]);
 
 /** Acha o nome do componente (função nomeada, `const X = () => {}`/
  *  `function X() {}`, ou método de acesso `get`/`set`) que contém o nó dado,
@@ -172,18 +192,41 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
 
 // Limitação declarada (mesmo espírito de docs/smoke-coverage-limitations.md):
 // este walker NÃO resolve escopo léxico. Ele detecta (1) toda tag JSX literal
-// `TouchableOpacity`/`Pressable`, em qualquer profundidade, e (2) o único
-// padrão de alias condicional observado hoje no código real deste repo
+// de qualquer nome em INTERACTIVE_TAGS, em qualquer profundidade, e (2) o
+// único padrão de alias condicional observado hoje no código real deste repo
 // (`KCChip.tsx`). O que ficaria invisível, em teoria, e não existe hoje:
-//   - `TouchableOpacity`/`Pressable` importado com alias de import
-//     (`import { Pressable as Btn } from 'react-native'`) — a tag JSX seria
-//     `<Btn>`, não reconhecida.
+//   - Qualquer um dos 5 tocáveis de INTERACTIVE_TAGS importado com ALIAS de
+//     import (`import { Pressable as Btn } from 'react-native'`) — a tag JSX
+//     seria `<Btn>`, não reconhecida. Confirmado por grep que não existe
+//     hoje em `primitives`/`layout`/`domain` (nenhuma ocorrência de
+//     "TouchableXxx as" nem "Pressable as").
+//   - Um tocável de BIBLIOTECA TERCEIRA — o candidato mais plausível deste
+//     projeto é `react-native-gesture-handler` (dependência real, usada
+//     internamente por `@react-navigation/drawer`), que exporta seu próprio
+//     `TouchableOpacity`/`Pressable`/`RectButton`/`BorderlessButton` com
+//     geometria própria. Confirmado por grep que NENHUM arquivo de
+//     `primitives`/`layout`/`domain` importa de
+//     `'react-native-gesture-handler'` hoje — todo `TouchableOpacity`/
+//     `Pressable` destes 3 diretórios vem de `'react-native'` puro. Se
+//     algum consumir esse pacote depois, a tag JSX (`RectButton` etc.) não
+//     está em INTERACTIVE_TAGS e ficaria invisível.
 //   - Um componente cujo alias condicional (`cond ? Pressable : View`) é
 //     declarado dentro de uma função, e OUTRA função do MESMO arquivo declara
 //     uma variável de mesmo nome com sentido diferente (não-interativo) — a
 //     varredura de arquivo inteiro marcaria as duas como interativas.
 //   - Subpastas dentro de `primitives`/`layout`/`domain` (a varredura não é
 //     recursiva) — nenhuma existe hoje nesses 3 diretórios.
-// Nenhum dos 3 apareceu em código real deste repo (conferido por leitura de
-// todos os arquivos de `primitives`/`layout`/`domain` nesta rodada). Se
-// aparecer, este arquivo precisa de extensão antes de confiar na cobertura.
+// Nenhum dos 4 apareceu em código real deste repo (conferido por leitura +
+// grep de todos os arquivos de `primitives`/`layout`/`domain` nesta
+// rodada — não só herdado da rodada anterior). Se aparecer, este arquivo
+// precisa de extensão antes de confiar na cobertura.
+//
+// ⚠️ Histórico: a lista INTERACTIVE_TAGS original (rodada de implementação)
+// cobria só `TouchableOpacity`/`Pressable` — 2 das 5 formas REAIS que o
+// próprio `react-native` exporta (`TouchableHighlight`,
+// `TouchableWithoutFeedback`, `TouchableNativeFeedback` ficavam de fora,
+// não porque fossem exóticas, mas porque a rodada de mutação original nunca
+// testou contra elas). O maestro achou isso no G1 com um `TouchableHighlight`
+// de `height:12,width:12` em `KCBadge.tsx` — passava por `tsc` limpo e pela
+// suíte de cobertura 28/28 verde. Ver task-CQ-08-report.md, seção "Fix wave",
+// para a mordida completa (vermelho→verde) desta correção.
