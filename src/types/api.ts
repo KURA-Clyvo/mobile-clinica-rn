@@ -194,15 +194,39 @@ export interface TriagensRelatorioQuery {
   dataInicio: string;
   dataFim: string;
 }
+
+// Tipo INTERNO do app — o que luna.tsx e os hooks consomem. Nomes de campo herdados
+// da versão pré-CQ-09 (não são os nomes que o .NET realmente emite — ver
+// TriagensRelatorioApiResponse abaixo). CQ-09 removeu `CRITICO`: nenhum produtor da
+// cadeia (Luna Python / .NET) emite esse nível de urgência — era UI para dado
+// inexistente.
 export interface TriagensRelatorioResponse {
   nrTotalTriagens: number;
   distribuicaoUrgencia: {
     BAIXO: number;
     MEDIO: number;
     ALTO: number;
-    CRITICO: number;
   };
   nrEncaminhadasParaVet: number;
+}
+
+// Shape de FIO real emitido por GET /api/v1/luna/triagens/relatorio (.NET). CQ-09:
+// divergia dos 3 nomes de campo E do vocabulário de urgência que o app lia
+// (nrTotalTriagens/distribuicaoUrgencia/nrEncaminhadasParaVet, ALTO/MEDIO/BAIXO) — a
+// tela sempre mostrava zero em modo real porque o parser antigo simplesmente não
+// encontrava essas chaves. luna.service.ts traduz este tipo para
+// TriagensRelatorioResponse (camada anti-corrupção, mesmo padrão da TASK-55: tipo de
+// fio ≠ tipo interno, a tradução vive no service, não vaza para a tela).
+// `porUrgencia` é `Record<string, number>` (não union literal ALTA/MEDIA/BAIXA) de
+// propósito: chaves que a API real não deveria emitir (ex. um eventual 'CRITICA') são
+// ignoradas pelo tradutor em vez de quebrar o parse.
+// LIMITE DECLARADO: nomes de campo e vocabulário herdados do ledger de investigação de
+// sessões anteriores (kura-luna-ai/backend-clinica-dotnet), não reverificados contra o
+// .NET real nesta sessão — nenhum dos dois repos está clonado nesta máquina (D-2).
+export interface TriagensRelatorioApiResponse {
+  totalTriagens: number;
+  porUrgencia: Record<string, number>;
+  encaminhadasParaVet: number;
 }
 
 // ─── Luna (Python — chamada direta) ───────────────────────────
@@ -217,14 +241,33 @@ export interface WhatsAppEnvioResponse {
   sid?: string | null;
 }
 
+// GET /health — liveness simples da Luna (ex. {status:'ok'}). CQ-09: não é o endpoint
+// que informa oracle/kura_api nem reflete degradação parcial — isso é GET /ready (ver
+// LunaReadyResponse abaixo). O guard antigo desta tela testava uma chave (`sgStatus`)
+// que nunca existiu em nenhum dos dois endpoints reais — resultado medido: a tela
+// sempre mostrava "Offline" em modo real, mesmo com a Luna no ar.
+// CQ-09 fix wave (G2 Minor-2): sem consumidor em código hoje — luna.service.ts/
+// luna.tsx passaram a bater em GET /ready, não GET /health. Mantido de propósito
+// como documentação do endpoint de liveness real (existe, só não é o que a tela usa
+// para os cards de sub-serviço) — não é tipo morto por engano, é registro do
+// contrato para quem precisar de liveness simples no futuro.
 export interface LunaHealthResponse {
-  sgStatus: 'UP' | 'DOWN' | 'DEGRADED';
-  dtUltimaVerificacao: string;
-  servicos: {
-    twilio: 'UP' | 'DOWN';
-    oracle: 'UP' | 'DOWN';
-    visaoComputacional: 'UP' | 'DOWN';
-  };
+  status: string;
+}
+
+// GET /ready — corpo real: {status, oracle, kura_api}. CQ-09/E14 (ledger): esta rota
+// devolve HTTP 503 (corpo ainda válido, não falha de rede) quando algo está
+// degradado — luna.service.ts trata isso via `validateStatus`, não deixa o 503 cair no
+// catch genérico (ver JSDoc de getLunaHealth).
+// LIMITE DECLARADO: o tipo exato de `oracle`/`kura_api` (enum? boolean? string livre?)
+// não foi reverificado contra a Luna real nesta sessão — kura-luna-ai não está clonado
+// nesta máquina. Tratados aqui como string opaca; quem decide "está up?" compara de
+// forma defensiva e case-insensitive (ver isServicoUp em luna.tsx), não assume um
+// literal específico.
+export interface LunaReadyResponse {
+  status: string;
+  oracle: string;
+  kura_api: string;
 }
 
 // ─── Erros normalizados ───────────────────────────────────────

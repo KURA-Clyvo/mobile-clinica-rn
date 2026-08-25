@@ -9,23 +9,29 @@ import {
   getLunaHealth,
   enviarWhatsApp,
 } from '../src/services/luna.service';
-import { relatorioTriagens as mockRelatorio } from '../src/mocks/luna.mock';
+import { relatorioTriagens as mockRelatorio, ready as mockReady } from '../src/mocks/luna.mock';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 const mockApiGet = apiClient.get as jest.Mock;
 const mockLunaGet = lunaClient.get as jest.Mock;
 const mockLunaPost = lunaClient.post as jest.Mock;
 
-const MOCK_RELATORIO_DATA = {
-  nrTotalTriagens: 142,
-  distribuicaoUrgencia: { BAIXO: 68, MEDIO: 45, ALTO: 22, CRITICO: 7 },
-  nrEncaminhadasParaVet: 29,
+// Shape de FIO real emitido por GET /api/v1/luna/triagens/relatorio (.NET) — CQ-09
+// item 1/2: totalTriagens/porUrgencia/encaminhadasParaVet, urgência ALTA/MEDIA/BAIXA
+// (feminino). Copiado literalmente do contrato do ledger, não escrito de memória a
+// partir do tipo interno do app.
+const MOCK_RELATORIO_API_DATA = {
+  totalTriagens: 142,
+  porUrgencia: { BAIXA: 68, MEDIA: 45, ALTA: 22 },
+  encaminhadasParaVet: 29,
 };
 
-const MOCK_HEALTH_DATA = {
-  sgStatus: 'UP' as const,
-  dtUltimaVerificacao: new Date().toISOString(),
-  servicos: { twilio: 'UP' as const, oracle: 'UP' as const, visaoComputacional: 'UP' as const },
+// Shape real de GET /ready (CQ-09 item 4/6): {status, oracle, kura_api} — sem
+// sgStatus/servicos/twilio/visaoComputacional, que nenhum endpoint real da Luna emite.
+const MOCK_READY_DATA = {
+  status: 'ok',
+  oracle: 'ok',
+  kura_api: 'ok',
 };
 
 const MOCK_WHATSAPP_DATA = {
@@ -35,43 +41,108 @@ const MOCK_WHATSAPP_DATA = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockApiGet.mockResolvedValue({ data: MOCK_RELATORIO_DATA });
-  mockLunaGet.mockResolvedValue({ data: MOCK_HEALTH_DATA });
+  mockApiGet.mockResolvedValue({ data: MOCK_RELATORIO_API_DATA });
+  mockLunaGet.mockResolvedValue({ data: MOCK_READY_DATA, status: 200 });
   mockLunaPost.mockResolvedValue({ data: MOCK_WHATSAPP_DATA });
 });
 
 describe('luna.service', () => {
-  it('getRelatorioTriagens uses apiClient and returns TriagensRelatorioResponse', async () => {
-    const query = { dataInicio: '2026-05-04', dataFim: '2026-05-11' };
-    const result = await getRelatorioTriagens(query);
-    expect(mockApiGet).toHaveBeenCalledWith(
-      '/api/v1/luna/triagens/relatorio',
-      { params: query },
-    );
-    expect(mockLunaGet).not.toHaveBeenCalled();
-    expect(result.nrTotalTriagens).toBe(142);
-    expect(result.distribuicaoUrgencia).toBeDefined();
+  describe('getRelatorioTriagens — CQ-09 item 1/2 (nomes de campo + vocabulário de urgência)', () => {
+    it('traduz o shape real do .NET (totalTriagens/porUrgencia/ALTA-MEDIA-BAIXA) para o tipo interno', async () => {
+      const query = { dataInicio: '2026-05-04', dataFim: '2026-05-11' };
+      const result = await getRelatorioTriagens(query);
+
+      expect(mockApiGet).toHaveBeenCalledWith(
+        '/api/v1/luna/triagens/relatorio',
+        { params: query },
+      );
+      expect(mockLunaGet).not.toHaveBeenCalled();
+
+      // Prova de mordida: se o parser ainda lesse nrTotalTriagens (chave que o .NET
+      // real nunca emite) em vez de totalTriagens, isto seria NaN/undefined — não 142.
+      expect(result.nrTotalTriagens).toBe(142);
+      // Vocabulário traduzido: ALTA->ALTO, MEDIA->MEDIO, BAIXA->BAIXO. Se o parser
+      // ainda esperasse ALTO/MEDIO/BAIXO no corpo da API, estes 3 ficariam 0.
+      expect(result.distribuicaoUrgencia).toEqual({ BAIXO: 68, MEDIO: 45, ALTO: 22 });
+      expect(result.nrEncaminhadasParaVet).toBe(29);
+      // CRITICO não existe mais no tipo interno — não deve sobreviver à tradução.
+      expect('CRITICO' in result.distribuicaoUrgencia).toBe(false);
+    });
+
+    it('ignora chaves de urgência que a API real não deveria emitir (ex. CRITICA) sem quebrar o parse', async () => {
+      mockApiGet.mockResolvedValue({
+        data: {
+          totalTriagens: 150,
+          porUrgencia: { BAIXA: 68, MEDIA: 45, ALTA: 22, CRITICA: 15 },
+          encaminhadasParaVet: 29,
+        },
+      });
+      const result = await getRelatorioTriagens({ dataInicio: '2026-05-04', dataFim: '2026-05-11' });
+      // CRITICA é descartada — os 3 níveis conhecidos continuam corretos, sem lançar.
+      expect(result.distribuicaoUrgencia).toEqual({ BAIXO: 68, MEDIO: 45, ALTO: 22 });
+      expect(result.nrTotalTriagens).toBe(150);
+    });
   });
 
-  it('getLunaHealth uses lunaClient and returns LunaHealthResponse', async () => {
-    const result = await getLunaHealth();
-    expect(mockLunaGet).toHaveBeenCalledWith('/health');
-    expect(mockApiGet).not.toHaveBeenCalled();
-    // quando online, retorna os campos do LunaHealthResponse
-    expect('sgStatus' in result).toBe(true);
-    if ('sgStatus' in result) {
-      expect(result.sgStatus).toBe('UP');
-      expect(result.servicos).toBeDefined();
-    }
-  });
+  describe('getLunaHealth — CQ-09 item 4/6 (GET /ready, armadilha do 503)', () => {
+    it('usa lunaClient.get("/ready") com validateStatus aceitando 200 e 503', async () => {
+      await getLunaHealth();
+      expect(mockLunaGet).toHaveBeenCalledWith(
+        '/ready',
+        expect.objectContaining({ validateStatus: expect.any(Function) }),
+      );
+      const { validateStatus } = mockLunaGet.mock.calls[0][1] as { validateStatus: (s: number) => boolean };
+      expect(validateStatus(200)).toBe(true);
+      expect(validateStatus(503)).toBe(true);
+      expect(validateStatus(500)).toBe(false);
+      expect(validateStatus(404)).toBe(false);
+    });
 
-  it('getLunaHealth offline — retorna {status:"indisponivel"} sem lançar', async () => {
-    mockLunaGet.mockRejectedValue(new Error('ECONNREFUSED'));
+    it('HTTP 200 com corpo {status,oracle,kura_api} — devolve o corpo com httpStatus 200 (chave real, não sgStatus)', async () => {
+      const result = await getLunaHealth();
+      expect(mockApiGet).not.toHaveBeenCalled();
+      expect('oracle' in result).toBe(true);
+      if ('oracle' in result) {
+        expect(result.oracle).toBe('ok');
+        expect(result.kura_api).toBe('ok');
+        expect(result.httpStatus).toBe(200);
+      }
+      // sgStatus nunca existiu no shape real — não deve reaparecer no resultado.
+      expect('sgStatus' in result).toBe(false);
+    });
 
-    const result = await getLunaHealth();
+    it('HTTP 503 com corpo válido — devolve o estado degradado LIDO DO CORPO, não {status:"indisponivel"}', async () => {
+      // axios com validateStatus aceitando 503 RESOLVE (não rejeita) com o corpo real —
+      // é exatamente essa resposta que o mock abaixo simula.
+      mockLunaGet.mockResolvedValue({
+        data: { status: 'degraded', oracle: 'ok', kura_api: 'down' },
+        status: 503,
+      });
 
-    // nunca lança — retorna degradado
-    expect(result).toEqual({ status: 'indisponivel' });
+      const result = await getLunaHealth();
+
+      // Não pode ser o catch genérico — isso seria PIOR que o card mentiroso antigo:
+      // um 503 real virando indisponível não aparece nem na tela nem no teste.
+      expect(result).not.toEqual({ status: 'indisponivel' });
+      expect('oracle' in result).toBe(true);
+      if ('oracle' in result) {
+        expect(result.httpStatus).toBe(503);
+        expect(result.oracle).toBe('ok');
+        expect(result.kura_api).toBe('down');
+      }
+    });
+
+    it('falha de rede genuína (ECONNREFUSED) — continua caindo em {status:"indisponivel"}', async () => {
+      mockLunaGet.mockRejectedValue(new Error('ECONNREFUSED'));
+      const result = await getLunaHealth();
+      expect(result).toEqual({ status: 'indisponivel' });
+    });
+
+    it('timeout genuíno (ECONNABORTED) — continua caindo em {status:"indisponivel"}', async () => {
+      mockLunaGet.mockRejectedValue({ code: 'ECONNABORTED', message: 'timeout of 15000ms exceeded' });
+      const result = await getLunaHealth();
+      expect(result).toEqual({ status: 'indisponivel' });
+    });
   });
 
   it('enviarWhatsApp uses lunaClient e retorna status enviado + sid, no formato esperado pela Luna', async () => {
@@ -99,9 +170,15 @@ describe('luna.service', () => {
     expect(result.status).toBe('indisponivel');
   });
 
-  it('mock relatorio: sum of urgency levels equals nrTotalTriagens', async () => {
+  it('mock relatorioTriagens (shape de fio): soma de porUrgencia bate com totalTriagens', async () => {
     const data = await mockRelatorio({} as InternalAxiosRequestConfig);
-    const { BAIXO, MEDIO, ALTO, CRITICO } = data.distribuicaoUrgencia;
-    expect(BAIXO + MEDIO + ALTO + CRITICO).toBe(data.nrTotalTriagens);
+    const soma = Object.values(data.porUrgencia).reduce((a, b) => a + b, 0);
+    expect(soma).toBe(data.totalTriagens);
+  });
+
+  it('mock ready: espelha o shape real de GET /ready, sem sgStatus/servicos', async () => {
+    const data = await mockReady({} as InternalAxiosRequestConfig);
+    expect(data).toEqual({ status: 'ok', oracle: 'ok', kura_api: 'ok' });
+    expect('sgStatus' in data).toBe(false);
   });
 });

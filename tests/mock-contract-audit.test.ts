@@ -24,7 +24,7 @@ import { getAgenda } from '../src/services/agenda.service';
 import { login } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
-import { enviarWhatsApp, getLunaHealth } from '../src/services/luna.service';
+import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens } from '../src/services/luna.service';
 import { criarOuObterSala, obterSala } from '../src/services/teleconsulta.service';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
@@ -134,8 +134,33 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       const envio = await enviarWhatsApp({ telefone: '11999990000', mensagem: 'teste', tipo: 'manual' });
       expect(envio.status).toBe('enviado');
 
+      // CQ-09: getLunaHealth() agora bate em GET /ready ({status,oracle,kura_api}) —
+      // sgStatus nunca existiu no shape real e não deve reaparecer aqui.
       const health = await getLunaHealth();
-      expect('sgStatus' in health).toBe(true);
+      expect('oracle' in health).toBe(true);
+      expect('sgStatus' in health).toBe(false);
+    });
+
+    // CQ-09 fix wave (G2 Minor-3): getRelatorioTriagens não estava neste bloco de
+    // pass-throughs, mas NÃO é pass-through — é justamente a função que esta task deu
+    // um tradutor (shape de fio -> tipo interno), e o mock passou a devolver o shape
+    // de fio (ver src/mocks/luna.mock.ts). Exercita o caminho real
+    // (apiClient -> mock-adapter -> lunaMock.relatorioTriagens -> tradutor), sem
+    // jest.mock do client, para travar na suíte o critério de aceite literal do
+    // backlog ("modo real e modo mock mostram o mesmo número para o mesmo dado") —
+    // antes disto só tinha sido verificado por uma sonda temporária de revisão.
+    it('getRelatorioTriagens (modo mock real) traduz o shape de fio e devolve total > 0', async () => {
+      const relatorio = await getRelatorioTriagens({
+        dataInicio: '2026-01-01',
+        dataFim: '2026-01-08',
+      });
+      expect(relatorio.nrTotalTriagens).toBeGreaterThan(0);
+      expect(Number.isNaN(relatorio.nrTotalTriagens)).toBe(false);
+      const soma =
+        relatorio.distribuicaoUrgencia.BAIXO +
+        relatorio.distribuicaoUrgencia.MEDIO +
+        relatorio.distribuicaoUrgencia.ALTO;
+      expect(soma).toBe(relatorio.nrTotalTriagens);
     });
   });
 

@@ -86,10 +86,15 @@ describe('mock-adapter', () => {
     expect(data.totalItems).toBe(10);
   });
 
-  it('resolves /luna/health', async () => {
-    const res = await resolveMock(makeConfig('/luna/health'));
-    const data = res.data as { sgStatus: string };
-    expect(data.sgStatus).toBe('UP');
+  // CQ-09: rota trocada de /health (liveness simples, {status:'ok'}, não usada pelos
+  // cards de sub-serviço) para /ready ({status, oracle, kura_api}) — ver JSDoc de
+  // getLunaHealth em luna.service.ts.
+  it('resolves /luna/ready', async () => {
+    const res = await resolveMock(makeConfig('/luna/ready'));
+    const data = res.data as { status: string; oracle: string; kura_api: string };
+    expect(data.status).toBe('ok');
+    expect(data.oracle).toBe('ok');
+    expect(data.kura_api).toBe('ok');
   });
 
   it('resolves /luna/whatsapp/enviar', async () => {
@@ -105,10 +110,14 @@ describe('mock-adapter', () => {
     expect(data.nmArquivo).toContain('.pdf');
   });
 
+  // CQ-09: resolveMock() devolve o shape RAW real (totalTriagens/porUrgencia com
+  // ALTA/MEDIA/BAIXA), não mais o shape interno do app — a tradução acontece em
+  // luna.service.ts (mesmo padrão de /dashboard/hoje acima, TASK-65).
   it('resolves /luna/triagens/relatorio', async () => {
     const res = await resolveMock(makeConfig('/luna/triagens/relatorio'));
-    const data = res.data as { nrTotalTriagens: number };
-    expect(data.nrTotalTriagens).toBeGreaterThan(0);
+    const data = res.data as { totalTriagens: number; porUrgencia: Record<string, number> };
+    expect(data.totalTriagens).toBeGreaterThan(0);
+    expect(data.porUrgencia['ALTA']).toBeDefined();
   });
 
   it('throws descriptive error for unknown route', async () => {

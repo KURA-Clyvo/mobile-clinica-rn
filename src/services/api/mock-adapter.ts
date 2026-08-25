@@ -26,7 +26,7 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/eventos-clinicos\/\d+\/receituario$/, eventosMock.gerarReceituario],
   [/\/medicamentos$/, eventosMock.medicamentos],
   [/\/whatsapp\/enviar$/, lunaMock.enviarWhatsApp],
-  [/\/health$/, lunaMock.health],
+  [/\/ready$/, lunaMock.ready],
   [/\/luna\/triagens\/relatorio$/, lunaMock.relatorioTriagens],
   // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
   // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).

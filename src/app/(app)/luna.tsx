@@ -10,13 +10,16 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { AlertCard } from '@components/domain/AlertCard';
-import { formatDateISO, subDays } from '@utils/date';
+import { formatDateISO, subDays, addDays } from '@utils/date';
 import { STRINGS } from '@constants/strings';
-import type { LunaHealthResponse } from '../../types/api';
+import type { LunaHealthResult } from '@services/luna.service';
 import type { KCIconName } from '@components/primitives/KCIcon';
 
 type Periodo = 7 | 30 | 90;
-type UrgLevel = 'BAIXO' | 'MEDIO' | 'ALTO' | 'CRITICO';
+// CQ-09: 'CRITICO' removido — nenhum produtor da cadeia (Luna Python / .NET) emite
+// esse nível de urgência. Era UI para dado que não existe (mesma classe do achado D-5
+// dos cards de sub-serviço abaixo).
+type UrgLevel = 'BAIXO' | 'MEDIO' | 'ALTO';
 
 const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 7, label: STRINGS.LUNA.PERIODO_7 },
@@ -24,41 +27,64 @@ const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 90, label: STRINGS.LUNA.PERIODO_90 },
 ];
 
-const SERVICO_META: Record<
-  keyof LunaHealthResponse['servicos'],
-  { label: string; icon: KCIconName }
-> = {
-  twilio: { label: 'Twilio', icon: 'share' },
+// CQ-09/D-5 (ruling já decidida, não reaberta aqui): os 3 cards antigos (twilio/oracle/
+// visaoComputacional) não tinham produtor nenhum — nem twilio nem visaoComputacional
+// existem em endpoint algum da Luna. Trocados pelos 2 campos reais que GET /ready
+// devolve.
+const SERVICO_META: Record<'oracle' | 'kura_api', { label: string; icon: KCIconName }> = {
   oracle: { label: 'Oracle DB', icon: 'more' },
-  visaoComputacional: { label: 'Visão', icon: 'cam' },
+  kura_api: { label: 'API Kura', icon: 'share' },
 };
 
-const URG_LEVELS: UrgLevel[] = ['BAIXO', 'MEDIO', 'ALTO', 'CRITICO'];
+const URG_LEVELS: UrgLevel[] = ['BAIXO', 'MEDIO', 'ALTO'];
 
 // getLunaHealth() nunca rejeita: quando a Luna está fora do ar ela resolve com
 // {status: 'indisponivel'} em vez de lançar. Este type guard estreita a união antes de
-// acessar sgStatus/servicos — sem ele o acesso direto é um crash real em runtime.
+// acessar oracle/kura_api — sem ele o acesso direto é um crash real em runtime.
+// CQ-09: o guard antigo testava 'sgStatus', uma chave que nunca existiu em nenhum
+// endpoint real da Luna — resultado medido: sempre falso em modo real, a tela sempre
+// mostrava "Offline" com a Luna perfeitamente no ar.
+// CQ-09 fix wave (G2 Important-1): testar 'oracle' tinha o MESMO modo de falha — é
+// outra chave do corpo do upstream, cujo shape não foi reverificado contra a Luna
+// real (ver limite declarado em LunaReadyResponse). Se a Luna renomear/omitir
+// `oracle`, o guard voltaria a falhar e a tela voltaria a mostrar "Offline" com a
+// Luna no ar. 'httpStatus' não depende do corpo do upstream — é anexado só no
+// caminho de sucesso de getLunaHealth() (luna.service.ts: `{...data, httpStatus:
+// status}`), nunca no caminho de erro (`{status:'indisponivel'}`), então é um
+// discriminante estável mesmo que o shape real do corpo mude.
 function isLunaHealthUp(
-  health: LunaHealthResponse | { status: 'indisponivel' } | undefined,
-): health is LunaHealthResponse {
-  return health != null && 'sgStatus' in health;
+  health: LunaHealthResult | undefined,
+): health is Exclude<LunaHealthResult, { status: 'indisponivel' }> {
+  return health != null && 'httpStatus' in health;
+}
+
+// CQ-09: o tipo exato de oracle/kura_api (enum? boolean? string livre?) não foi
+// reverificado contra a Luna real nesta sessão — tratado como string opaca, comparada
+// de forma defensiva e case-insensitive contra algo como 'ok'/'up'. Ver
+// LunaReadyResponse (src/types/api.ts) para o limite declarado.
+// CQ-09 fix wave (G2 Important-1): aceita undefined/null além de string — desde que
+// isLunaHealthUp() não dependa mais de uma chave específica do corpo (ver acima), uma
+// chave individual como `oracle` pode estar ausente sem que isso seja um crash; nesse
+// caso trata como "não confirmado up", não lança.
+function isServicoUp(valor: string | undefined | null): boolean {
+  if (valor == null) return false;
+  const v = valor.toLowerCase();
+  return v === 'ok' || v === 'up';
 }
 
 function urgColor(level: UrgLevel, colors: typeof lightColors): string {
   switch (level) {
-    case 'BAIXO':   return colors.success;
-    case 'MEDIO':   return colors.warning;
-    case 'ALTO':    return colors.amber;
-    case 'CRITICO': return colors.danger;
+    case 'BAIXO': return colors.success;
+    case 'MEDIO': return colors.warning;
+    case 'ALTO':  return colors.amber;
   }
 }
 
 function urgLabel(level: UrgLevel): string {
   switch (level) {
-    case 'BAIXO':   return 'Baixo';
-    case 'MEDIO':   return 'Médio';
-    case 'ALTO':    return 'Alto';
-    case 'CRITICO': return 'Crítico';
+    case 'BAIXO': return 'Baixo';
+    case 'MEDIO': return 'Médio';
+    case 'ALTO':  return 'Alto';
   }
 }
 
@@ -206,7 +232,14 @@ export default function LunaScreen() {
   const [periodo, setPeriodo] = useState<Periodo>(7);
   const [refreshing, setRefreshing] = useState(false);
 
-  const dataFim = formatDateISO(new Date());
+  // E14 (CQ-09 ledger, pré-requisito dos itens 1-3 desta task): dataFim = "hoje" sem
+  // componente de hora vira 00:00:00 do dia no .NET, que filtra <= — toda triagem
+  // gravada com UtcNow (hora real) de hoje caía fora do relatório de hoje. Manda o dia
+  // SEGUINTE como limite superior EXCLUSIVO de dia, cobrindo qualquer hora de hoje,
+  // sem precisar de componente de hora no formato ISO (formatDateISO só emite
+  // yyyy-MM-dd). Sem este fix, os itens 1-3 (nomes de campo/vocabulário) entregariam
+  // "uma tela bonita que continua mostrando zero".
+  const dataFim = formatDateISO(addDays(new Date(), 1));
   const dataInicio = formatDateISO(subDays(new Date(), periodo));
 
   const { data: health } = useLunaHealth();
@@ -222,25 +255,31 @@ export default function LunaScreen() {
     setRefreshing(false);
   };
 
-  // Luna fora do ar (indisponível) cai no mesmo ramo visual de "DOWN": vermelho + Offline.
-  // Nunca acessa sgStatus/servicos sem antes confirmar que a união é LunaHealthResponse.
+  // Luna fora do ar (indisponível — falha de rede/timeout genuína) cai no ramo visual
+  // "Offline": vermelho. Nunca acessa oracle/kura_api sem antes confirmar que a união
+  // não é {status:'indisponivel'}.
   const healthUp = isLunaHealthUp(health);
+
+  // CQ-09: /ready devolve HTTP 503 (corpo ainda válido, não falha de rede) quando algo
+  // está degradado — httpStatus carrega essa distinção desde luna.service.ts. Reforça
+  // com o próprio corpo (oracle/kura_api) por defensividade, mesmo que a implementação
+  // real hoje só use o 503 para sinalizar isso — não inventa um 4º estado além de
+  // Offline/Online/Degradado.
+  const degradado = healthUp
+    ? health.httpStatus === 503 || !isServicoUp(health.oracle) || !isServicoUp(health.kura_api)
+    : false;
 
   const statusColor = !healthUp
     ? colors.danger
-    : health.sgStatus === 'UP'
-      ? colors.success
-      : health.sgStatus === 'DEGRADED'
-        ? colors.warning
-        : colors.danger;
+    : degradado
+      ? colors.warning
+      : colors.success;
 
   const statusLabel = !healthUp
     ? STRINGS.LUNA.STATUS_OFFLINE
-    : health.sgStatus === 'UP'
-      ? STRINGS.LUNA.STATUS_ONLINE
-      : health.sgStatus === 'DEGRADED'
-        ? STRINGS.LUNA.STATUS_DEGRADADO
-        : STRINGS.LUNA.STATUS_OFFLINE;
+    : degradado
+      ? STRINGS.LUNA.STATUS_DEGRADADO
+      : STRINGS.LUNA.STATUS_ONLINE;
 
   const total = relatorio?.nrTotalTriagens ?? 0;
 
@@ -283,7 +322,7 @@ export default function LunaScreen() {
       {healthUp && (
         <View style={styles.subServicesRow} testID="sub-services">
           {(Object.keys(SERVICO_META) as (keyof typeof SERVICO_META)[]).map((key) => {
-            const isUp = health.servicos[key] === 'UP';
+            const isUp = isServicoUp(health[key]);
             const meta = SERVICO_META[key];
             const svcColor = isUp ? colors.success : colors.danger;
             return (

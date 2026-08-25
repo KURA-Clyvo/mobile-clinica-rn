@@ -77,12 +77,14 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   },
   'luna.service.ts::getLunaHealth': {
     naoCoberto:
-      'GET /health bate direto no serviço Python da Luna (kura-luna-ai, porta 8000), ' +
-      'não no .NET (kura-api) nem no Java — é um upstream diferente dos dois que este ' +
-      'script já sabe autenticar (Bearer clínica/tutor, X-Api-Key Luna->NET). O script ' +
-      'não tem hoje uma var LUNA_BASE_URL nem conhece o contrato de saúde da Luna. ' +
-      'Baixo risco (GET simples, sem side-effect) mas fora do escopo desta task — ' +
-      'candidato a follow-up que adicione essa 3ª base URL ao script.',
+      'GET /ready (CQ-09: trocado de /health, que só devolve {status:"ok"} e não ' +
+      'informa oracle/kura_api nem reflete degradação) bate direto no serviço Python ' +
+      'da Luna (kura-luna-ai, porta 8000), não no .NET (kura-api) nem no Java — é um ' +
+      'upstream diferente dos dois que este script já sabe autenticar (Bearer ' +
+      'clínica/tutor, X-Api-Key Luna->NET). O script não tem hoje uma var ' +
+      'LUNA_BASE_URL nem conhece o contrato de prontidão da Luna. Baixo risco (GET ' +
+      'simples, sem side-effect) mas fora do escopo desta task — candidato a ' +
+      'follow-up que adicione essa 3ª base URL ao script.',
   },
   'luna.service.ts::getRelatorioTriagens': {
     coberto: 'luna/triagens/relatorio (GET, JWT clinica)',
