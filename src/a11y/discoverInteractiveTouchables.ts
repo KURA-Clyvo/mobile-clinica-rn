@@ -147,6 +147,17 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = node.tagName;
       if (ts.isIdentifier(tag)) return tag.text;
+      // G2 (fix wave 2): <RN.TouchableOpacity> — import de namespace
+      // (`import * as RN from 'react-native'`). `tagName` aqui é um
+      // PropertyAccessExpression (`RN.TouchableOpacity`); o segmento que
+      // importa é o ÚLTIMO (`.name`), mesmo princípio de
+      // `discover-network-consumers.ts` para cadeia de propriedade
+      // (`ns.apiClient` resolve pelo último segmento). Sem isso, um
+      // `TouchableOpacity` importado por namespace era invisível — mesma
+      // classe de defeito do `INTERACTIVE_TAGS` incompleto (fix wave 1),
+      // eixo novo (forma de REFERENCIAR o componente, não nome do
+      // componente em si).
+      if (ts.isPropertyAccessExpression(tag)) return tag.name.text;
     }
     return undefined;
   }
@@ -171,20 +182,41 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
   return encontrados;
 }
 
-/** Varre os `.tsx` de topo de cada diretório em `dirs` (não recursivo — os 3
- *  diretórios reais de componentes deste app, `primitives`/`layout`/`domain`,
- *  não têm subpastas hoje; ver "Limitação" se isso mudar). */
+/** Lista recursivamente todo `.tsx` sob `dir`, ordem estável (sort no fim).
+ *  G2 (fix wave 2): a versão original só varria o TOPO de cada diretório —
+ *  correto para `primitives`/`layout`/`domain` (sem subpasta hoje), mas
+ *  `src/app/` (adicionado nesta fix wave) TEM subpastas reais
+ *  (`(app)/pacientes/`, `(app)/consulta/`, etc.) e ficaria parcialmente
+ *  invisível sem recursão. */
+function listarTsxRecursivo(dir: string): string[] {
+  const resultado: string[] = [];
+  const entradas = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entrada of entradas) {
+    const caminho = path.join(dir, entrada.name);
+    if (entrada.isDirectory()) {
+      resultado.push(...listarTsxRecursivo(caminho));
+    } else if (entrada.isFile() && entrada.name.endsWith('.tsx')) {
+      resultado.push(caminho);
+    }
+  }
+  return resultado;
+}
+
+/** Varre `.tsx` recursivamente sob cada diretório em `dirs`. A chave usa o
+ *  caminho RELATIVO ao diretório escaneado (não só o basename) — necessário
+ *  desde que `src/app/` entrou na varredura: `src/app/index.tsx` e
+ *  `src/app/(app)/pacientes/index.tsx` têm o MESMO basename
+ *  (`index.tsx`), e colidiriam numa chave baseada só em nome de arquivo.
+ *  Para `primitives`/`layout`/`domain` (sem subpasta), o caminho relativo
+ *  já É o basename — nenhuma chave existente muda. */
 export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer[] {
   const resultado: TouchableConsumer[] = [];
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) continue;
-    const arquivos = fs
-      .readdirSync(dir)
-      .filter((f) => f.endsWith('.tsx'))
-      .sort();
-    for (const arquivo of arquivos) {
-      const caminhoCompleto = path.join(dir, arquivo);
-      resultado.push(...descobrirNoArquivo(caminhoCompleto, arquivo));
+    const arquivos = listarTsxRecursivo(dir).sort();
+    for (const caminhoCompleto of arquivos) {
+      const nomeRelativo = path.relative(dir, caminhoCompleto).split(path.sep).join('/');
+      resultado.push(...descobrirNoArquivo(caminhoCompleto, nomeRelativo));
     }
   }
   return resultado;
