@@ -29,28 +29,61 @@
 // próprio `Pressability` gera (que só chamam `onHoverIn`/`onHoverOut`,
 // nunca setados aqui). Ou seja: nos dois componentes, a prop de hover que
 // este app passa é interceptada e descartada pela camada nativa de
-// Pressability — só funciona de verdade no build real de web, via
-// `react-native-web`, que tem sua PRÓPRIA implementação (documentada em
-// `src/hooks/useWebInteractionState.ts:19-31`) que espalha props
-// desconhecidas para o nó DOM. Medido com um spike descartável
-// (`fireEvent(el, 'mouseEnter')` contra `AppHeader` sob `Platform.OS =
-// 'web'`: o estilo de hover NUNCA aparece; o mesmo spike com `'focus'`
-// aplica o anel de foco corretamente) antes de escrever este arquivo.
+// Pressability **quando o evento é disparado no nó HOST** (é por isso que
+// `fireEvent(el, 'mouseEnter')` nunca aplica o estilo de hover — medido com
+// spike descartável contra `AppHeader` sob `Platform.OS = 'web'`; o mesmo
+// spike com `'focus'` aplica o anel corretamente).
+//
+// ⚠️ CQ-08 fix wave 2a-bis — achado do maestro: a wave 2a leu o parágrafo
+// acima e generalizou pra "hover por sítio não é verificável". Essa
+// conclusão é FALSA — o parágrafo acima só prova que `fireEvent` (que
+// dispara o evento no nó HOST) não serve pra hover; não prova que a prop
+// não pode ser exercitada. `UNSAFE_getByType(TouchableOpacity)` devolve o
+// fiber COMPOSITE — o elemento exatamente como ESTE código o escreveu em
+// JSX. `.props.onMouseEnter` nesse fiber é literalmente
+// `webInteraction.onMouseEnter` (a mesma referência de função, sem
+// indireção da camada de Pressability) — chamá-la direto, dentro de
+// `act(...)`, não depende de o Jest saber rotear um evento `mouseEnter`, e
+// testa exatamente a mesma cadeia que o navegador real testaria via
+// `react-native-web` (que — ver `useWebInteractionState.ts:19-31` — espalha
+// essa prop pro nó DOM sem reescrevê-la, ao contrário do Pressability
+// nativo). Mordida que prova isso não é papel: arrancar as 2 linhas de
+// `onMouseEnter`/`onMouseLeave` de um sítio faz esse `.props.onMouseEnter`
+// virar `undefined`; chamar `undefined()` estoura `TypeError`, e a mutação
+// FICA VERMELHA — ver `task-CQ-08-report.md`, seção "Fix wave 2a-bis", pelas
+// 2 mordidas medidas (`KCButton` + um segundo sítio).
+//
+// ⚠️ Achado de processo #3 (medido nesta rodada): para os sítios baseados em
+// `TouchableOpacity`, `UNSAFE_getByType(TouchableOpacity)` já devolve o
+// fiber composite certo (confirmado por probe descartável). Para o
+// `Pressable` de `NavDrawerItem`, a mesma chamada
+// (`UNSAFE_getAllByType(Pressable)`) devolve **ZERO** instâncias — raiz não
+// determinada (possível mismatch de identidade de módulo dentro do registry
+// do Jest), medido e não investigado a fundo por estar fora do escopo desta
+// wave. Workaround verificado por medição: `UNSAFE_getAllByProps({ testID
+// })` encontra as 3 entradas que carregam esse `testID` (composite
+// `Pressable` + 2 `View` host que herdam a prop); filtrar por
+// `typeof m.type !== 'string'` isola a composite — a única cujo
+// `.props.onMouseEnter` é o nosso handler, não o wrapper sintético do
+// Pressability. Ver `compositeComTestId` no describe dos sítios abaixo.
 //
 // Consequência para a estratégia de teste abaixo:
 //   1. `getWebInteractionStyle` (helper puro) é testado direto, sem
 //      renderizar componente nenhum — cobre os ramos hovered/focused/
-//      nenhum/native, incluindo o `opacity: 0.88` que nenhum teste de
-//      sítio consegue exercitar via evento simulado (ver achado #2 acima).
+//      nenhum/native.
 //   2. `useWebInteractionState` (hook puro) é testado via `renderHook`,
 //      chamando os 4 handlers diretamente — prova que o ESTADO alterna
 //      certo, independente de qualquer componente consumidor.
-//   3. Nos 8 sítios de consumo, a prova por render+evento real cobre
-//      `onFocus`/`onBlur` (que SÃO wired de verdade nesta camada nativa) —
-//      é isso que derruba a mutação "arrancar os 4 handlers do AppHeader"
-//      (a remoção tira onFocus/onBlur junto, então o teste de foco cai).
-//      Hover em nível de sítio fica como limitação declarada (não como
-//      cobertura inventada) — ver bloco de limitações no relatório da task.
+//   3. Nos 8 sítios de consumo, foco E hover são provados por render real.
+//      Foco por `fireEvent(el, 'focus'/'blur')` (a camada nativa liga
+//      `onFocus`/`onBlur` de verdade). Hover por chamada direta de
+//      `.props.onMouseEnter()`/`.props.onMouseLeave()` no fiber composite
+//      (achado #2/#3 acima), dentro de `act(...)`, checando o estilo
+//      achatado do nó RE-renderizado. O que continua NÃO provado — limite
+//      real, não presumido — é o navegador de fato PINTAR o hover, ou um
+//      `mouseenter` genuíno do DOM (depois de hidratação) disparar esse
+//      handler; isso exigiria um browser real ou jsdom com eventos de
+//      ponteiro, que este projeto não tem.
 import React from 'react';
 import { Platform, StyleSheet, TouchableOpacity } from 'react-native';
 import { render, fireEvent, renderHook, act } from '@testing-library/react-native';
@@ -123,6 +156,22 @@ function expectSemFoco(estilo: Record<string, unknown>) {
   expect(estilo.outlineWidth).toBeUndefined();
   expect(estilo.outlineStyle).toBeUndefined();
   expect(estilo.outlineOffset).toBeUndefined();
+}
+
+function expectHoverAplicado(estilo: Record<string, unknown>) {
+  expect(estilo.opacity).toBe(0.88);
+}
+
+/** `opacidadePadrao` existe porque nem todo sítio tem `opacity` ausente
+ *  quando não-hovered: `KCButton` explicita `opacity: isDisabled ? 0.45 : 1`
+ *  na base do array de `style` (`KCButton.tsx:140`), então "sem hover" ali é
+ *  `1`, não `undefined` — os outros 7 sítios não têm `opacity` na base, e
+ *  usam o default. */
+function expectHoverAusente(
+  estilo: Record<string, unknown>,
+  opacidadePadrao: number | undefined = undefined,
+) {
+  expect(estilo.opacity).toBe(opacidadePadrao);
 }
 
 describe('getWebInteractionStyle — helper puro (mata a mutação "return {} incondicional")', () => {
@@ -201,23 +250,51 @@ describe('useWebInteractionState — hook puro', () => {
 });
 
 // Os 8 sítios de consumo (KCButton, KCCard, KCChip, AppHeader×2,
-// NavDrawer×2, PetListItem) — prova de foco por render + fireEvent real.
-// `onMouseEnter`/`onMouseLeave` NÃO são exercitados aqui: medido (ver
-// cabeçalho do arquivo) que a camada nativa de Pressability que o Jest usa
-// intercepta e descarta essa prop antes que ela chegue a qualquer handler
-// nosso — testar via `fireEvent(el, 'mouseEnter')` daria falso-positivo de
-// cobertura (o evento "passa" sem nunca ter exercitado
-// `webInteraction.onMouseEnter`). `onFocus`/`onBlur` SÃO wired de verdade
-// nesta camada, e já bastam para derrubar a mutação "arrancar os 4
-// handlers": removê-los tira onFocus/onBlur junto.
-describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco (fireEvent real)', () => {
-  it('KCButton.tsx::KCButton#1 — TouchableOpacity ganha o anel de foco', () => {
+// NavDrawer×2, PetListItem) — prova de foco E hover por render real (fix
+// wave 2a-bis fecha o hover, que a 2a tinha deixado como limitação
+// presumida — ver achado de processo #2 no cabeçalho do arquivo). Foco por
+// `fireEvent(el, 'focus'/'blur')` — a camada nativa de Pressability que o
+// Jest usa liga `onFocus`/`onBlur` de verdade. Hover por chamada direta de
+// `.props.onMouseEnter()`/`.props.onMouseLeave()` no fiber COMPOSITE (não
+// no host, que carregaria o wrapper sintético/ausente do Pressability),
+// dentro de `act(...)` — `fireEvent(el, 'mouseEnter')` continua não
+// servindo pra hover (medido, cabeçalho do arquivo), simplesmente não é o
+// mecanismo usado aqui.
+function compositeComTestId(
+  getAllByProps: (props: Record<string, unknown>) => ReadonlyArray<{ type: unknown }>,
+  testID: string,
+) {
+  const achados = getAllByProps({ testID });
+  const composite = achados.find((no) => typeof no.type !== 'string');
+  if (!composite) {
+    throw new Error(`Nenhum fiber composite encontrado para testID="${testID}"`);
+  }
+  return composite as { type: unknown; props: Record<string, unknown> & { onMouseEnter: () => void; onMouseLeave: () => void; style?: unknown } };
+}
+
+describe('sítios de consumo — onFocus/onBlur e onMouseEnter/onMouseLeave aplicam e removem o estilo de interação (render real)', () => {
+  it('KCButton.tsx::KCButton#1 — TouchableOpacity ganha o anel de foco E o estilo de hover', () => {
     comPlataformaWeb(() => {
       const { UNSAFE_getByType } = wrap(<KCButton>Texto</KCButton>);
       const touchable = UNSAFE_getByType(TouchableOpacity);
       expectSemFoco(flat(touchable.props.style));
+      // Baseline de opacidade é `1`, não `undefined` — `KCButton` explicita
+      // `opacity: isDisabled ? 0.45 : 1` na base do array (KCButton.tsx:140).
+      expectHoverAusente(flat(touchable.props.style), 1);
 
-      fireEvent(touchable, 'focus');
+      // Hover: chamada direta na prop do fiber composite (achado #2/#3 do
+      // cabeçalho do arquivo) — é a mordida que a fix wave 2a-bis fecha.
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseLeave();
+      });
+      expectHoverAusente(flat(UNSAFE_getByType(TouchableOpacity).props.style), 1);
+
+      fireEvent(UNSAFE_getByType(TouchableOpacity), 'focus');
       expectFocoAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style), '#1A3A52');
 
       fireEvent(UNSAFE_getByType(TouchableOpacity), 'blur');
@@ -225,13 +302,24 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
     });
   });
 
-  it('KCCard.tsx::KCCard#1 — TouchableOpacity (onPress) ganha o anel de foco', () => {
+  it('KCCard.tsx::KCCard#1 — TouchableOpacity (onPress) ganha o anel de foco E o estilo de hover', () => {
     comPlataformaWeb(() => {
       const { UNSAFE_getByType } = wrap(<KCCard onPress={() => {}}>conteúdo</KCCard>);
       const touchable = UNSAFE_getByType(TouchableOpacity);
       expectSemFoco(flat(touchable.props.style));
+      expectHoverAusente(flat(touchable.props.style));
 
-      fireEvent(touchable, 'focus');
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseLeave();
+      });
+      expectHoverAusente(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+
+      fireEvent(UNSAFE_getByType(TouchableOpacity), 'focus');
       expectFocoAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style), '#1A3A52');
 
       fireEvent(UNSAFE_getByType(TouchableOpacity), 'blur');
@@ -239,13 +327,24 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
     });
   });
 
-  it('KCChip.tsx::KCChip#1 — TouchableOpacity (onPress) ganha o anel de foco', () => {
+  it('KCChip.tsx::KCChip#1 — TouchableOpacity (onPress) ganha o anel de foco E o estilo de hover', () => {
     comPlataformaWeb(() => {
       const { UNSAFE_getByType } = wrap(<KCChip onPress={() => {}}>Chip</KCChip>);
       const touchable = UNSAFE_getByType(TouchableOpacity);
       expectSemFoco(flat(touchable.props.style));
+      expectHoverAusente(flat(touchable.props.style));
 
-      fireEvent(touchable, 'focus');
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+
+      act(() => {
+        UNSAFE_getByType(TouchableOpacity).props.onMouseLeave();
+      });
+      expectHoverAusente(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+
+      fireEvent(UNSAFE_getByType(TouchableOpacity), 'focus');
       expectFocoAplicado(flat(UNSAFE_getByType(TouchableOpacity).props.style), '#1A3A52');
 
       fireEvent(UNSAFE_getByType(TouchableOpacity), 'blur');
@@ -253,10 +352,30 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
     });
   });
 
-  it('AppHeader.tsx::AppHeader#1 (botão de menu) ganha o anel de foco', () => {
+  it('AppHeader.tsx::AppHeader#1 (botão de menu) ganha o anel de foco E o estilo de hover', () => {
     comPlataformaWeb(() => {
-      const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
+      const { getByTestId, UNSAFE_getAllByType } = wrap(
+        <AppHeader title="X" onMenuPress={() => {}} />,
+      );
       expectSemFoco(flat(getByTestId('app-header-menu').props.style));
+      // Hover precisa do fiber COMPOSITE, não do host que `getByTestId`
+      // devolve — medido (probe descartável) que o host de AppHeader TEM
+      // `onMouseEnter` como função, mas é um wrapper que NÃO aplica o
+      // estilo (chamá-lo deixa `opacity` inalterado); só o composite chama
+      // de fato `menuInteraction.onMouseEnter`. Ver achado #2/#3, cabeçalho.
+      const buscarMenuComposite = () =>
+        UNSAFE_getAllByType(TouchableOpacity).find((t) => t.props.testID === 'app-header-menu')!;
+      expectHoverAusente(flat(buscarMenuComposite().props.style));
+
+      act(() => {
+        buscarMenuComposite().props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(buscarMenuComposite().props.style));
+
+      act(() => {
+        buscarMenuComposite().props.onMouseLeave();
+      });
+      expectHoverAusente(flat(buscarMenuComposite().props.style));
 
       fireEvent(getByTestId('app-header-menu'), 'focus');
       expectFocoAplicado(flat(getByTestId('app-header-menu').props.style), '#1A3A52');
@@ -266,10 +385,25 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
     });
   });
 
-  it('AppHeader.tsx::AppHeader#2 (botão de busca) ganha o anel de foco', () => {
+  it('AppHeader.tsx::AppHeader#2 (botão de busca) ganha o anel de foco E o estilo de hover', () => {
     comPlataformaWeb(() => {
-      const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
+      const { getByTestId, UNSAFE_getAllByType } = wrap(
+        <AppHeader title="X" onMenuPress={() => {}} />,
+      );
       expectSemFoco(flat(getByTestId('app-header-search').props.style));
+      const buscarBuscaComposite = () =>
+        UNSAFE_getAllByType(TouchableOpacity).find((t) => t.props.testID === 'app-header-search')!;
+      expectHoverAusente(flat(buscarBuscaComposite().props.style));
+
+      act(() => {
+        buscarBuscaComposite().props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(buscarBuscaComposite().props.style));
+
+      act(() => {
+        buscarBuscaComposite().props.onMouseLeave();
+      });
+      expectHoverAusente(flat(buscarBuscaComposite().props.style));
 
       fireEvent(getByTestId('app-header-search'), 'focus');
       expectFocoAplicado(flat(getByTestId('app-header-search').props.style), '#1A3A52');
@@ -316,10 +450,31 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
       });
     });
 
-    it('NavDrawer.tsx::NavDrawerItem#1 (item de navegação) ganha o anel de foco', () => {
+    it('NavDrawer.tsx::NavDrawerItem#1 (item de navegação) ganha o anel de foco E o estilo de hover', () => {
       comPlataformaWeb(() => {
-        const { getByTestId } = renderNavDrawerComUsuario();
+        const { getByTestId, UNSAFE_getAllByProps } = renderNavDrawerComUsuario();
         expectSemFoco(flat(getByTestId('nav-item-dashboard').props.style));
+        // Hover precisa do fiber COMPOSITE do `Pressable` — achado de
+        // processo #3 do cabeçalho: `UNSAFE_getAllByType(Pressable)` mede 0
+        // instâncias neste ambiente, e o host que `getByTestId` devolve
+        // carrega o wrapper SINTÉTICO de hover do Pressability nativo (que
+        // só chama `onHoverIn`/`onHoverOut`, nunca setados aqui) — chamá-lo
+        // não move `hovered` nenhum. `compositeComTestId` isola o composite.
+        const itemComposite = () => compositeComTestId(UNSAFE_getAllByProps, 'nav-item-dashboard');
+        expectHoverAusente(flat(itemComposite().props.style));
+
+        act(() => {
+          itemComposite().props.onMouseEnter();
+        });
+        // Cor do anel/hover neste sítio é `colors.textOnPrimary` (fundo
+        // escuro do drawer) — só o anel de FOCO usa cor, o hover é opacity
+        // pura (ver `getWebInteractionStyle`), então aqui basta opacity.
+        expectHoverAplicado(flat(itemComposite().props.style));
+
+        act(() => {
+          itemComposite().props.onMouseLeave();
+        });
+        expectHoverAusente(flat(itemComposite().props.style));
 
         fireEvent(getByTestId('nav-item-dashboard'), 'focus');
         // Cor do anel neste sítio é `colors.textOnPrimary` (fundo escuro do
@@ -332,10 +487,25 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
       });
     });
 
-    it('NavDrawer.tsx::NavDrawer#1 (botão de logout) ganha o anel de foco', () => {
+    it('NavDrawer.tsx::NavDrawer#1 (botão de logout) ganha o anel de foco E o estilo de hover', () => {
       comPlataformaWeb(() => {
-        const { getByTestId } = renderNavDrawerComUsuario();
+        const { getByTestId, UNSAFE_getByType } = renderNavDrawerComUsuario();
         expectSemFoco(flat(getByTestId('nav-drawer-logout').props.style));
+        // Logout é `TouchableOpacity` (não `Pressable`) — 1 única instância
+        // na árvore com usuário logado, então `UNSAFE_getByType` já basta
+        // (mesmo padrão de KCButton/KCCard/KCChip/PetListItem).
+        const logoutComposite = () => UNSAFE_getByType(TouchableOpacity);
+        expectHoverAusente(flat(logoutComposite().props.style));
+
+        act(() => {
+          logoutComposite().props.onMouseEnter();
+        });
+        expectHoverAplicado(flat(logoutComposite().props.style));
+
+        act(() => {
+          logoutComposite().props.onMouseLeave();
+        });
+        expectHoverAusente(flat(logoutComposite().props.style));
 
         fireEvent(getByTestId('nav-drawer-logout'), 'focus');
         expectFocoAplicado(flat(getByTestId('nav-drawer-logout').props.style), '#FFFCF7');
@@ -346,7 +516,7 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
     });
   });
 
-  it('PetListItem.tsx::PetListItem#1 — linha da lista ganha o anel de foco', () => {
+  it('PetListItem.tsx::PetListItem#1 — linha da lista ganha o anel de foco E o estilo de hover', () => {
     const pet: PetResponse = {
       id: 1,
       nmPet: 'Thor',
@@ -358,8 +528,22 @@ describe('sítios de consumo — onFocus/onBlur aplicam e removem o anel de foco
       tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'c@e.com' }],
     };
     comPlataformaWeb(() => {
-      const { getByRole } = wrap(<PetListItem pet={pet} onPress={() => {}} />);
+      const { getByRole, UNSAFE_getByType } = wrap(<PetListItem pet={pet} onPress={() => {}} />);
       expectSemFoco(flat(getByRole('button').props.style));
+      // Hover precisa do fiber composite (mesmo achado #2/#3 do cabeçalho);
+      // única `TouchableOpacity` na árvore, `UNSAFE_getByType` já isola.
+      const linhaComposite = () => UNSAFE_getByType(TouchableOpacity);
+      expectHoverAusente(flat(linhaComposite().props.style));
+
+      act(() => {
+        linhaComposite().props.onMouseEnter();
+      });
+      expectHoverAplicado(flat(linhaComposite().props.style));
+
+      act(() => {
+        linhaComposite().props.onMouseLeave();
+      });
+      expectHoverAusente(flat(linhaComposite().props.style));
 
       fireEvent(getByRole('button'), 'focus');
       expectFocoAplicado(flat(getByRole('button').props.style), '#1A3A52');
