@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { render, within } from '@testing-library/react-native';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { ThemeProvider, lightColors } from '../src/theme';
@@ -176,4 +176,31 @@ describe('NavDrawer — marca canônica em knockout (CQ-12)', () => {
     expect(mark?.props.width).toBe(32);
     expect(mark?.props.height).toBeCloseTo(32 * (48 / 40));
   });
+});
+
+// CQ-08 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — fix wave 2a, Achado 4 da
+// revisão G2: o role "menu" do `ScrollView`/"menuitem" de cada item nunca
+// tinham asserção — reproduzido pela G2: remover `accessibilityRole="menu"`
+// do `NavDrawer` passava 38/38, e o `menuitem` dos itens também nunca foi
+// checado. O role foi adicionado pela própria CQ-08 (item 2 do Escopo 3,
+// achado parqueado da G2 da CQ-03) e só tinha sido verificado à mão.
+//
+// `getByRole`/`getAllByRole` do RNTL não reconhecem 'menu'/'menuitem' como
+// role consultável (medido: `getByRole('menu')` lança "no elements found",
+// mesmo com o elemento presente na árvore) — por isso a leitura é direto na
+// prop `accessibilityRole` do elemento (mesmo padrão já usado por este
+// arquivo para `backgroundColor`, linha ~106).
+describe('NavDrawer — role de menu/menuitem (CQ-08, achado 4 da G2)', () => {
+  it('o contêiner de navegação (ScrollView) carrega accessibilityRole="menu"', () => {
+    const { UNSAFE_getByType } = wrap(0);
+    expect(UNSAFE_getByType(ScrollView).props.accessibilityRole).toBe('menu');
+  });
+
+  it.each(ROUTE_NAMES.map((name) => name.replace('/index', '')))(
+    'o item de navegação "%s" carrega accessibilityRole="menuitem"',
+    (name) => {
+      const { getByTestId } = wrap(0);
+      expect(getByTestId(`nav-item-${name}`).props.accessibilityRole).toBe('menuitem');
+    },
+  );
 });
