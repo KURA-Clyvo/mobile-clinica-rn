@@ -6,17 +6,26 @@
 // (backend-clinica-dotnet, TASK-38): descoberta por AST
 // (`src/a11y/discoverInteractiveTouchables.ts`), nunca lista hardcoded — um
 // `TouchableOpacity`/`Pressable` novo em `src/components/{primitives,layout,
-// domain}` sem entrada no registry (`tests/touchTargetRegistry.tsx`) FALHA
-// este teste.
+// domain}` OU em `src/app/` (fix wave 2b, achado 2) sem entrada no registry
+// (`tests/touchTargetRegistry.tsx`) FALHA este teste.
 import * as path from 'path';
 import { discoverInteractiveTouchables } from '../src/a11y/discoverInteractiveTouchables';
 import { TOUCH_TARGET_REGISTRY } from './touchTargetRegistry';
 
-const COMPONENTS_DIR = path.join(__dirname, '..', 'src', 'components');
+const SRC_DIR = path.join(__dirname, '..', 'src');
+const COMPONENTS_DIR = path.join(SRC_DIR, 'components');
 const DIRS = [
   path.join(COMPONENTS_DIR, 'primitives'),
   path.join(COMPONENTS_DIR, 'layout'),
   path.join(COMPONENTS_DIR, 'domain'),
+  // Achado 2 (fix wave 2b, G2): `src/app/` estava INTEIRAMENTE fora da
+  // varredura — 14 tocáveis de 7 telas (agenda, pacientes/[id],
+  // pacientes/index, receituario/[idPet], settings, login, register)
+  // invisíveis a este gate, medido: 26 tocáveis totais (12 dos 3
+  // diretórios de componentes + 14 novos) contra 46% de cobertura real
+  // antes desta wave. `discoverInteractiveTouchables` já varre
+  // recursivamente (fix wave 2), então só precisou entrar na lista.
+  path.join(SRC_DIR, 'app'),
 ];
 
 describe('touch-target-coverage — detector de lacuna de alvo de toque (CQ-08)', () => {
@@ -26,13 +35,18 @@ describe('touch-target-coverage — detector de lacuna de alvo de toque (CQ-08)'
 
   it('sanidade: a varredura por AST encontrou touchables de verdade (não zero por engano de path)', () => {
     expect(consumidores.length).toBeGreaterThan(0);
-    // Trava um piso conhecido — 12 na medição desta task (KCButton, KCCard,
-    // KCChip, KCTextField, AppHeader×2, NavDrawerItem, NavDrawer/logout,
-    // LunaSuggestionBadge, PetListItem, TimelineItem, WhatsAppModal). Se cair
-    // abaixo disso, é sinal de que o glob de diretório ou a detecção de tag
-    // JSX quebrou silenciosamente (falso negativo, o pior tipo de falha para
-    // este teste).
-    expect(consumidores.length).toBeGreaterThanOrEqual(12);
+    // Trava um piso conhecido — 26 na medição da fix wave 2b (12 dos 3
+    // diretórios de componentes: KCButton, KCCard, KCChip, KCTextField,
+    // AppHeader×2, NavDrawerItem, NavDrawer/logout, LunaSuggestionBadge,
+    // PetListItem, TimelineItem, WhatsAppModal — MAIS 14 de `src/app/`,
+    // achado 2 da G2: AgendaAppointmentCard#1, AgendaScreen#1/#2/#3,
+    // TimelineItemRow#1 e PacienteDetailScreen#1/#2 de pacientes/[id],
+    // PacientesScreen#1, ReceituarioScreen#1/#2, SettingsScreen#1,
+    // LoginScreen#1, RegisterScreen#1/#2). Se cair abaixo disso, é sinal de
+    // que o glob de diretório ou a detecção de tag JSX quebrou
+    // silenciosamente (falso negativo, o pior tipo de falha para este
+    // teste) — incluindo `src/app/` voltar a cair fora da varredura.
+    expect(consumidores.length).toBeGreaterThanOrEqual(26);
   });
 
   // Metade 1: todo touchable descoberto por AST precisa estar no registry.
