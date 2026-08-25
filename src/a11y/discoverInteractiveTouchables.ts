@@ -5,9 +5,11 @@
 // sem check". Mesmo padrão de `src/smokeCoverage/discover-network-consumers.ts`
 // (TASK-81, `backend-clinica-dotnet` `TenantFilterCoverageTests.cs`, TASK-38):
 // descoberta por AST, nunca lista hardcoded — qualquer `TouchableOpacity`/
-// `Pressable` novo em `src/components/{primitives,layout,domain}` entra
-// automaticamente na cobertura deste teste (`tests/touch-target-coverage.test.ts`),
-// sem precisar editar este arquivo.
+// `Pressable` novo em `src/components/{primitives,layout,domain}` OU em
+// `src/app/` (fix wave 2b, achado 2 — antes `src/app/` inteiro ficava fora
+// da varredura, 14 tocáveis de 7 telas invisíveis) entra automaticamente na
+// cobertura deste teste (`tests/touch-target-coverage.test.ts`), sem
+// precisar editar este arquivo.
 //
 // DESENHO: bem mais simples que o walker de rede (que precisa resolver
 // indireção arbitrária de um valor de client HTTP através de imports/aliases/
@@ -222,36 +224,68 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
   return resultado;
 }
 
-// Limitação declarada (mesmo espírito de docs/smoke-coverage-limitations.md):
-// este walker NÃO resolve escopo léxico. Ele detecta (1) toda tag JSX literal
+// Limitação declarada (mesmo espírito de docs/smoke-coverage-limitations.md)
+// — reescrita na fix wave 2b (achado 7 da G2: este bloco garantia o que o
+// código não fazia — enumerava 4 lacunas hipotéticas inexistentes e OMITIA
+// a única real e grande, `src/app/` inteiro fora da varredura. Padrão que
+// já apareceu 8× neste projeto, defeito de primeira classe, não estilo).
+//
+// ESCOPO ATUAL (pós fix wave 2b): `src/components/{primitives,layout,
+// domain}` + `src/app/` inteiro, recursivo. As 2 afirmações "confirmado por
+// grep" abaixo foram RE-VERIFICADAS sobre esse escopo novo nesta rodada
+// (não herdadas da rodada anterior, que só tinha checado os 3 diretórios de
+// componentes) — se `src/app/` crescer, re-rodar os greps antes de confiar
+// nelas de novo:
+//   grep -rn "Touchable.*as \|Pressable as " src/components/{primitives,layout,domain} src/app
+//   grep -rln "react-native-gesture-handler" src/components/{primitives,layout,domain} src/app
+//
+// Este walker NÃO resolve escopo léxico. Ele detecta (1) toda tag JSX literal
 // de qualquer nome em INTERACTIVE_TAGS, em qualquer profundidade, e (2) o
 // único padrão de alias condicional observado hoje no código real deste repo
-// (`KCChip.tsx`). O que ficaria invisível, em teoria, e não existe hoje:
+// (`KCChip.tsx`). O que ficaria invisível, em teoria, e não existe hoje
+// (nem em `primitives`/`layout`/`domain`, nem em `src/app/`):
 //   - Qualquer um dos 5 tocáveis de INTERACTIVE_TAGS importado com ALIAS de
 //     import (`import { Pressable as Btn } from 'react-native'`) — a tag JSX
-//     seria `<Btn>`, não reconhecida. Confirmado por grep que não existe
-//     hoje em `primitives`/`layout`/`domain` (nenhuma ocorrência de
-//     "TouchableXxx as" nem "Pressable as").
+//     seria `<Btn>`, não reconhecida. Confirmado por grep (ver acima) que
+//     não existe hoje no escopo inteiro.
 //   - Um tocável de BIBLIOTECA TERCEIRA — o candidato mais plausível deste
 //     projeto é `react-native-gesture-handler` (dependência real, usada
 //     internamente por `@react-navigation/drawer`), que exporta seu próprio
 //     `TouchableOpacity`/`Pressable`/`RectButton`/`BorderlessButton` com
-//     geometria própria. Confirmado por grep que NENHUM arquivo de
-//     `primitives`/`layout`/`domain` importa de
-//     `'react-native-gesture-handler'` hoje — todo `TouchableOpacity`/
-//     `Pressable` destes 3 diretórios vem de `'react-native'` puro. Se
+//     geometria própria. Confirmado por grep (ver acima) que NENHUM arquivo
+//     do escopo inteiro importa de `'react-native-gesture-handler'` hoje —
+//     todo `TouchableOpacity`/`Pressable` vem de `'react-native'` puro. Se
 //     algum consumir esse pacote depois, a tag JSX (`RectButton` etc.) não
 //     está em INTERACTIVE_TAGS e ficaria invisível.
 //   - Um componente cujo alias condicional (`cond ? Pressable : View`) é
 //     declarado dentro de uma função, e OUTRA função do MESMO arquivo declara
 //     uma variável de mesmo nome com sentido diferente (não-interativo) — a
 //     varredura de arquivo inteiro marcaria as duas como interativas.
-//   - Subpastas dentro de `primitives`/`layout`/`domain` (a varredura não é
-//     recursiva) — nenhuma existe hoje nesses 3 diretórios.
-// Nenhum dos 4 apareceu em código real deste repo (conferido por leitura +
-// grep de todos os arquivos de `primitives`/`layout`/`domain` nesta
-// rodada — não só herdado da rodada anterior). Se aparecer, este arquivo
-// precisa de extensão antes de confiar na cobertura.
+// Se qualquer um dos 3 aparecer, este arquivo precisa de extensão antes de
+// confiar na cobertura.
+//
+// LIMITAÇÃO DE VERIFICAÇÃO (distinta da de DESCOBERTA acima — vale para o
+// registry, `tests/touchTargetRegistry.tsx`, não para este walker): o
+// ambiente de teste (`react-test-renderer`, via `@testing-library/react-
+// native`) NÃO computa layout Yoga real. Por isso a categoria
+// `no-explicit-geometry` significa estritamente "não afirmamos
+// conformidade" — NUNCA "está conforme". Um touchable com só `padding`+
+// ícone (ex.: `navBtn` de `agenda.tsx`, `padding:4` sobre ícone de 20px,
+// ≈28px reais — abaixo do mínimo, mas SEM height/width EXPLÍCITOS no
+// estilo) fica classificado como `no-explicit-geometry`, não como
+// `allowlisted-below-min`: a categoria `allowlisted-below-min` exige
+// geometria EXPLÍCITA (height/minHeight/width/minWidth numéricos) abaixo do
+// mínimo, comprovável por render mesmo sem Yoga — o que padding sozinho não
+// permite provar. Achado da fix wave 2b: nenhum dos 14 tocáveis novos de
+// `src/app/` tem geometria explícita abaixo de 44px — 13 são
+// `no-explicit-geometry` (incluindo os casos visualmente abaixo do mínimo,
+// que este walker não pode confirmar nem refutar) e 1 (`agenda.tsx::
+// AgendaScreen#3`, `dayTab.minWidth:44`) é `meets-min` por valor explícito
+// exatamente no piso. `allowlisted-below-min` continua sem nenhuma entrada
+// real neste repo — ver task-CQ-08-report.md, seção "Fix wave 2b", para o
+// detalhe completo (a suposição inicial do maestro era que `src/app/` seria
+// o primeiro uso real dessa categoria; a classificação por render, não por
+// estimativa visual, não confirmou isso).
 //
 // ⚠️ Histórico: a lista INTERACTIVE_TAGS original (rodada de implementação)
 // cobria só `TouchableOpacity`/`Pressable` — 2 das 5 formas REAIS que o
