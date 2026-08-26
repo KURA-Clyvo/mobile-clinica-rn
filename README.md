@@ -60,13 +60,76 @@ npm run type-check # TypeScript
 
 ## Stack
 
-- **Expo 53** + **React Native 0.79**
+- **Expo 54** + **React Native 0.81.5** (New Architecture — ver seção abaixo)
 - **Expo Router 4** — file-based routing
 - **TanStack Query v5** — server state
 - **Axios** — HTTP client com interceptors JWT
 - **Zustand** — UI/auth state global
 - **React Hook Form + Zod** — formulários tipados
 - **TypeScript strict** + `noUncheckedIndexedAccess`
+
+## Arquitetura React Native — New Architecture (Fabric + TurboModules, bridgeless)
+
+Este app roda na **New Architecture** do React Native. A chave é `newArchEnabled: true` em
+`app.json` (bloco `expo`); o `expo prebuild` a propaga para `android/gradle.properties`
+(`newArchEnabled=true`), que é quem o Gradle de fato lê.
+
+**Por que New Architecture, e não a arquitetura legada (bridge):** não é preferência, é
+requisito das dependências. `react-native-reanimated@4` e `react-native-worklets@0.5`
+registram uma task Gradle `assertNewArchitectureEnabledTask` encadeada no `preBuild`
+(`node_modules/react-native-worklets/android/build.gradle`). Com a flag em `false` ela
+**falha o build inteiro**:
+
+```
+> Task :react-native-worklets:assertNewArchitectureEnabledTask FAILED
+> [Worklets] Worklets require new architecture to be enabled. Please enable it by
+  setting `newArchEnabled` to `true` in `gradle.properties`.
+BUILD FAILED
+```
+
+Com a flag em `true` as duas asserts saem como `SKIPPED` (`onlyIf { !IS_NEW_ARCHITECTURE_ENABLED }`)
+e o `assembleDebug` conclui. Ou seja: **na arquitetura legada este app não compila para Android**.
+Voltar atrás exigiria rebaixar Reanimated para a linha 3.x, o que é uma decisão de produto, não
+de configuração.
+
+**O que isso muda na prática:**
+
+| Aspecto | Efeito |
+|---|---|
+| Renderer | Fabric — árvore de views em C++, sem a bridge assíncrona serializada em JSON |
+| Módulos nativos | TurboModules, carregados sob demanda via JSI |
+| Modo | Bridgeless (`ReactHost`), visível no logcat como `unknown:BridgelessReact` |
+| Animações | Reanimated 4 roda worklets direto na UI thread |
+
+**Como conferir que está ativo de verdade** (config no arquivo não é prova de runtime):
+
+```bash
+# 1. a flag chegou ao nativo
+grep -i newarch android/gradle.properties      # -> newArchEnabled=true
+
+# 2. o runtime subiu em Fabric/bridgeless
+adb logcat -d | grep -iE "BridgelessReact|fabricjni"
+
+# 3. checagem canônica, no JS
+global.nativeFabricUIManager != null            # -> true
+```
+
+**Regenerar o projeto nativo:** `android/` e `ios/` são gitignored (fluxo *Continuous Native
+Generation* do Expo). Depois de clonar, ou ao mudar plugin/flag nativa:
+
+```bash
+npx expo prebuild --platform android --clean
+cd android && ./gradlew assembleDebug
+```
+
+> ⚠️ O build completo compila C++ (Reanimated, Worklets, Gesture Handler) para as 4 ABIs
+> declaradas em `reactNativeArchitectures`, e leva ~35 min a frio numa máquina de desenvolvimento.
+> Para iterar só no emulador x86_64, restrinja a ABI:
+> `./gradlew assembleDebug -PreactNativeArchitectures=x86_64`.
+
+> ℹ️ `npm run android` continua sendo `expo start --android` (Metro), **não** `expo run:android`.
+> O `expo prebuild` reescreve esse script no `package.json` como efeito colateral; a reescrita é
+> revertida de propósito para preservar o fluxo documentado na seção *Scripts*.
 
 ## Modo mock
 
