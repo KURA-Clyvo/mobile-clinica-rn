@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "scheme": "kura-clinica",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "platforms": ["ios", "android", "web"],
     "web": {
       "bundler": "metro",
