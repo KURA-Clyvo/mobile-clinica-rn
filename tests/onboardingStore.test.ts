@@ -80,4 +80,31 @@ describe('onboardingStore', () => {
       ),
     );
   });
+
+  // CQ-13 fix wave (item 2, achado A1 da G2) — os testes acima só provam a
+  // ESCRITA (`setState()` forçando `_hasHydrated`/`completedSteps` direto em
+  // memória). `_hasHydrated` é a ÚNICA condição que decide se o card existe
+  // (`OnboardingChecklist.tsx`) e só vira `true` pelo caminho real de
+  // produção: `onRehydrateStorage` do `zustand/persist`, disparado por
+  // `persist.rehydrate()`. Nenhum teste até esta fix wave exercitava esse
+  // caminho — ver task-CQ-13-review.md, achado A1, teste já escrito e medido
+  // lá (mata a mutação `setHasHydrated(true)` -> `setHasHydrated(false)`).
+  //
+  // Armadilha registrada pela G2, respeitada aqui: `setState(...)` TAMBÉM
+  // dispara o middleware `persist` e sobrescreve o disco — por isso a store é
+  // resetada PRIMEIRO, o storage é semeado DEPOIS, e só então
+  // `persist.rehydrate()` é chamado. A ordem inversa apaga o seed antes de
+  // ele ser lido e produz falso positivo de "não rehidrata".
+  it('hidrata do AsyncStorage: restaura progresso, dismissed e liga _hasHydrated', async () => {
+    useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: false });
+    await AsyncStorage.setItem(
+      'kura-onboarding-storage',
+      JSON.stringify({ state: { completedSteps: ['luna'], dismissed: true }, version: 0 }),
+    );
+    await useOnboardingStore.persist.rehydrate();
+    const s = useOnboardingStore.getState();
+    expect(s._hasHydrated).toBe(true);
+    expect(s.completedSteps).toEqual(['luna']);
+    expect(s.dismissed).toBe(true);
+  });
 });
