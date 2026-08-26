@@ -316,4 +316,26 @@ describe('AppLayout — rastreio de visita de rota do onboarding (CQ-13, item 2)
     wrap(<AppLayout />);
     expect(useOnboardingStore.getState().completedSteps).toEqual(['luna']);
   });
+
+  // CQ-13 fix wave (item 4, achado A3 da G2) — os testes acima REMONTAM
+  // `<AppLayout />` com um `usePathname` fixo por teste; em produção o
+  // `_layout` monta UMA VEZ e o pathname muda por navegação, SEM remontagem.
+  // Trocar as deps do `useEffect` de `useTrackOnboardingStepVisits` para `[]`
+  // sobrevivia à suíte inteira antes desta fix wave — com deps vazias, o
+  // efeito roda uma vez na montagem e navegar depois nunca marcaria passo
+  // nenhum (o checklist nunca completaria numa demonstração real). Este
+  // teste RE-RENDERIZA o MESMO componente montado, trocando o valor que o
+  // mock de `usePathname` devolve entre as duas renderizações — é o que
+  // distingue "rodou de novo por causa da mudança de pathname" de "rodou de
+  // novo por remontagem".
+  it('trocar de rota SEM desmontar (navegação real) marca o passo da rota nova também', () => {
+    mockUsePathname.mockReturnValue('/agenda');
+    const { rerender } = wrap(<AppLayout />);
+    expect(useOnboardingStore.getState().completedSteps).toEqual(['agenda']);
+
+    mockUsePathname.mockReturnValue('/luna');
+    rerender(<ThemeProvider><AppLayout /></ThemeProvider>);
+
+    expect(useOnboardingStore.getState().completedSteps).toEqual(['agenda', 'luna']);
+  });
 });
