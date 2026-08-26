@@ -1,4 +1,4 @@
-import { resolveMock } from '../src/services/api/mock-adapter';
+import { resolveMock, EMPTY_LIST_TRANSFORMS } from '../src/services/api/mock-adapter';
 import type { InternalAxiosRequestConfig } from 'axios';
 
 function makeConfig(url: string, method = 'GET'): InternalAxiosRequestConfig {
@@ -215,4 +215,82 @@ describe('mock-adapter — EXPO_PUBLIC_MOCK_EMPTY (CQ-13, item 5)', () => {
     expect(data.id).toBe(1);
     expect(data.nmPet).toBe('Thor');
   });
+
+  // CQ-13 fix wave (item 1) — reproduz explicitamente o que a G2 mediu como
+  // A2: com a flag ligada, /medicamentos preservava o shape errado
+  // (`() => []`, array cru) contra o `PaginatedResponse<T>` que
+  // `getMedicamentos()` espera. Espelha o teste de `/pets/1` acima
+  // (`/medicamentos` também não é uma lista "achatada" — é uma envelope
+  // paginada, esvaziar tem que preservar as chaves de topo).
+  it('ligada: /medicamentos preserva a envelope paginada, esvazia só items e zera as contagens', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/medicamentos'));
+    const data = res.data as {
+      items: unknown[];
+      page: number;
+      pageSize: number;
+      totalItems: number;
+      totalPages: number;
+    };
+    expect(data.items).toEqual([]);
+    expect(data.totalItems).toBe(0);
+    expect(data.totalPages).toBe(0);
+    expect(typeof data.page).toBe('number');
+    expect(typeof data.pageSize).toBe('number');
+  });
+});
+
+// CQ-13 fix wave (item 1) — regra de ouro v7 do CLAUDE.md: "o gate tem que
+// derivar a lista de consumidores do código e falhar quando aparecer
+// consumidor sem check". Em vez de listar à mão quais entradas de
+// `EMPTY_LIST_TRANSFORMS` precisam preservar shape de objeto (que é
+// exatamente como a entrada de `/medicamentos` ficou sem cobertura), este
+// bloco ITERA sobre a tabela real exportada do módulo e aplica a mesma regra
+// genérica a cada entrada: array continua array; objeto continua objeto com
+// as MESMAS chaves de topo da resposta normal. Uma entrada nova com shape
+// errado — array virando objeto, objeto virando array, ou objeto perdendo/
+// trocando uma chave de topo — quebra este teste sozinha, sem que ninguém
+// precise lembrar de adicionar um caso.
+describe('mock-adapter — EMPTY_LIST_TRANSFORMS preserva a FORMA da resposta normal (derivado da tabela)', () => {
+  // Conversão puramente mecânica de regex -> URL de amostra: NÃO codifica
+  // conhecimento de rota à mão (não é uma segunda lista de URLs mantida em
+  // paralelo) — só desfaz o que `ROUTES`/`EMPTY_LIST_TRANSFORMS` já escrevem
+  // como regex (`\/agenda$` -> `/agenda`, `\/pets\/\d+\/timeline$` ->
+  // `/pets/1/timeline`).
+  function sampleUrlFor(pattern: RegExp): string {
+    return pattern.source
+      .replace(/\$$/, '')
+      .replace(/^\^/, '')
+      .replace(/\\\//g, '/')
+      .replace(/\\d\+/g, '1');
+  }
+
+  it.each(
+    EMPTY_LIST_TRANSFORMS.map(
+      ([pattern, transform]) => [sampleUrlFor(pattern), pattern.source, transform] as const,
+    ),
+  )(
+    '%s (padrão %s): sob a flag, array continua array e objeto mantém as mesmas chaves de topo',
+    async (url, _patternSource, transform) => {
+      const normal = await resolveMock(makeConfig(url));
+      const normalData = normal.data;
+      const emptied = transform(normalData);
+
+      if (Array.isArray(normalData)) {
+        expect(Array.isArray(emptied)).toBe(true);
+      } else {
+        expect(normalData).not.toBeNull();
+        expect(typeof normalData).toBe('object');
+        // O ponto central da trava: um transform que troca objeto por array
+        // (o bug original de /medicamentos) tem que quebrar aqui.
+        expect(Array.isArray(emptied)).toBe(false);
+        expect(emptied).not.toBeNull();
+        expect(typeof emptied).toBe('object');
+
+        const chavesAntes = Object.keys(normalData as Record<string, unknown>).sort();
+        const chavesDepois = Object.keys(emptied as Record<string, unknown>).sort();
+        expect(chavesDepois).toEqual(chavesAntes);
+      }
+    },
+  );
 });

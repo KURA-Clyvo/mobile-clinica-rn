@@ -48,13 +48,30 @@ const MOCK_LATENCY_MS = 300;
 // um teste que queira ligar a flag só precisa setar
 // `process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true'` antes de chamar
 // `resolveMock()`, sem precisar de `jest.resetModules()`.
-const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
+//
+// CQ-13 fix wave (item 1) — `/medicamentos` devolve `PaginatedResponse<T>`
+// (`{items,page,pageSize,totalItems,totalPages}`, ver
+// `eventos-clinicos.service.ts::getMedicamentos`), não array cru — a versão
+// anterior (`() => []`) trocava o shape inteiro e derrubava `data.items` pra
+// `undefined` sob a flag, a MESMA classe de defeito do `KURA_BACKLOG_FIX_5`
+// (mock devolvendo shape que o service não espera). Preserva a envelope e só
+// esvazia `items`, zerando as contagens de forma coerente com o array vazio —
+// mesmo padrão já usado pra `/agenda` (spread + esvazia só o campo aninhado).
+export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
   [/\/agenda$/, (data) => ({ ...(data as Record<string, unknown>), agendamentos: [] })],
   [/\/dashboard\/alertas$/, () => []],
   [/\/dashboard\/recentes$/, () => []],
   [/\/pets\/\d+\/timeline$/, () => []],
   [/\/pets$/, () => []],
-  [/\/medicamentos$/, () => []],
+  [
+    /\/medicamentos$/,
+    (data) => ({
+      ...(data as Record<string, unknown>),
+      items: [],
+      totalItems: 0,
+      totalPages: 0,
+    }),
+  ],
 ];
 
 function applyMockEmptyOverride(url: string, data: unknown): unknown {
