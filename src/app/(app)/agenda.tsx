@@ -15,6 +15,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { ROUTES } from '@constants/routes';
 import {
   formatTime,
@@ -123,15 +124,6 @@ const makeStyles = (colors: typeof lightColors) =>
       borderRadius: 20,
       marginBottom: 10,
       opacity: 0.45,
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      paddingTop: 64,
-    },
-    emptyText: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
-      color: colors.textMute,
     },
     apptCard: { marginBottom: 10 },
     apptRow: { flexDirection: 'row', gap: 12 },
@@ -395,9 +387,12 @@ export default function AgendaScreen() {
             ))}
           </>
         ) : appointmentsForDay.length === 0 ? (
-          <View style={styles.emptyContainer} testID="empty-agenda">
-            <Text style={styles.emptyText}>{STRINGS.agenda.semConsultas}</Text>
-          </View>
+          <KCEmptyState
+            icon="agenda"
+            title={STRINGS.agenda.semConsultas}
+            description={STRINGS.agenda.semConsultasDesc}
+            testID="empty-agenda"
+          />
         ) : (
           appointmentsForDay.map((a) => (
             <AgendaAppointmentCard key={a.id} appointment={a} />

@@ -17,6 +17,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { PetListItem } from '@components/domain/PetListItem';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCButton } from '@components/primitives/KCButton';
+import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';
@@ -59,16 +60,6 @@ const makeStyles = (colors: typeof lightColors) =>
     separator: {
       height: 1,
       backgroundColor: colors.border,
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      paddingTop: 60,
-      gap: 12,
-    },
-    emptyText: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
-      color: colors.textMute,
     },
     fabContainer: {
       position: 'absolute',
@@ -120,14 +111,14 @@ export default function PacientesScreen() {
 
   const renderEmpty = useCallback(
     () => (
-      <View style={styles.emptyContainer}>
-        <KCIcon name="patients" size={48} color={colors.textMute} />
-        <Text style={styles.emptyText}>
-          {filtro ? STRINGS.PACIENTES.EMPTY_SEARCH : STRINGS.PACIENTES.EMPTY_LIST}
-        </Text>
-      </View>
+      <KCEmptyState
+        icon="patients"
+        title={filtro ? STRINGS.PACIENTES.EMPTY_SEARCH : STRINGS.PACIENTES.EMPTY_LIST}
+        description={filtro ? STRINGS.PACIENTES.EMPTY_SEARCH_DESC : STRINGS.PACIENTES.EMPTY_LIST_DESC}
+        testID={filtro ? 'empty-search' : 'empty-list'}
+      />
     ),
-    [colors.textMute, filtro, styles.emptyContainer, styles.emptyText],
+    [filtro],
   );
 
   const renderItem = useCallback(

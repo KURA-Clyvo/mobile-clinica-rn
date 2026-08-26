@@ -96,6 +96,29 @@ describe('PatientsListScreen', () => {
     expect(getByText('Nenhum paciente cadastrado')).toBeTruthy();
   });
 
+  // CQ-13 (item 1) — os dois estados vazios (busca sem resultado × nada
+  // cadastrado) passaram a usar `KCEmptyState`, cada um com descrição
+  // instrutiva PRÓPRIA (não a mesma reaproveitada — são casos diferentes).
+  it('empty search shows title AND its own instructive description', async () => {
+    jest.useFakeTimers();
+    mockUsePets.mockReturnValue({ data: [], isLoading: false, refetch: MOCK_REFETCH });
+    const { getByTestId, getByText } = wrap(<PacientesScreen />);
+
+    fireEvent.changeText(getByTestId('search-input'), 'xyzxyz');
+    act(() => jest.advanceTimersByTime(300));
+
+    await waitFor(() => {
+      expect(getByText('Tente buscar por outro nome de pet ou de tutor.')).toBeTruthy();
+    });
+    jest.useRealTimers();
+  });
+
+  it('empty list (no filter) shows title AND its own instructive description', () => {
+    mockUsePets.mockReturnValue({ data: [], isLoading: false, refetch: MOCK_REFETCH });
+    const { getByText } = wrap(<PacientesScreen />);
+    expect(getByText('Pacientes cadastrados pela clínica aparecem aqui.')).toBeTruthy();
+  });
+
   it('debounce: updates filtro after 300ms on search input', async () => {
     jest.useFakeTimers();
     const { getByTestId } = wrap(<PacientesScreen />);

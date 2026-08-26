@@ -191,6 +191,23 @@ describe('DashboardScreen — empty states', () => {
     const { getByTestId } = wrap(<DashboardScreen />);
     expect(getByTestId('empty-alerts')).toBeTruthy();
   });
+
+  // CQ-13 (item 1) — os dois estados vazios passaram a usar `KCEmptyState`:
+  // título (idêntico ao texto anterior, sem regressão) E descrição
+  // instrutiva, não mais só um `<Text>` mudo.
+  it('empty-appointments shows title AND instructive description', () => {
+    const { getByText } = wrap(<DashboardScreen />);
+    expect(getByText('Nenhum atendimento programado')).toBeTruthy();
+    expect(getByText('Quando um agendamento for confirmado, ele aparece aqui.')).toBeTruthy();
+  });
+
+  it('empty-alerts shows title AND instructive description', () => {
+    const { getByText } = wrap(<DashboardScreen />);
+    expect(getByText('Nenhum alerta ativo')).toBeTruthy();
+    expect(
+      getByText('Alertas de vacina e de temperatura aparecem aqui assim que forem gerados.'),
+    ).toBeTruthy();
+  });
 });
 
 // CQ-06: prova de mordida — falha contra o dashboard.tsx de `main` (`0f23058`,

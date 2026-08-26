@@ -34,6 +34,10 @@ import { useAuthStore } from '../src/store/authStore';
 import { useTheme } from '../src/theme';
 import { queryClient } from '../src/services/queryClient';
 import SettingsScreen from '../src/app/(app)/settings';
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — store REAL, não mockado (só
+// `@store/authStore` é mockado neste arquivo): o botão "Rever primeiros
+// passos" chama `useOnboardingStore((s) => s.reopen)` de verdade.
+import { useOnboardingStore } from '../src/store/onboardingStore';
 
 const mockUseAuthStore = useAuthStore as jest.Mock;
 const mockUseTheme = useTheme as jest.Mock;
@@ -129,5 +133,23 @@ describe('SettingsScreen', () => {
     const { getByTestId } = wrap(<SettingsScreen />);
     fireEvent.press(getByTestId('btn-sair'));
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  // CQ-13 (item 4) — "Rever primeiros passos" volta a MOSTRAR o card
+  // (dismissed:false) E preserva os passos já concluídos (não reseta
+  // `completedSteps` — critério do backlog: "quem quer rever, acha em
+  // Configurações", nunca perde o que já fez).
+  it('pressing "Rever primeiros passos" un-dismisses onboarding and preserves completed steps', () => {
+    useOnboardingStore.setState({
+      completedSteps: ['agenda', 'luna'],
+      dismissed: true,
+      _hasHydrated: true,
+    });
+    const { getByTestId } = wrap(<SettingsScreen />);
+    fireEvent.press(getByTestId('btn-rever-onboarding'));
+
+    const state = useOnboardingStore.getState();
+    expect(state.dismissed).toBe(false);
+    expect(state.completedSteps).toEqual(['agenda', 'luna']);
   });
 });

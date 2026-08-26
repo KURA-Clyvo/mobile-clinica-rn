@@ -19,6 +19,7 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { racaToPalette } from '@utils/mappers';
 import { calcularIdade, formatDateShort } from '@utils/date';
 import { STRINGS } from '@constants/strings';
@@ -121,12 +122,12 @@ function TimelineTab({ id, colors }: { id: number; colors: typeof lightColors })
 
   if (data.length === 0) {
     return (
-      <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
-        <KCIcon name="paw" size={40} color={colors.textMute} />
-        <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.textMute }}>
-          Nenhum evento registrado
-        </Text>
-      </View>
+      <KCEmptyState
+        icon="paw"
+        title={STRINGS.PACIENTES.EMPTY_TIMELINE}
+        description={STRINGS.PACIENTES.EMPTY_TIMELINE_DESC}
+        testID="empty-timeline"
+      />
     );
   }
 

@@ -153,3 +153,66 @@ describe('mock-adapter', () => {
     expect(data.tutores).toEqual([]);
   });
 });
+
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 5 — sem isto não há como
+// provar visualmente o trabalho da task (item 1): em modo mock todas as telas
+// têm dado, então o estado vazio nunca aparece. Lida DENTRO de
+// `applyMockEmptyOverride()` a cada chamada (não cacheada em `const` de
+// módulo) — daí não precisar de `jest.resetModules()` aqui, só setar/limpar
+// `process.env` a cada teste.
+describe('mock-adapter — EXPO_PUBLIC_MOCK_EMPTY (CQ-13, item 5)', () => {
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_MOCK_EMPTY;
+  });
+
+  it('default (desligada): /dashboard/alertas continua devolvendo os 5 itens normais', async () => {
+    const res = await resolveMock(makeConfig('/dashboard/alertas'));
+    expect((res.data as unknown[]).length).toBe(5);
+  });
+
+  it('ligada: /dashboard/alertas devolve lista vazia', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/dashboard/alertas'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: /dashboard/recentes devolve lista vazia', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/dashboard/recentes'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: /agenda esvazia SÓ o campo aninhado `agendamentos`, preserva dataInicio/dataFim', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock({
+      url: '/agenda',
+      method: 'GET',
+      headers: {},
+      params: { dataInicio: '2026-08-24', dataFim: '2026-08-30' },
+    } as unknown as InternalAxiosRequestConfig);
+    const data = res.data as { agendamentos: unknown[]; dataInicio: string; dataFim: string };
+    expect(data.agendamentos).toEqual([]);
+    expect(data.dataInicio).toBe('2026-08-24');
+    expect(data.dataFim).toBe('2026-08-30');
+  });
+
+  it('ligada: /pets devolve lista vazia (dispara o EMPTY_LIST de PacientesScreen)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/pets'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: /pets/1/timeline devolve lista vazia (pet 1 tem timeline real em modo normal)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/pets/1/timeline'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: /pets/1 (detalhe, NÃO é lista) continua devolvendo o pet normal', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/pets/1'));
+    const data = res.data as { id: number; nmPet: string };
+    expect(data.id).toBe(1);
+    expect(data.nmPet).toBe('Thor');
+  });
+});

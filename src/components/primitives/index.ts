@@ -21,3 +21,6 @@ export type { ScreenContainerProps } from './ScreenContainer';
 
 export { KCPetPortrait } from './KCPetPortrait';
 export type { KCPetPortraitProps, PetPalette } from './KCPetPortrait';
+
+export { KCEmptyState } from './KCEmptyState';
+export type { KCEmptyStateProps, KCEmptyStateAction } from './KCEmptyState';

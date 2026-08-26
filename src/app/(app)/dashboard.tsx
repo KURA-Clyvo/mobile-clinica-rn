@@ -9,8 +9,10 @@ import { useDashboardHoje, useAlertas, useRecentes } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { MetricCard } from '@components/domain/MetricCard';
 import { AlertCard } from '@components/domain/AlertCard';
+import { OnboardingChecklist } from '@components/domain/OnboardingChecklist';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
 import { STRINGS } from '@constants/strings';
 import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api';
@@ -164,13 +166,6 @@ const makeStyles = (colors: typeof lightColors) =>
       marginBottom: 10,
     },
     sectionBlock: { marginBottom: 24 },
-    emptyText: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.textMute,
-      textAlign: 'center',
-      paddingVertical: 20,
-    },
     appointmentCard: { flex: 1 },
     // CQ-06 G2 fix wave, achado H — `AppointmentRow` ganha altura igual entre
     // os cards de uma mesma linha via `appointmentCard: { flex: 1 }` acima;
@@ -322,6 +317,12 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{capitalizeFirst(formatDateFull(new Date()))}</Text>
       </View>
 
+      {/* CQ-13, item 2: card dispensável no TOPO do dashboard, acima de
+          "Atendimentos de hoje" (decisão do Felipe registrada no brief da
+          task). Auto-hide/dismiss/hidratação são responsabilidade do
+          próprio componente — ver OnboardingChecklist.tsx. */}
+      <OnboardingChecklist />
+
       {loadingHoje ? (
         <View style={styles.metricsGrid} testID="metrics-skeleton">
           {skeletonMetricRows.map((row, rowIndex) => (
@@ -372,9 +373,12 @@ export default function DashboardScreen() {
             ))}
           </View>
         ) : recentes == null || recentes.length === 0 ? (
-          <Text style={styles.emptyText} testID="empty-appointments">
-            {STRINGS.dashboard.semAtendimentos}
-          </Text>
+          <KCEmptyState
+            icon="agenda"
+            title={STRINGS.dashboard.semAtendimentos}
+            description={STRINGS.dashboard.semAtendimentosDesc}
+            testID="empty-appointments"
+          />
         ) : (
           <View style={styles.listGrid}>
             {appointmentRows.map((row, rowIndex) => (
@@ -409,9 +413,12 @@ export default function DashboardScreen() {
             ))}
           </View>
         ) : alertas == null || alertas.length === 0 ? (
-          <Text style={styles.emptyText} testID="empty-alerts">
-            {STRINGS.dashboard.semAlertas}
-          </Text>
+          <KCEmptyState
+            icon="alert"
+            title={STRINGS.dashboard.semAlertas}
+            description={STRINGS.dashboard.semAlertasDesc}
+            testID="empty-alerts"
+          />
         ) : (
           <View style={styles.listGrid}>
             {alertRows.map((row, rowIndex) => (

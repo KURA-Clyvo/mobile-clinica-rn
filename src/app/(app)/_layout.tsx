@@ -1,11 +1,39 @@
-import { Redirect } from 'expo-router';
+import React from 'react';
+import { Redirect, usePathname } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useAuthStore } from '@store/authStore';
+import { useOnboardingStore, type OnboardingStepId } from '@store/onboardingStore';
 import { useBreakpoint } from '@hooks/useBreakpoint';
 import type { BreakpointKey } from '@theme/tokens';
 import { NavDrawer } from '@components/layout/NavDrawer';
 import { AppHeader } from '@components/layout/AppHeader';
+import { ROUTES } from '@constants/routes';
 import { STRINGS } from '@constants/strings';
+
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — item 2: "como um passo é
+// marcado como concluído" (decisão do Felipe, brief da task): AUTOMÁTICO,
+// quando o usuário visita a rota correspondente — nunca checkbox manual.
+// Observado num ÚNICO PONTO (`usePathname()` aqui), não espalhado em
+// `useEffect` por 4 telas — é o que faz o checklist ser de ATIVAÇÃO, não
+// decoração. Mapa derivado de `ROUTES.app` (nunca duplicado à mão em
+// paralelo) para não poder divergir de rota sem quebrar em `tsc` se um dia
+// `ROUTES.app.agenda` mudar de valor.
+const ONBOARDING_ROUTE_STEP: Partial<Record<string, OnboardingStepId>> = {
+  [ROUTES.app.agenda]: 'agenda',
+  [ROUTES.app.pacientes]: 'pacientes',
+  [ROUTES.app.luna]: 'luna',
+  [ROUTES.app.settings]: 'settings',
+};
+
+function useTrackOnboardingStepVisits() {
+  const pathname = usePathname();
+  const markStepCompleted = useOnboardingStore((s) => s.markStepCompleted);
+
+  React.useEffect(() => {
+    const step = ONBOARDING_ROUTE_STEP[pathname];
+    if (step) markStepCompleted(step);
+  }, [pathname, markStepCompleted]);
+}
 
 // CQ-05 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — shell adaptativo: em
 // desktop o drawer overlay é o padrão errado, porque esconde a navegação
@@ -22,6 +50,10 @@ export function resolveDrawerType(isAtLeast: (key: BreakpointKey) => boolean): '
 export default function AppLayout() {
   const { isAuthenticated } = useAuthStore();
   const { isAtLeast } = useBreakpoint();
+  // Regra dos hooks: chamado incondicionalmente, ANTES do `return` antecipado
+  // de não-autenticado abaixo — mesmo padrão já usado por `KCCard`
+  // (`webInteraction`, ver comentário CQ-08 em KCCard.tsx).
+  useTrackOnboardingStepVisits();
 
   if (!isAuthenticated()) {
     return <Redirect href="/login" />;

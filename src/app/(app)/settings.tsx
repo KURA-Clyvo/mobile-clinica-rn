@@ -4,12 +4,14 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
+import { useOnboardingStore } from '@store/onboardingStore';
 import { queryClient } from '@services/queryClient';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { STRINGS } from '@constants/strings';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -35,6 +37,20 @@ const makeStyles = (colors: typeof lightColors) =>
     aboutLabel: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
     aboutValue: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
     footer: { paddingHorizontal: 16, paddingVertical: 24 },
+    // CQ-13, item 4 — geometria EXPLÍCITA nos DOIS eixos (44×44), diferente
+    // de `inviteRow` acima (sem geometria explícita, categoria
+    // 'no-explicit-geometry' no registry de alvo de toque): `minWidth` não
+    // força a largura visual (o row continua full-width pelo `flexDirection:
+    // 'row'` sem `alignSelf`), só garante o piso de toque real.
+    reverRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      minHeight: 44,
+      minWidth: 44,
+      paddingVertical: 6,
+    },
+    reverText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.primary },
   });
 
 export default function SettingsScreen() {
@@ -43,6 +59,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
   const clearSession = useAuthStore((s) => s.clearSession);
+  const reopenOnboarding = useOnboardingStore((s) => s.reopen);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   const handleLogout = async () => {
@@ -174,6 +191,35 @@ export default function SettingsScreen() {
           </KCCard>
         </View>
       )}
+
+      {/* PRIMEIROS PASSOS — CQ-13, item 4: re-acesso ao checklist de
+          ativação dispensado. "Rever" volta a MOSTRAR o card no dashboard,
+          mantendo o progresso já conquistado (não reseta passos concluídos —
+          ver `useOnboardingStore.reopen`). Posicionado DEPOIS da seção TIME
+          de propósito: inserir entre touchables existentes rebindaria em
+          silêncio as chaves posicionais do registry de alvo de toque
+          (`tests/touchTargetRegistry.tsx`, ver "Limitação" no cabeçalho de
+          `discoverInteractiveTouchables.ts`) — aqui a entrada nova só pode
+          ficar depois de `btn-convidar` (SettingsScreen#3). */}
+      <View style={styles.section}>
+        <KCCard>
+          <View style={styles.titleRow}>
+            <KCIcon name="check" size={18} color={colors.primary} />
+            <Text style={styles.titleText}>{STRINGS.ONBOARDING.TITLE}</Text>
+          </View>
+          <View style={styles.separator} />
+          <TouchableOpacity
+            style={styles.reverRow}
+            onPress={reopenOnboarding}
+            testID="btn-rever-onboarding"
+            accessibilityRole="button"
+          >
+            <KCIcon name="agenda" size={18} color={colors.primary} />
+            <Text style={styles.reverText}>{STRINGS.ONBOARDING.REVER}</Text>
+          </TouchableOpacity>
+          <Text style={styles.noteText}>{STRINGS.ONBOARDING.REVER_CAPTION}</Text>
+        </KCCard>
+      </View>
 
       {/* SOBRE */}
       <View style={styles.section}>

@@ -43,13 +43,25 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
+import { useOnboardingStore } from '../src/store/onboardingStore';
 import { breakpoints } from '../src/theme/tokens';
 import type { BreakpointKey } from '../src/theme/tokens';
 
 const mockPush = jest.fn();
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1): `_layout.tsx` passou a usar
+// `usePathname()` (item 2, rastreio de visita de rota do checklist de
+// ativação) — sem este mock, `usePathname` seria `undefined` no módulo
+// mockado abaixo e a chamada em `_layout.tsx` lançaria "is not a function"
+// antes de qualquer asserção deste arquivo rodar. `jest.fn()` (não uma seta
+// fixa) porque a describe nova no fim deste arquivo ("rastreio de
+// onboarding") precisa trocar o valor por teste; os describes PRÉ-EXISTENTES
+// acima não dependem do pathname — o default '/dashboard' preserva o
+// comportamento anterior deles.
+const mockUsePathname = jest.fn(() => '/dashboard');
 jest.mock('expo-router', () => ({
   Redirect: () => null,
   useRouter: () => ({ push: mockPush }),
+  usePathname: () => mockUsePathname(),
 }));
 
 // Captura o `screenOptions` recebido pelo `<Drawer>` real (não dá pra montar
@@ -111,6 +123,11 @@ beforeEach(() => {
   });
   jest.clearAllMocks();
   setViewport(400, 800);
+  // `clearAllMocks()` limpa histórico de chamada, NÃO desfaz um
+  // `.mockReturnValue()` anterior — reafirma o default aqui pra nenhum
+  // teste da describe nova (CQ-13, "rastreio de onboarding", fim do
+  // arquivo) vazar pathname pros describes pré-existentes acima.
+  mockUsePathname.mockReturnValue('/dashboard');
 });
 
 function wrap(ui: React.ReactElement) {
@@ -263,5 +280,40 @@ describe('AppLayout — alcançabilidade de rotas fora do drawer', () => {
 
     expect(texto).toMatch(/drawerType\?:\s*'front'\s*\|\s*'back'\s*\|\s*'slide'\s*\|\s*'permanent'/);
     expect(texto).toMatch(/how the drawer looks and animates/);
+  });
+});
+
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 2 — "como um passo é
+// marcado como concluído": AUTOMÁTICO, ao visitar a rota, observado num
+// ÚNICO PONTO (`usePathname()` em `_layout.tsx`). Critério de aceite
+// literal do gate: "visitar uma rota marca o passo correspondente".
+describe('AppLayout — rastreio de visita de rota do onboarding (CQ-13, item 2)', () => {
+  beforeEach(() => {
+    useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+  });
+
+  it.each([
+    ['/agenda', 'agenda'],
+    ['/pacientes', 'pacientes'],
+    ['/luna', 'luna'],
+    ['/settings', 'settings'],
+  ])('visitar %s marca o passo "%s" como concluído', (pathname, expectedStep) => {
+    mockUsePathname.mockReturnValue(pathname);
+    wrap(<AppLayout />);
+    expect(useOnboardingStore.getState().completedSteps).toContain(expectedStep);
+  });
+
+  it('visitar uma rota fora dos 4 passos (ex.: /dashboard) não marca passo nenhum', () => {
+    mockUsePathname.mockReturnValue('/dashboard');
+    wrap(<AppLayout />);
+    expect(useOnboardingStore.getState().completedSteps).toEqual([]);
+  });
+
+  it('remontar na mesma rota não duplica o passo na lista (markStepCompleted é idempotente)', () => {
+    mockUsePathname.mockReturnValue('/luna');
+    const { unmount } = wrap(<AppLayout />);
+    unmount();
+    wrap(<AppLayout />);
+    expect(useOnboardingStore.getState().completedSteps).toEqual(['luna']);
   });
 });

@@ -97,6 +97,14 @@ import { LunaSuggestionBadge } from '../src/components/domain/LunaSuggestionBadg
 import { PetListItem } from '../src/components/domain/PetListItem';
 import { TimelineItem } from '../src/components/domain/TimelineItem';
 import { WhatsAppModal } from '../src/components/domain/WhatsAppModal';
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — 2 tocáveis novos em
+// `src/components/{primitives,domain}` (KCEmptyState, OnboardingChecklist) +
+// 1 em `src/app/(app)/settings.tsx` (SettingsScreen#4, "Rever primeiros
+// passos") entram na descoberta por AST — cada um precisa de entrada abaixo.
+import { OnboardingChecklist } from '../src/components/domain/OnboardingChecklist';
+import { KCEmptyState } from '../src/components/primitives/KCEmptyState';
+import { useOnboardingStore } from '../src/store/onboardingStore';
+import { ROUTES } from '../src/constants/routes';
 import type {
   PetResponse,
   TimelineEventResponse,
@@ -865,6 +873,75 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<RegisterScreen />);
       return expectSemGeometriaExplicita(flat(getByTestId('register-go-login').props.style));
+    },
+  },
+
+  // --- CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — 4 entradas novas:
+  // 1 em KCEmptyState.tsx (primitiva, item 1 do escopo), 2 em
+  // OnboardingChecklist.tsx (× e passo, item 2), 1 em settings.tsx
+  // ("Rever primeiros passos", item 4). Os 3 componentes/telas continuam
+  // fora deste registry ANTES desta task porque nenhum tinha tocável (o
+  // `KCEmptyState` não existia; `OnboardingChecklist` não existia;
+  // `dashboard.tsx`/`agenda.tsx`/`luna.tsx`/`pacientes/*.tsx` não ganharam
+  // tocável NOVO — só trocaram `<Text>` por `<KCEmptyState>`, uma tag de
+  // componente customizado, invisível ao walker por desenho — só
+  // `settings.tsx` ganhou um `TouchableOpacity` a mais). ---
+
+  'KCEmptyState.tsx::KCEmptyState#1': {
+    category: 'meets-min',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <KCEmptyState
+          icon="agenda"
+          title="Título de teste"
+          description="Descrição de teste"
+          action={{ label: 'Ver agenda', href: ROUTES.app.agenda }}
+          testID="empty-test"
+        />,
+      );
+      const estilo = flat(getByTestId('empty-test-action').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  'OnboardingChecklist.tsx::OnboardingChecklist#1': {
+    category: 'meets-min',
+    verify: () => {
+      useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+      const { getByTestId } = wrap(<OnboardingChecklist />);
+      const estilo = flat(getByTestId('onboarding-dismiss').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  'OnboardingChecklist.tsx::OnboardingChecklist#2': {
+    category: 'meets-min',
+    verify: () => {
+      useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+      const { getByTestId } = wrap(<OnboardingChecklist />);
+      // 1 ocorrência sintática no arquivo (dentro de `STEPS.map(...)`)
+      // corresponde a 4 instâncias em runtime — mede a primeira, mesmo
+      // estilo (`styles.step`) compartilhado pelas 4.
+      const estilo = flat(getByTestId('onboarding-step-agenda').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  '(app)/settings.tsx::SettingsScreen#4': {
+    category: 'meets-min',
+    verify: () => {
+      useAuthStore.setState({
+        token: 'tok',
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
+      });
+      const { getByTestId } = wrap(<SettingsScreen />);
+      const estilo = flat(getByTestId('btn-rever-onboarding').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 };

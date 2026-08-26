@@ -157,6 +157,16 @@ describe('AgendaScreen — empty state', () => {
     const { getByText } = wrap(<AgendaScreen />);
     expect(getByText('Nenhuma consulta neste dia')).toBeTruthy();
   });
+
+  // CQ-13 (item 1) — `empty-agenda` passou a usar `KCEmptyState`: título
+  // (verificado acima, sem regressão) E descrição instrutiva nova.
+  it('empty state shows instructive description too', () => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    const { getByText } = wrap(<AgendaScreen />);
+    expect(
+      getByText('Toque em outro dia da semana ou aguarde novos agendamentos.'),
+    ).toBeTruthy();
+  });
 });
 
 describe('AgendaScreen — week navigation', () => {

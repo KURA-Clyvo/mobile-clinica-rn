@@ -35,6 +35,36 @@ const ROUTES: [RegExp, MockHandler][] = [
 
 const MOCK_LATENCY_MS = 300;
 
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — item 5: sem isto não há
+// como provar visualmente o trabalho da task, porque em modo mock TODAS as
+// telas têm dado, e o estado vazio (item 1) nunca aparece na demonstração.
+// Ponto único de estrangulamento (`resolveMock`, as 21 rotas passam por
+// aqui) — NENHUM arquivo de `src/mocks/` é tocado; cada entrada abaixo
+// mapeia o mesmo padrão de URL usado em `ROUTES` acima para uma função que
+// esvazia especificamente o formato que aquele endpoint devolve (array
+// plano na maioria, objeto com campo aninhado no caso de `/agenda`).
+//
+// Lida DENTRO da função (nunca cacheada em `const` de módulo) de propósito:
+// um teste que queira ligar a flag só precisa setar
+// `process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true'` antes de chamar
+// `resolveMock()`, sem precisar de `jest.resetModules()`.
+const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
+  [/\/agenda$/, (data) => ({ ...(data as Record<string, unknown>), agendamentos: [] })],
+  [/\/dashboard\/alertas$/, () => []],
+  [/\/dashboard\/recentes$/, () => []],
+  [/\/pets\/\d+\/timeline$/, () => []],
+  [/\/pets$/, () => []],
+  [/\/medicamentos$/, () => []],
+];
+
+function applyMockEmptyOverride(url: string, data: unknown): unknown {
+  if (process.env.EXPO_PUBLIC_MOCK_EMPTY !== 'true') return data;
+  for (const [pattern, transform] of EMPTY_LIST_TRANSFORMS) {
+    if (pattern.test(url)) return transform(data);
+  }
+  return data;
+}
+
 export async function resolveMock(config: InternalAxiosRequestConfig): Promise<{
   data: unknown;
   status: number;
@@ -47,7 +77,7 @@ export async function resolveMock(config: InternalAxiosRequestConfig): Promise<{
     if (pattern.test(url)) {
       await new Promise<void>((r) => setTimeout(r, MOCK_LATENCY_MS));
       const data = await handler(config);
-      return { data, status: 200, config };
+      return { data: applyMockEmptyOverride(url, data), status: 200, config };
     }
   }
 

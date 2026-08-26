@@ -9,6 +9,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
 import { formatDateISO, subDays, addDays } from '@utils/date';
 import { STRINGS } from '@constants/strings';
@@ -216,13 +217,6 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.text,
       marginBottom: 10,
     },
-    emptyText: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.textMute,
-      textAlign: 'center',
-      paddingVertical: 20,
-    },
   });
 
 export default function LunaScreen() {
@@ -411,9 +405,12 @@ export default function LunaScreen() {
       <View style={styles.alertasSection}>
         <Text style={styles.alertasTitle}>{STRINGS.LUNA.ALERTAS_TITLE}</Text>
         {alertas == null || alertas.length === 0 ? (
-          <Text style={styles.emptyText} testID="empty-alertas">
-            {STRINGS.LUNA.EMPTY_ALERTAS}
-          </Text>
+          <KCEmptyState
+            icon="alert"
+            title={STRINGS.LUNA.EMPTY_ALERTAS}
+            description={STRINGS.LUNA.EMPTY_ALERTAS_DESC}
+            testID="empty-alertas"
+          />
         ) : (
           alertas.map((alerta) => <AlertCard key={alerta.id} alerta={alerta} />)
         )}

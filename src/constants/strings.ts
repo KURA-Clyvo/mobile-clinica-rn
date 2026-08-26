@@ -21,7 +21,11 @@ export const STRINGS = {
     proximosAtendimentos: 'Próximos atendimentos',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
+    // CQ-13: descrição instrutiva do estado vazio — o título continua
+    // idêntico ao de antes (mordida preservada em DashboardScreen.test.tsx).
+    semAlertasDesc: 'Alertas de vacina e de temperatura aparecem aqui assim que forem gerados.',
     semAtendimentos: 'Nenhum atendimento programado',
+    semAtendimentosDesc: 'Quando um agendamento for confirmado, ele aparece aqui.',
   },
   pacientes: {
     titulo: 'Pacientes',
@@ -35,8 +39,15 @@ export const STRINGS = {
   PACIENTES: {
     TITLE: 'Pacientes',
     SEARCH_PLACEHOLDER: 'Buscar pet ou tutor...',
+    // CQ-13: os dois títulos abaixo continuam idênticos ao texto anterior —
+    // PatientsListScreen.test.tsx confirma por `getByText` literal, os dois
+    // casos são distintos de propósito (filtro sem match × nada cadastrado).
     EMPTY_SEARCH: 'Nenhum paciente encontrado',
+    EMPTY_SEARCH_DESC: 'Tente buscar por outro nome de pet ou de tutor.',
     EMPTY_LIST: 'Nenhum paciente cadastrado',
+    EMPTY_LIST_DESC: 'Pacientes cadastrados pela clínica aparecem aqui.',
+    EMPTY_TIMELINE: 'Nenhum evento registrado',
+    EMPTY_TIMELINE_DESC: 'Consultas, vacinas e exames aparecem aqui conforme forem registrados.',
     COUNT_SINGULAR: '1 paciente',
     COUNT_PLURAL: (n: number) => `${n} pacientes`,
     NO_TUTOR: 'Sem tutor',
@@ -68,7 +79,10 @@ export const STRINGS = {
     titulo: 'Agenda',
     semanaAnterior: 'Semana anterior',
     proximaSemana: 'Próxima semana',
+    // CQ-13: título idêntico ao anterior — AgendaScreen.test.tsx confirma
+    // por `getByText('Nenhuma consulta neste dia')` literal.
     semConsultas: 'Nenhuma consulta neste dia',
+    semConsultasDesc: 'Toque em outro dia da semana ou aguarde novos agendamentos.',
   },
   erros: {
     generico: 'Algo deu errado. Tente novamente.',
@@ -95,6 +109,29 @@ export const STRINGS = {
     TOTAL_TRIAGENS: (n: number) => `Total de triagens: ${n}`,
     ENCAMINHADAS: (n: number) => `Encaminhadas para vet: ${n}`,
     ALERTAS_TITLE: 'Alertas gerados pela Luna',
+    // CQ-13: título idêntico ao anterior (reaproveita a mesma string de
+    // `dashboard.semAlertas` no valor, não por import — os dois já tinham o
+    // mesmo texto antes desta task).
     EMPTY_ALERTAS: 'Nenhum alerta ativo',
+    EMPTY_ALERTAS_DESC:
+      'Alertas gerados pela Luna aparecem aqui quando uma triagem precisar da atenção da clínica.',
+  },
+  // CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — checklist de ativação
+  // dispensável no topo do dashboard (item 2 do escopo). 4 passos, cada um
+  // aponta para uma rota estática real (`ROUTES.app`) — decisão registrada
+  // no relatório da task: rotas dinâmicas (`pacientes/[id]`, `consulta/
+  // [idPet]` etc.) exigiriam um paciente concreto em contexto, que o
+  // dashboard não tem.
+  ONBOARDING: {
+    TITLE: 'Primeiros passos',
+    SUBTITLE_REMAINING: (n: number, total: number) => `${n} de ${total} restantes`,
+    SUBTITLE_DONE: 'Você concluiu os primeiros passos.',
+    CLOSE_A11Y: 'Dispensar checklist de primeiros passos',
+    STEP_AGENDA: 'Veja sua agenda da semana',
+    STEP_PACIENTES: 'Veja a lista de pacientes',
+    STEP_LUNA: 'Conheça a Luna, sua assistente de IA',
+    STEP_SETTINGS: 'Confira suas configurações',
+    REVER: 'Rever primeiros passos',
+    REVER_CAPTION: 'Mostra de novo o checklist de ativação no topo do dashboard',
   },
 } as const;

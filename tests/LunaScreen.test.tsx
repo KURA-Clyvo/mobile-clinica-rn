@@ -246,3 +246,18 @@ describe('LunaScreen', () => {
     });
   });
 });
+
+// CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1), item 1 — `empty-alertas` passou
+// a usar `KCEmptyState`: título E descrição instrutiva, não mais texto mudo.
+describe('LunaScreen — empty state instrutivo (CQ-13)', () => {
+  it('empty-alertas mostra título E descrição instrutiva', () => {
+    mockUseAlertas.mockReturnValue({ data: [] });
+    const { getByTestId, getByText } = wrap(<LunaScreen />);
+    expect(getByTestId('empty-alertas')).toBeTruthy();
+    // Título idêntico ao texto anterior (sem KCEmptyState) — não é regressão.
+    expect(getByText('Nenhum alerta ativo')).toBeTruthy();
+    expect(
+      getByText('Alertas gerados pela Luna aparecem aqui quando uma triagem precisar da atenção da clínica.'),
+    ).toBeTruthy();
+  });
+});

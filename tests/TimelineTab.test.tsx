@@ -78,6 +78,16 @@ describe('TimelineTab', () => {
     expect(getByText('Nenhum evento registrado')).toBeTruthy();
   });
 
+  // CQ-13 (item 1) — passou a usar `KCEmptyState`: título (verificado acima,
+  // sem regressão) E descrição instrutiva nova.
+  it('empty state shows instructive description too', () => {
+    mockUsePetTimeline.mockReturnValue({ data: [], isLoading: false });
+    const { getByText } = wrap(<PatientDetailScreen />);
+    expect(
+      getByText('Consultas, vacinas e exames aparecem aqui conforme forem registrados.'),
+    ).toBeTruthy();
+  });
+
   it('renders 8 timeline items from mock', () => {
     const { getAllByText } = wrap(<PatientDetailScreen />);
     const verMaisBtns = getAllByText('Ver mais');
