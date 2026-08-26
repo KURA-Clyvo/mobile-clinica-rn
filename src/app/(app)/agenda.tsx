@@ -82,6 +82,10 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingVertical: 8,
       borderRadius: 12,
       minWidth: 44,
+      // CQ-08 fix wave 3 (achado I-1 da G2 rodada 2): `minWidth:44` sozinho
+      // só provava o eixo largura — WCAG 2.5.5 exige 44×44, os DOIS eixos.
+      // `paddingVertical:8` sobre texto pequeno não garante 44px de altura.
+      minHeight: 44,
     },
     dayTabSelected: {
       backgroundColor: colors.primary,

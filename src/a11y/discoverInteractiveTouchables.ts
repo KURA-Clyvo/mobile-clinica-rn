@@ -60,13 +60,26 @@ export interface TouchableConsumer {
  *  deixa passar as outras em silêncio). Mordida: um `TouchableHighlight`
  *  com `height: 12, width: 12` inserido em `KCBadge.tsx` passava por
  *  `tsc` limpo e pela suíte de cobertura 28/28 verde antes desta correção —
- *  ver task-CQ-08-report.md, seção "Fix wave". */
+ *  ver task-CQ-08-report.md, seção "Fix wave".
+ *
+ *  ⚠️ Fix wave 3 (achado I-2 da G2 rodada 2, mesma classe de fraqueza do
+ *  parágrafo acima, eixo novo): a lista cobria as 5 formas de
+ *  `Touchable*`/`Pressable` e NENHUMA outra primitiva interativa do próprio
+ *  `react-native`. `<Switch>` (`src/app/(app)/settings.tsx:119`/`:140`,
+ *  medido nesta wave) é controle interativo real com alvo de toque — WCAG
+ *  2.5.5 se aplica a ele tanto quanto a um botão — e ficava invisível.
+ *  Mordida (G2): `<Switch style={{height:8,width:8}}>` novo em
+ *  `settings.tsx` passava 56/56. `<Text onPress>` e `<Button>` do
+ *  `react-native` NÃO entraram nesta lista: medido por grep (ver bloco
+ *  "Limitação" no fim deste arquivo) que nenhum dos dois existe hoje no
+ *  escopo varrido — decisão explícita, não omissão. */
 const INTERACTIVE_TAGS = new Set([
   'TouchableOpacity',
   'Pressable',
   'TouchableHighlight',
   'TouchableWithoutFeedback',
   'TouchableNativeFeedback',
+  'Switch',
 ]);
 
 /** Acha o nome do componente (função nomeada, `const X = () => {}`/

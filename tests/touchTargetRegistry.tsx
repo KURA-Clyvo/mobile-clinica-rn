@@ -10,12 +10,25 @@
 // achatado (`StyleSheet.flatten`, nunca layout calculado — v11 do brief da
 // task).
 //
-// 3 categorias, cada uma com um contrato diferente de "razão precisa
-// aparecer":
-//   - 'meets-min': geometria EXPLÍCITA (height/minHeight E/OU width/minWidth
-//     numéricos no estilo achatado) comprovada >= `touchTarget.min` (44px)
-//     por render real. `verify()` FALHA se a mutação reduzir a dimensão —
-//     é o que dá a mordida.
+// 4 categorias, cada uma com um contrato diferente de "razão precisa
+// aparecer" (fix wave 3, achados I-1+I-3 da G2 rodada 2, adicionou a
+// 2ª e o CONTRATO DE RETORNO abaixo — as outras 3 já existiam):
+//   - 'meets-min': geometria EXPLÍCITA nos DOIS EIXOS (height/minHeight E
+//     width/minWidth numéricos no estilo achatado) comprovada >= 44px CADA
+//     UM por render real — WCAG 2.5.5 é 44×44, as duas dimensões, não uma.
+//     `verify()` FALHA se a mutação reduzir qualquer uma das duas — é o
+//     que dá a mordida.
+//   - 'meets-min-one-axis': geometria EXPLÍCITA em UM eixo só, comprovada
+//     >= 44px por render real, com o outro eixo genuinamente não fixável
+//     sem quebrar layout (razão obrigatória, mesmo contrato de >10
+//     caracteres das categorias não-conformes abaixo). Existe porque a
+//     rodada anterior tratava "prova 1 eixo" e "prova os 2" como o mesmo
+//     rótulo `meets-min` — o resumo dizia `{"meets-min":5}` quando só 3
+//     das 5 provavam os dois eixos (`KCButton.tsx::KCButton#1` só altura —
+//     botão full-width/dimensionado por conteúdo, cravar largura quebraria
+//     layout — e `agenda.tsx::AgendaScreen#3` só largura, ANTES desta wave
+//     corrigir o componente para declarar `minHeight` também e virar
+//     `meets-min` de verdade). Único uso real hoje: `KCButton`.
 //   - 'allowlisted-below-min': geometria explícita, mas ABAIXO do mínimo,
 //     com razão documentada (nenhuma entrada usa esta categoria hoje — os 3
 //     touchables com geometria explícita, KCButton/KCChip/AppHeader×2, foram
@@ -31,6 +44,23 @@
 //     stale) — sem isso, "não coberto" também apodreceria em silêncio, na
 //     direção oposta de "meets-min" mentir para cima.
 //
+// CONTRATO DE RETORNO (fix wave 3): até esta wave, `verify()` era
+// `() => void` — livre para chamar qualquer `expect()`, sem que nada
+// confrontasse o que ela MEDIU contra a categoria DECLARADA na entrada. A
+// G2 rodada 2 mediu 2 formas de explorar isso: (a) reetiquetar uma entrada
+// `no-explicit-geometry` para `meets-min` sem tocar `verify()` — o resumo
+// passava a anunciar conformidade nunca provada; (b) um `verify()`
+// decorativo (`expect(true).toBe(true); return;`) satisfazia
+// `expect.hasAssertions()` sem medir nada. Hoje `verify()` DEVOLVE
+// `ResultadoVerify { categoriaMedida, eixos }` — subproduto REAL da
+// medição, nunca declarado à mão pela entrada — e o gate
+// (`tests/touch-target-coverage.test.ts`) confronta `categoriaMedida`
+// contra `entrada.category` e, para `meets-min`, exige os dois `eixos`
+// presentes. Os helpers `expectAltura44`/`expectLargura44` devolvem o eixo
+// que provaram; `expectSemGeometriaExplicita` devolve
+// `{categoriaMedida: 'no-explicit-geometry', eixos: []}` diretamente —
+// nenhum `verify()` monta esse objeto à mão fora dos helpers.
+//
 // Fix wave 2b (achado 2 da G2): as 14 entradas de `src/app/` no fim deste
 // registry (a partir de `(app)/agenda.tsx::AgendaAppointmentCard#1`) seguem
 // o MESMO contrato acima — nenhuma categoria nova, nenhuma exceção. O
@@ -40,11 +70,15 @@
 // `no-explicit-geometry` (inclusive violações REAIS conhecidas, como
 // `agenda.tsx::navBtn` — `padding:4` sobre ícone 20px, ≈28px, mas SEM
 // height/width explícitos — a categoria captura corretamente "não
-// afirmamos conformidade", não "está conforme") e 1
-// (`AgendaScreen#3`/`day-tab`) é `meets-min` por `minWidth:44` explícito,
-// exatamente no piso. Ver `src/a11y/discoverInteractiveTouchables.ts`
-// (bloco "Limitação de verificação") e task-CQ-08-report.md, seção
-// "Fix wave 2b", para o detalhe completo.
+// afirmamos conformidade", não "está conforme") e 1 (`AgendaScreen#3`/
+// `day-tab`) é `meets-min`. Atualizado na fix wave 3 (achado I-1 da G2
+// rodada 2): originalmente só `minWidth:44` era explícito (1 eixo só,
+// exatamente no piso) — o componente ganhou `minHeight:44` também, então
+// hoje prova os DOIS eixos de verdade. Ver
+// `src/a11y/discoverInteractiveTouchables.ts` (bloco "Limitação de
+// verificação") e task-CQ-08-report.md, seção "Fix wave 2b", para o
+// detalhe completo da wave original; task-CQ-08-fixwave3-report.md para
+// esta correção.
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { StyleSheet, TouchableOpacity, Text } from 'react-native';
@@ -238,33 +272,61 @@ function maiorDeclarado(
   return Math.max(a ?? 0, b ?? 0);
 }
 
-function expectAltura44(estilo: Record<string, unknown>) {
+/** Eixo que um helper de asserção provou por render real — subproduto da
+ *  medição, nunca declarado à mão por uma entrada do registry (fix wave 3,
+ *  achados I-1+I-3 da G2 rodada 2: sem isto, nada impedia uma entrada de
+ *  DECLARAR o eixo que "provou" sem o `verify()` realmente ter medido). */
+export type EixoProvado = 'altura' | 'largura';
+
+/** O que `verify()` MEDIU de verdade, para o gate confrontar contra o que a
+ *  entrada DECLAROU (`entrada.category`) — ver "CONTRATO DE RETORNO" no
+ *  cabeçalho deste arquivo. */
+export interface ResultadoVerify {
+  categoriaMedida: TouchTargetCategory;
+  eixos: EixoProvado[];
+}
+
+function expectAltura44(estilo: Record<string, unknown>): EixoProvado {
   const altura = maiorDeclarado(estilo, 'height', 'minHeight');
   expect(altura).toBeDefined();
   expect(altura as number).toBeGreaterThanOrEqual(touchTarget.min);
+  return 'altura';
 }
 
-function expectLargura44(estilo: Record<string, unknown>) {
+function expectLargura44(estilo: Record<string, unknown>): EixoProvado {
   const largura = maiorDeclarado(estilo, 'width', 'minWidth');
   expect(largura).toBeDefined();
   expect(largura as number).toBeGreaterThanOrEqual(touchTarget.min);
+  return 'largura';
 }
 
-function expectSemGeometriaExplicita(estilo: Record<string, unknown>) {
+/** Confirma a AUSÊNCIA de geometria explícita nos 2 eixos e devolve o
+ *  `ResultadoVerify` já pronto — nenhuma entrada 'no-explicit-geometry'
+ *  monta esse objeto à mão, todas devolvem o retorno deste helper direto. */
+function expectSemGeometriaExplicita(estilo: Record<string, unknown>): ResultadoVerify {
   expect(maiorDeclarado(estilo, 'height', 'minHeight')).toBeUndefined();
   expect(maiorDeclarado(estilo, 'width', 'minWidth')).toBeUndefined();
+  return { categoriaMedida: 'no-explicit-geometry', eixos: [] };
 }
 
-export type TouchTargetCategory = 'meets-min' | 'allowlisted-below-min' | 'no-explicit-geometry';
+export type TouchTargetCategory =
+  | 'meets-min'
+  | 'meets-min-one-axis'
+  | 'allowlisted-below-min'
+  | 'no-explicit-geometry';
 
 export interface TouchTargetRegistryEntry {
   category: TouchTargetCategory;
-  /** Obrigatório para as 2 categorias que não são 'meets-min' — checado à
-   *  parte pelo teste de "toda entrada não-conforme carrega razão". */
+  /** Obrigatório para toda categoria que não seja 'meets-min' (inclui
+   *  'meets-min-one-axis' — provar 1 eixo só também exige explicar por que
+   *  o outro não é fixável) — checado à parte pelo teste de "toda entrada
+   *  não-conforme carrega razão". */
   reason?: string;
-  /** Renderiza o componente real e faz as asserções — nunca decorativo:
-   *  mutar a fonte (ex.: baixar um `height`) FAZ este `verify()` falhar. */
-  verify: () => void;
+  /** Renderiza o componente real, faz as asserções E DEVOLVE o que mediu —
+   *  nunca decorativo: mutar a fonte (ex.: baixar um `height`) FAZ este
+   *  `verify()` falhar, e o gate confronta o retorno contra
+   *  `entrada.category` (fix wave 3 — ver "CONTRATO DE RETORNO" acima). */
+  verify: () => ResultadoVerify;
 }
 
 const PET_FIXTURE: PetResponse = {
@@ -341,14 +403,23 @@ function renderNavDrawerComUsuario() {
 
 export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   'KCButton.tsx::KCButton#1': {
-    category: 'meets-min',
+    category: 'meets-min-one-axis',
+    reason:
+      'Prova só o eixo ALTURA (`sizeSpec.height`, 44/48/54px pelos 3 tamanhos) — `KCButton` ' +
+      'não declara `width`/`minWidth` nenhum, de propósito: o botão é full-width no fluxo do ' +
+      'app (`style` do container pai decide a largura) OU dimensionado pelo texto do filho ' +
+      '(`children`), nunca por um valor fixo do próprio componente. Cravar `minWidth:44` aqui ' +
+      'quebraria o layout de qualquer tela que dependa do botão encolher para o texto (fix ' +
+      'wave 3, ruling do maestro: NÃO forçar largura no componente).',
     verify: () => {
+      let eixos: EixoProvado[] = [];
       (['sm', 'md', 'lg'] as const).forEach((size) => {
         const { UNSAFE_getByType, unmount } = wrap(<KCButton size={size}>Texto</KCButton>);
         const touchable = UNSAFE_getByType(TouchableOpacity);
-        expectAltura44(flat(touchable.props.style));
+        eixos = [expectAltura44(flat(touchable.props.style))];
         unmount();
       });
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 
@@ -365,7 +436,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           <Text>conteúdo</Text>
         </KCCard>,
       );
-      expectSemGeometriaExplicita(flat(UNSAFE_getByType(TouchableOpacity).props.style));
+      return expectSemGeometriaExplicita(flat(UNSAFE_getByType(TouchableOpacity).props.style));
     },
   },
 
@@ -375,8 +446,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { UNSAFE_getByType } = wrap(<KCChip onPress={() => {}}>Chip</KCChip>);
       const touchable = UNSAFE_getByType(TouchableOpacity);
       const estilo = flat(touchable.props.style);
-      expectAltura44(estilo);
-      expectLargura44(estilo);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -391,7 +462,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId } = wrap(
         <KCTextField label="Senha" value="" onChangeText={() => {}} secureTextEntry />,
       );
-      expectSemGeometriaExplicita(flat(getByTestId('password-toggle').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('password-toggle').props.style));
     },
   },
 
@@ -399,8 +470,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     category: 'meets-min',
     verify: () => {
       const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
-      expectAltura44(flat(getByTestId('app-header-menu').props.style));
-      expectLargura44(flat(getByTestId('app-header-menu').props.style));
+      const estilo = flat(getByTestId('app-header-menu').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -408,8 +480,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     category: 'meets-min',
     verify: () => {
       const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
-      expectAltura44(flat(getByTestId('app-header-search').props.style));
-      expectLargura44(flat(getByTestId('app-header-search').props.style));
+      const estilo = flat(getByTestId('app-header-search').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -422,7 +495,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'afirmado como conforme sem prova.',
     verify: () => {
       const { getByTestId } = renderNavDrawerComUsuario();
-      expectSemGeometriaExplicita(flat(getByTestId('nav-item-dashboard').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('nav-item-dashboard').props.style));
     },
   },
 
@@ -435,7 +508,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'Escopo 3 do brief) — candidato de maior prioridade a um follow-up.',
     verify: () => {
       const { getByTestId } = renderNavDrawerComUsuario();
-      expectSemGeometriaExplicita(flat(getByTestId('nav-drawer-logout').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('nav-drawer-logout').props.style));
     },
   },
 
@@ -449,7 +522,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId } = wrap(
         <LunaSuggestionBadge campo="S" idPet={1} onSugest={() => {}} />,
       );
-      expectSemGeometriaExplicita(flat(getByTestId('luna-badge-S').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('luna-badge-S').props.style));
     },
   },
 
@@ -461,7 +534,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'ambiente de teste não computa layout Yoga (v11) — não é afirmado como conforme sem prova.',
     verify: () => {
       const { getByRole } = wrap(<PetListItem pet={PET_FIXTURE} onPress={() => {}} />);
-      expectSemGeometriaExplicita(flat(getByRole('button').props.style));
+      return expectSemGeometriaExplicita(flat(getByRole('button').props.style));
     },
   },
 
@@ -474,7 +547,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'candidato a follow-up.',
     verify: () => {
       const { getByTestId } = wrap(<TimelineItem evento={TIMELINE_EVENTO_FIXTURE} />);
-      expectSemGeometriaExplicita(flat(getByTestId('expand-toggle').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('expand-toggle').props.style));
     },
   },
 
@@ -496,7 +569,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           tipo="receituario"
         />,
       );
-      expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-whatsapp').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-whatsapp').props.style));
     },
   },
 
@@ -522,7 +595,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('btn-iniciar-teleconsulta').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-iniciar-teleconsulta').props.style));
     },
   },
 
@@ -545,7 +618,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('btn-prev-week').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-prev-week').props.style));
     },
   },
 
@@ -565,7 +638,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('btn-next-week').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-next-week').props.style));
     },
   },
 
@@ -581,10 +654,18 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      // `dayTab: { ..., minWidth: 44 }` — só largura é explícita (sem
-      // height/minHeight), então só `expectLargura44` é chamado. Mesmo
-      // padrão parcial de `KCButton.tsx::KCButton#1` (só altura).
-      expectLargura44(flat(getByTestId('day-tab-0').props.style));
+      // Fix wave 3 (achado I-1 da G2 rodada 2): `dayTab` antes só declarava
+      // `minWidth: 44` — só o eixo largura era explícito, e esta entrada
+      // continuava rotulada `meets-min` (WCAG 2.5.5 = 44×44, os DOIS eixos)
+      // sem nunca ter provado altura. O componente foi corrigido
+      // (`agenda.tsx::dayTab`, `minHeight: 44` adicionado) em vez de
+      // rebaixar a categoria — ganho real de conformidade, barato, sem
+      // risco de quebra de layout (mesma decisão que NÃO se aplica ao
+      // `KCButton`, ver `meets-min-one-axis` acima). Os dois eixos agora
+      // são provados de verdade.
+      const estilo = flat(getByTestId('day-tab-0').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -611,7 +692,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           (child.props as { children?: unknown }).children === 'Ver mais'
         );
       });
-      expectSemGeometriaExplicita(flat(toggle!.props.style));
+      return expectSemGeometriaExplicita(flat(toggle!.props.style));
     },
   },
 
@@ -625,7 +706,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       mockUsePetDetailReturn.mockReturnValue({ data: PET_FIXTURE, isLoading: false, isError: false });
       mockUsePetTimelineReturn.mockReturnValue({ data: [], isLoading: false });
       const { getByTestId } = wrap(<PacienteDetailScreen />);
-      expectSemGeometriaExplicita(
+      return expectSemGeometriaExplicita(
         flat(getByTestId(`copy-phone-${PET_FIXTURE.tutores[0]!.id}`).props.style),
       );
     },
@@ -641,7 +722,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       mockUsePetDetailReturn.mockReturnValue({ data: PET_FIXTURE, isLoading: false, isError: false });
       mockUsePetTimelineReturn.mockReturnValue({ data: [], isLoading: false });
       const { getByTestId } = wrap(<PacienteDetailScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('tab-timeline').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('tab-timeline').props.style));
     },
   },
 
@@ -664,7 +745,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const clearButton = UNSAFE_getAllByType(TouchableOpacity).find(
         (el) => el.props.testID !== 'btn-novo-paciente',
       );
-      expectSemGeometriaExplicita(flat(clearButton!.props.style));
+      return expectSemGeometriaExplicita(flat(clearButton!.props.style));
     },
   },
 
@@ -679,7 +760,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
       const { getByTestId } = wrap(<ReceituarioScreen />);
       fireEvent.changeText(getByTestId('search-med'), 'amox');
-      expectSemGeometriaExplicita(
+      return expectSemGeometriaExplicita(
         flat(getByTestId(`med-item-${MEDICAMENTO_FIXTURE.id}`).props.style),
       );
     },
@@ -694,11 +775,44 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       mockUseMedicamentosReturn.mockReturnValue({ items: [] });
       mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
       const { getByTestId } = wrap(<ReceituarioScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('date-picker-trigger').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('date-picker-trigger').props.style));
     },
   },
 
+  // Fix wave 3 (achado I-2 da G2 rodada 2): `Switch` entrou em
+  // `INTERACTIVE_TAGS` (`discoverInteractiveTouchables.ts`) — os 2
+  // `<Switch>` de `settings.tsx` (`switch-dark-mode` linha ~119,
+  // `switch-notif` linha ~140) agora contam como touchables ANTES do
+  // `TouchableOpacity` de "Convidar membro" na ordem de aparição no
+  // arquivo, então a numeração de `SettingsScreen#n` inteira deslocou:
+  // o que era `#1` (btn-convidar) virou `#3`.
   '(app)/settings.tsx::SettingsScreen#1': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Switch "Modo escuro" (`switch-dark-mode`) não recebe `style` nenhum — medido por render ' +
+      'real: o estilo achatado do nó nativo é `{alignSelf:"flex-start"}`, sem height/minHeight/' +
+      'width/minWidth (o RN não expõe geometria de `Switch` de forma útil via `style`; o ' +
+      'tamanho visual vem do nativo, fora do que este walker consegue provar sem Yoga real). ' +
+      'Não corrigido nesta task — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(<SettingsScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('switch-dark-mode').props.style));
+    },
+  },
+
+  '(app)/settings.tsx::SettingsScreen#2': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Switch "Notificações push" (`switch-notif`) — mesmo caso do `switch-dark-mode` acima ' +
+      '(sem `style`, mesmo estilo nativo achatado sem height/width explícitos). Não corrigido ' +
+      'nesta task — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(<SettingsScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('switch-notif').props.style));
+    },
+  },
+
+  '(app)/settings.tsx::SettingsScreen#3': {
     category: 'no-explicit-geometry',
     reason:
       'Botão "Convidar membro" (`btn-convidar`) — `inviteRow: { flexDirection:"row", ' +
@@ -712,7 +826,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('btn-convidar').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-convidar').props.style));
     },
   },
 
@@ -724,7 +838,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<LoginScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('login-register-link').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('login-register-link').props.style));
     },
   },
 
@@ -737,7 +851,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<RegisterScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('register-back').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('register-back').props.style));
     },
   },
 
@@ -750,7 +864,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<RegisterScreen />);
-      expectSemGeometriaExplicita(flat(getByTestId('register-go-login').props.style));
+      return expectSemGeometriaExplicita(flat(getByTestId('register-go-login').props.style));
     },
   },
 };
