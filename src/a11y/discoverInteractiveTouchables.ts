@@ -25,8 +25,23 @@
 // `"<arquivo>::<componente>#<n>"` (`n` = ordem de aparição no arquivo,
 // 1-based) — igual ao princípio de `key` de `discover-network-consumers.ts`,
 // mas sem o fallback de linha (mais estável a reformatação, ao custo de
-// quebrar se a ORDEM dos touchables dentro do mesmo componente mudar — mesmo
-// trade-off aceito lá).
+// REBINDAR EM SILÊNCIO — não "quebrar" — se a ORDEM dos touchables dentro
+// do mesmo componente mudar — mesmo trade-off aceito lá).
+//
+// ⚠️ Fix wave 3 (achado I-4 da G2 rodada 2): este parágrafo dizia "ao custo
+// de QUEBRAR" — falso, medido. Reordenar 2 touchables irmãos (recortar/
+// colar blocos JSX, `tsc` limpo) NÃO derruba nada: as chaves `#1`/`#2`/`#3`
+// continuam existindo, só passam a apontar para o touchable ERRADO — a
+// entrada do registry de `#1` continua validando o QUE FOI `#1` antes da
+// reordenação, agora medindo um elemento diferente. Reproduzido: mover o
+// bloco das abas de dia (`agenda.tsx`) para ANTES do `weekNav` fez `#1`
+// (antes `btn-prev-week`, `no-explicit-geometry`) e `#3` (antes `navBtn`
+// do botão seguinte, `no-explicit-geometry`) trocarem de identidade com
+// `day-tab-0` (`meets-min`) — classificação INVERTIDA, gate 56/56 verde.
+// Aceito como trade-off (ruling do maestro, não reaberto nesta wave) — a
+// alternativa (chave por posição textual/linha) é mais frágil a
+// reformatação, que é mais comum que reordenação deliberada. Registrado
+// como ponto cego real no bloco "Limitação" abaixo.
 import * as fs from 'fs';
 import * as path from 'path';
 import * as ts from 'typescript';
@@ -85,12 +100,27 @@ const INTERACTIVE_TAGS = new Set([
 /** Acha o nome do componente (função nomeada, `const X = () => {}`/
  *  `function X() {}`, ou método de acesso `get`/`set`) que contém o nó dado,
  *  subindo a árvore. `'<module>'` é o valor de fallback — não observado em
- *  código real deste repo hoje (todo touchable descoberto vive dentro de uma
- *  função componente), mas mantido em vez de lançar exceção: um touchable
- *  JSX solto no nível de módulo é sintaticamente impossível em React (JSX só
- *  existe dentro de uma função), então este fallback é morto por construção
- *  — documentado, não removido, para não silenciar um bug do próprio walker
- *  atrás de uma exceção genérica. */
+ *  código real deste repo hoje, mas mantido em vez de lançar exceção, para
+ *  não silenciar um bug do próprio walker atrás de uma exceção genérica.
+ *
+ *  ⚠️ Fix wave 3 (achado Mi-4 da G2 rodada 2): este comentário dizia que um
+ *  touchable JSX solto no nível de módulo é "sintaticamente impossível em
+ *  React (JSX só existe dentro de uma função)" e que o fallback seria
+ *  "morto por construção" — FALSO, medido. `const X = <TouchableOpacity/>`
+ *  é TSX válido (refuta a frase literalmente) e caem no mesmo fallback
+ *  `React.memo(() => <TouchableOpacity/>)`, `React.forwardRef(...)`, e
+ *  `class X extends React.Component { render() { return <TouchableOpacity/> } }`
+ *  — as 3 primeiras são idiomas React ORDINÁRIOS, não exotismo — mais JSX
+ *  dentro de um array de módulo. A DETECÇÃO continua fechando vermelho
+ *  quando qualquer uma aparece (medido: 6 failed / 61 com um probe
+ *  descartável exercitando as 5 formas) — não é buraco de cobertura, é
+ *  identidade de componente: todas compartilham o mesmo contador
+ *  `<module>#n`, então um `memo`/`forwardRef`/classe real no escopo
+ *  colidiria de chave com qualquer outro na mesma situação. Nenhuma das 5
+ *  formas existe hoje no escopo varrido — confirmado por
+ *  `grep -rln "React\.memo\|React\.forwardRef\|extends.*Component" src/components/{primitives,layout,domain} src/app`
+ *  (0 ocorrências) — mas, ao contrário do parágrafo original, isso é fato
+ *  medido agora, não impossibilidade sintática. */
 function acharComponenteDono(node: ts.Node): string {
   let atual: ts.Node | undefined = node.parent;
   while (atual) {
@@ -242,6 +272,13 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
 // código não fazia — enumerava 4 lacunas hipotéticas inexistentes e OMITIA
 // a única real e grande, `src/app/` inteiro fora da varredura. Padrão que
 // já apareceu 8× neste projeto, defeito de primeira classe, não estilo).
+// ⚠️ Reescrita DE NOVO na fix wave 3 (achados I-2+I-4+Mi-1+Mi-2+Mi-3 da G2
+// rodada 2): a versão da 2b tinha o MESMO defeito de novo, num eixo
+// diferente — enumerava lacunas "em teoria, e não existe hoje" e OMITIA
+// `<Switch>` (I-2, existe hoje, movida para a lista de DESCOBERTA e
+// corrigida — ver `INTERACTIVE_TAGS` acima) e 4 pontos cegos que SÃO reais
+// e PRESENTES agora (reordenação, porcentagem, `maxHeight`/`maxWidth`/
+// `transform`, `hitSlop`), listados abaixo em vez de omitidos.
 //
 // ESCOPO ATUAL (pós fix wave 2b): `src/components/{primitives,layout,
 // domain}` + `src/app/` inteiro, recursivo. As 2 afirmações "confirmado por
@@ -257,7 +294,7 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
 // único padrão de alias condicional observado hoje no código real deste repo
 // (`KCChip.tsx`). O que ficaria invisível, em teoria, e não existe hoje
 // (nem em `primitives`/`layout`/`domain`, nem em `src/app/`):
-//   - Qualquer um dos 5 tocáveis de INTERACTIVE_TAGS importado com ALIAS de
+//   - Qualquer um dos 6 tocáveis de INTERACTIVE_TAGS importado com ALIAS de
 //     import (`import { Pressable as Btn } from 'react-native'`) — a tag JSX
 //     seria `<Btn>`, não reconhecida. Confirmado por grep (ver acima) que
 //     não existe hoje no escopo inteiro.
@@ -277,6 +314,41 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
 // Se qualquer um dos 3 aparecer, este arquivo precisa de extensão antes de
 // confiar na cobertura.
 //
+// PONTOS CEGOS REAIS E PRESENTES HOJE (fix wave 3, diferente da lista acima
+// — estes NÃO são hipóteses, existem no mecanismo atual e a G2 rodada 2
+// mediu os 4 por mutação; nenhum silencioso o suficiente para justificar
+// correção nesta wave — registrados para não virarem a mesma "documentação
+// que garante o que o código não faz" que já reescreveu este bloco 2×):
+//   - REORDENAÇÃO (I-4): a chave `#n` é posicional (ver comentário no topo
+//     deste arquivo). Reordenar touchables irmãos REBINDA as entradas do
+//     registry em silêncio, podendo INVERTER a classificação — medido:
+//     mover as abas de dia para antes do `weekNav` em `agenda.tsx` trocou o
+//     que `#1`/`#3` mediam, com o gate 56/56 verde. Aceito como trade-off
+//     (chave por linha seria mais frágil a reformatação, que é mais comum).
+//   - GEOMETRIA EM PORCENTAGEM (Mi-2): `maiorDeclarado()` (registry) exige
+//     `typeof === 'number'` — `height: '12%'` é invisível, a entrada cai em
+//     `no-explicit-geometry` mesmo que a % resolva bem abaixo de 44px em
+//     tela real. Medido: `navBtn` com `height:'12%', width:'12%'` mantém
+//     `tsc --noEmit` limpo e a suíte 56/56 verde. Direção inofensiva para
+//     `meets-min` (uma % nunca vira falso `meets-min`, porque
+//     `expect(...).toBeDefined()` reprovaria), mas esvazia a garantia de
+//     "ausência real" que `no-explicit-geometry` promete.
+//   - `maxHeight`/`maxWidth`/`transform: scale` (Mi-1): `maiorDeclarado()`
+//     só lê `height`/`minHeight` e `width`/`minWidth` — um alvo `meets-min`
+//     de 44×44 CLAMPADO por `maxHeight:20, maxWidth:20` ou encolhido por
+//     `transform:[{scale:0.4}]` continua passando. Medido: os 3 aplicados
+//     juntos no `iconBtn` (44×44) do `AppHeader` mantêm as 2 entradas
+//     `meets-min` e nada na suíte pega (coverage + AppHeader + webInteraction
+//     todos verdes).
+//   - `hitSlop` (Mi-3): invisível pelo mesmo motivo — `maiorDeclarado()` não
+//     olha essa prop. É justamente o remédio mais barato para os 21
+//     `no-explicit-geometry` hoje (aumentar área de toque sem mudar
+//     layout) — registrado ANTES de algum follow-up usá-lo: medido que
+//     `hitSlop={{top:20,bottom:20,left:20,right:20}}` no botão de logout
+//     (o "pior caso" do registry) deixa a suíte 72/72 verde SEM a `reason`
+//     da entrada mudar — ela continuaria dizendo "sem margem de toque
+//     nenhuma" depois do gap corrigido de verdade.
+//
 // LIMITAÇÃO DE VERIFICAÇÃO (distinta da de DESCOBERTA acima — vale para o
 // registry, `tests/touchTargetRegistry.tsx`, não para este walker): o
 // ambiente de teste (`react-test-renderer`, via `@testing-library/react-
@@ -290,15 +362,11 @@ export function discoverInteractiveTouchables(dirs: string[]): TouchableConsumer
 // geometria EXPLÍCITA (height/minHeight/width/minWidth numéricos) abaixo do
 // mínimo, comprovável por render mesmo sem Yoga — o que padding sozinho não
 // permite provar. Achado da fix wave 2b: nenhum dos 14 tocáveis novos de
-// `src/app/` tem geometria explícita abaixo de 44px — 13 são
-// `no-explicit-geometry` (incluindo os casos visualmente abaixo do mínimo,
-// que este walker não pode confirmar nem refutar) e 1 (`agenda.tsx::
-// AgendaScreen#3`, `dayTab.minWidth:44`) é `meets-min` por valor explícito
-// exatamente no piso. `allowlisted-below-min` continua sem nenhuma entrada
-// real neste repo — ver task-CQ-08-report.md, seção "Fix wave 2b", para o
-// detalhe completo (a suposição inicial do maestro era que `src/app/` seria
-// o primeiro uso real dessa categoria; a classificação por render, não por
-// estimativa visual, não confirmou isso).
+// `src/app/` tem geometria explícita abaixo de 44px. `allowlisted-below-min`
+// continua sem nenhuma entrada real neste repo — ver task-CQ-08-report.md,
+// seção "Fix wave 2b", para o detalhe completo (a suposição inicial do
+// maestro era que `src/app/` seria o primeiro uso real dessa categoria; a
+// classificação por render, não por estimativa visual, não confirmou isso).
 //
 // ⚠️ Histórico: a lista INTERACTIVE_TAGS original (rodada de implementação)
 // cobria só `TouchableOpacity`/`Pressable` — 2 das 5 formas REAIS que o
