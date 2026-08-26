@@ -19,6 +19,21 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// CQ-08 fix wave 3 (achado Mi-6 da G2 rodada 2): `Pressable` é exportado
+// como `React.memo(...)` (`Pressable.js:343-346`) — o test-renderer nunca
+// expõe uma instância de teste cujo `.type` seja o WRAPPER de memo, então
+// `UNSAFE_queryAllByType(Pressable)` (comparando contra a referência
+// memoizada importada abaixo) NUNCA casa, mesmo com um `<Pressable>` real
+// na árvore. Medido: um `<Pressable testID="botao-morto-mutante" ... />`
+// SEM `onPress` injetado no `AppHeader` passava 6/6 antes desta wave — a
+// guarda "todo TouchableOpacity/Pressable tem onPress" era cega a
+// `Pressable`. Causa completa e a mesma técnica de contorno em
+// `tests/webInteraction.test.tsx` (bloco "CAUSA DETERMINADA"). O
+// componente INTERNO não-memoizado é acessível via `.type` no objeto de
+// memo — usar ESSE como alvo da query resolve genericamente, sem depender
+// de testID.
+const PressableInner = (Pressable as unknown as { type: typeof Pressable }).type;
+
 describe('AppHeader — CTAs vivos', () => {
   // Guarda derivada do próprio JSX renderizado, não de uma lista de testID escrita à mão:
   // varre TODOS os TouchableOpacity/Pressable da árvore e exige onPress em cada um.
@@ -31,7 +46,10 @@ describe('AppHeader — CTAs vivos', () => {
 
     const touchables = [
       ...UNSAFE_queryAllByType(TouchableOpacity),
-      ...UNSAFE_queryAllByType(Pressable),
+      // Fix wave 3 (Mi-6): `UNSAFE_queryAllByType(Pressable)` sozinho nunca
+      // casa (ver comentário acima) — consultar pelo componente INTERNO
+      // não-memoizado é o que de fato encontra um `<Pressable>` na árvore.
+      ...UNSAFE_queryAllByType(PressableInner),
     ];
 
     expect(touchables.length).toBeGreaterThan(0);

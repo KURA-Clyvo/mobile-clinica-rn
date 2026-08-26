@@ -57,15 +57,37 @@
 // `TouchableOpacity`, `UNSAFE_getByType(TouchableOpacity)` já devolve o
 // fiber composite certo (confirmado por probe descartável). Para o
 // `Pressable` de `NavDrawerItem`, a mesma chamada
-// (`UNSAFE_getAllByType(Pressable)`) devolve **ZERO** instâncias — raiz não
-// determinada (possível mismatch de identidade de módulo dentro do registry
-// do Jest), medido e não investigado a fundo por estar fora do escopo desta
-// wave. Workaround verificado por medição: `UNSAFE_getAllByProps({ testID
+// (`UNSAFE_getAllByType(Pressable)`) devolve **ZERO** instâncias.
+//
+// ⚠️ CQ-08 fix wave 3 (achado Mi-6 da G2 rodada 2) — CAUSA DETERMINADA
+// (a nota abaixo dizia "raiz não determinada"; lida a fonte real de novo
+// nesta wave, não herdada da G2):
+// `node_modules/react-native/Libraries/Components/Pressable/Pressable.js:343`
+// exporta `const MemoedPressable = memo(Pressable);` e `:346`
+// `export default (MemoedPressable: component(...))` — ou seja, o
+// `Pressable` importado por QUALQUER consumidor (inclusive este arquivo de
+// teste) é um componente memoizado, não a função `Pressable` interna.
+// `react-test-renderer` (via `@testing-library/react-native`) não expõe uma
+// instância de teste cujo `.type` seja o WRAPPER de memo — a árvore de
+// fibers salta direto para o componente INTERNO, cujo `.type` é a função
+// `Pressable` não memoizada, uma referência DIFERENTE da que foi importada.
+// Por isso `UNSAFE_getAllByType(Pressable)` nunca casa (confirmado nesta
+// wave: lança `"No instances found"`, não devolve array vazio).
+// `TouchableOpacity` funciona porque seu export default
+// (`TouchableOpacity.js:380-393`) é uma função componente PLANA, sem
+// `memo`/`forwardRef` por cima — `Touchable.displayName = 'TouchableOpacity'`
+// na linha 391, `export default Touchable` na 393 — então a referência
+// importada É a mesma que aparece no fiber. Não é identidade de MÓDULO
+// (2 cópias do pacote), é identidade de COMPONENTE (memo vs. não-memo).
+// Workaround verificado por medição: `UNSAFE_getAllByProps({ testID
 // })` encontra as 3 entradas que carregam esse `testID` (composite
 // `Pressable` + 2 `View` host que herdam a prop); filtrar por
 // `typeof m.type !== 'string'` isola a composite — a única cujo
 // `.props.onMouseEnter` é o nosso handler, não o wrapper sintético do
-// Pressability. Ver `compositeComTestId` no describe dos sítios abaixo.
+// Pressability. Confirmado nesta wave: o `.type` isolado por esse filtro é
+// literalmente a função `Pressable` interna (`typeof === 'function'`),
+// coerente com a causa acima. Ver `compositeComTestId` no describe dos
+// sítios abaixo.
 //
 // Consequência para a estratégia de teste abaixo:
 //   1. `getWebInteractionStyle` (helper puro) é testado direto, sem
