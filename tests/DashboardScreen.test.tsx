@@ -1,9 +1,10 @@
 import React from 'react';
-import { render, waitFor, within } from '@testing-library/react-native';
+import { render, waitFor, within, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
+import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
 
 jest.mock('@hooks/useDashboard', () => ({
@@ -207,6 +208,46 @@ describe('DashboardScreen — empty states', () => {
     expect(
       getByText('Alertas de vacina e de temperatura aparecem aqui assim que forem gerados.'),
     ).toBeTruthy();
+  });
+});
+
+// CQ-13 fix wave (item 3, achado A4 da G2) — nada até esta fix wave provava
+// que `<OnboardingChecklist />` está de fato MONTADO pelo dashboard: apagar a
+// linha `<OnboardingChecklist />` de `dashboard.tsx` deixava a suíte inteira
+// verde (`OnboardingChecklist.test.tsx` só exercita o componente ISOLADO,
+// nunca a tela). Mesma classe de gap que a CQ-08 levou 4 sessões pra fechar.
+//
+// De propósito, SEM mockar `expo-router`: os testes acima deste arquivo já
+// não mockam (a tela só usa `expo-router` transitivamente, via
+// `OnboardingChecklist`), e a G2 mediu que renderizar com o `<Link>` REAL
+// funciona sem erro — é, de quebra, o único ponto da suíte que exercita o
+// `<Link asChild>` de verdade (ver task-CQ-13-review.md, "O que verifiquei e
+// estava CERTO", item 5).
+describe('DashboardScreen — onboarding checklist está MONTADO na tela (CQ-13 fix wave, item 3)', () => {
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [MOCK_RECENTE], isLoading: false, isError: false, refetch: REFETCH });
+    useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+  });
+
+  afterEach(() => {
+    // Não deixa o estado hidratado vazar pros describes abaixo (ou de outro
+    // arquivo que reimporte o mesmo singleton dentro deste módulo de teste).
+    // `act()` porque a árvore renderizada pelo teste ainda está montada
+    // aqui (este projeto não usa autocleanup do RNTL) — sem isso o
+    // `setState` dispara um re-render de `OnboardingChecklist` fora de
+    // `act`, e o React avisa (não falha, mas polui a saída do gate).
+    act(() => {
+      useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: false });
+    });
+  });
+
+  it('renderiza o card de onboarding dentro da árvore da tela (não só do componente isolado)', () => {
+    const { getByTestId, getByText } = wrap(<DashboardScreen />);
+    expect(getByTestId('onboarding-checklist')).toBeTruthy();
+    expect(getByText('Primeiros passos')).toBeTruthy();
+    expect(getByText('4 de 4 restantes')).toBeTruthy();
   });
 });
 
