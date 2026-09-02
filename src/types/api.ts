@@ -225,6 +225,46 @@ export interface VeterinarioResponse {
   dsBio?: string;
 }
 
+// ─── Usuários da clínica (FM-02) ────────────────────────────────
+// Espelha UsuarioClinicaResponseDto (backend-clinica-dotnet @ de96c70,
+// UsuariosClinicaController) 1:1 — sem tradução de shape (mesmo padrão de
+// PetResponse em pets.service.ts): o DTO real já é camelCase e já usa
+// `boolean` para stAtiva (StAtiva vira bool na serialização, diferente do
+// CHAR(1) 'S'/'N' que só existe na convenção de armazenamento Oracle — ver
+// BoolToSimNaoConverter no .NET). NUNCA carrega senha nem hash — o backend
+// não devolve isso em nenhuma rota.
+export interface UsuarioClinicaResponse {
+  id: number;
+  idClinica: number;
+  idVeterinario: number | null;
+  dsEmail: string;
+  tpPerfil: TipoPerfilUsuario;
+  stAtiva: boolean;
+  dtCriacao: string;
+  dtAtualizacao: string | null;
+}
+
+// POST /api/v1/usuarios-clinica
+export interface UsuarioClinicaCreateRequest {
+  dsEmail: string;
+  dsSenha: string;
+  tpPerfil: TipoPerfilUsuario;
+  idVeterinario?: number | null;
+}
+
+// PUT /api/v1/usuarios-clinica/{id} — SEM senha, de propósito (troca de
+// senha é o endpoint próprio abaixo).
+export interface UsuarioClinicaUpdateRequest {
+  dsEmail: string;
+  tpPerfil: TipoPerfilUsuario;
+  idVeterinario?: number | null;
+}
+
+// PUT /api/v1/usuarios-clinica/{id}/senha
+export interface UsuarioClinicaSenhaUpdateRequest {
+  dsSenha: string;
+}
+
 // ─── Luna (.NET — relatório agregado) ────────────────────────
 export interface TriagensRelatorioQuery {
   dataInicio: string;
