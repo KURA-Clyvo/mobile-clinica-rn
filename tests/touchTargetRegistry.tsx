@@ -415,9 +415,20 @@ const navigationMock = {
 } as unknown as DrawerContentComponentProps['navigation'];
 
 function renderNavDrawerComUsuario() {
+  // FM-01 — `email` e `tpPerfil` entram aqui por NECESSIDADE, nao por
+  // simetria: o rodape do NavDrawer (identidade + botao de sair) passou a
+  // gatear em `email`, nao mais em `usuario`. O motivo da troca e que um
+  // GESTOR sem ficha de veterinario ficava sem nome em lugar nenhum do app
+  // -- e, pior, sem botao de sair pelo drawer.
+  //
+  // Sem estes 2 campos, `nav-drawer-logout` nao renderiza e este registro
+  // falha com "Expected at least one assertion" -- foi exatamente assim que
+  // a mudanca de gate apareceu. O detector fez o trabalho dele.
   useAuthStore.setState({
     token: 'tok',
     expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'f@k.com',
+    tpPerfil: 'VETERINARIO',
     usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
   });
   return wrap(
@@ -898,9 +909,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'Mesmo padrão de "funcionalidade em breve" de `pacientes/index.tsx::PacientesScreen#1`. ' +
       'Não corrigido — candidato a follow-up.',
     verify: () => {
+      // FM-01 — mesma razao do `renderNavDrawerComUsuario`: a secao "Time"
+      // (que contem `btn-convidar`) passou a gatear em `email` em vez de
+      // `usuario`, porque gerenciar a equipe e justamente funcao de GESTOR e
+      // um gestor sem ficha era quem MAIS perdia acesso a ela.
       useAuthStore.setState({
         token: 'tok',
         expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        email: 'f@k.com',
+        tpPerfil: 'VETERINARIO',
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
