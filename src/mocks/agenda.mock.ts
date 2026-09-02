@@ -114,7 +114,19 @@ export async function atualizarStatus(
 ): Promise<AgendamentoItemApiDto> {
   const match = config.url?.match(/\/agendamentos\/(\d+)\/status$/);
   const idAgendamento = match ? Number(match[1]) : 0;
-  const body = JSON.parse((config.data as string) ?? '{}') as {
+  // FM-04 — achado durante a escrita do teste de contrato (mock-contract-
+  // audit.test.ts), não previsto pelo brief: `config.data` chegando pela
+  // cadeia REAL (apiClient.patch -> interceptor de mock -> resolveMock) é o
+  // OBJETO já, não uma string JSON — `JSON.parse((config.data as string))`
+  // (o padrão copiado de auth.mock.ts::register / eventos-clinicos.mock.ts::
+  // confirmarSoap) quebra com "[object Object]" is not valid JSON". Os dois
+  // mocks copiados NUNCA são exercitados pela cadeia real em nenhum teste
+  // deste repo — só via resolveMock() com config montado à mão, que já
+  // entrega uma string — então o bug deles ficou latente. Não corrigido
+  // aqui (fora do escopo desta task); registrado no relatório da FM-04.
+  // Aceita os dois formatos por segurança, já que não é o objetivo desta
+  // task provar qual é o comportamento "certo" do axios neste ambiente.
+  const body = (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as {
     dsStatus?: string;
     nrVersion?: number;
     dsObservacao?: string;

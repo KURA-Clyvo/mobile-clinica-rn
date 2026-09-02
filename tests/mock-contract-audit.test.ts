@@ -20,7 +20,7 @@
 //     -> todo alerta virava 'RETORNO_PENDENTE' e todo agendamento recente saía com
 //     nmPet/nmTipoConsulta undefined e sgStatus fixo em 'AGENDADA'.
 import { getHoje, getAlertas, getRecentes } from '../src/services/dashboard.service';
-import { getAgenda } from '../src/services/agenda.service';
+import { getAgenda, atualizarStatusAgendamento } from '../src/services/agenda.service';
 import { login } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
@@ -96,6 +96,29 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
         expect(a.pet.nmPet.length).toBeGreaterThan(0);
         expect(typeof a.veterinario.nmVeterinario).toBe('string');
       }
+    });
+
+    // FM-04, achado nº 4 do brief: a rota nova precisa entrar no
+    // mock-adapter, e o par service×mock precisa devolver o shape CRU do
+    // backend (AgendamentoItemApiDto), não o shape app-facing — é a regra
+    // que já quebrou 10 pares neste repo (TASK-65/FIX_5). Executa a cadeia
+    // REAL: service -> apiClient (mockado só na config de baseURL) ->
+    // mock-adapter -> agenda.mock.ts, sem jest.mock do apiClient.
+    it('atualizarStatusAgendamento executa sem lançar e devolve o agendamento mapeado', async () => {
+      const agenda = await getAgenda({ dataInicio: '2020-01-01', dataFim: '2030-01-01' });
+      const alvo = agenda.find((a) => a.sgStatus === 'AGENDADA');
+      expect(alvo).toBeDefined();
+
+      const atualizado = await atualizarStatusAgendamento(alvo!.id, {
+        dsStatus: 'CONFIRMADO',
+        nrVersion: alvo!.nrVersion,
+      });
+
+      expect(atualizado.id).toBe(alvo!.id);
+      expect(atualizado.sgStatus).toBe('CONFIRMADA');
+      expect(atualizado.dsStatusOrigem).toBe('CONFIRMADO');
+      // nrVersion tem que ter avançado — não o mesmo valor enviado.
+      expect(atualizado.nrVersion).toBe(alvo!.nrVersion + 1);
     });
   });
 
