@@ -13,6 +13,7 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { perfilLabel } from '@utils/perfilUsuario';
+import { useIsGestor } from '@hooks/useIsGestor';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -62,6 +63,7 @@ export default function SettingsScreen() {
   const email = useAuthStore((s) => s.email);
   const tpPerfil = useAuthStore((s) => s.tpPerfil);
   const clearSession = useAuthStore((s) => s.clearSession);
+  const isGestor = useIsGestor();
   const reopenOnboarding = useOnboardingStore((s) => s.reopen);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
@@ -185,15 +187,18 @@ export default function SettingsScreen() {
         </KCCard>
       </View>
 
-      {/* TIME. FM-01 — achado além dos 7 sítios do backlog (confirmado por
-          grep, não estava na tabela original): este bloco também gateava em
-          `usuario` (a FICHA), quando o que importa aqui é estar autenticado
-          — gerenciar o time da clínica é justamente uma função de GESTOR, e
-          um gestor sem ficha era exatamente quem MAIS perdia acesso a esta
-          seção. Trocado para `email` (mesma fonte de "está logado" usada no
-          footer do NavDrawer). Stub sem efeito real hoje (`Alert.alert`
-          "em breve"), então o risco da mudança é baixo. */}
-      {email && (
+      {/* TIME. FM-01 trocou o gate de `usuario` (a FICHA) para `email` (só
+          "está logado") como correção PROVISÓRIA — o próprio comentário da
+          FM-01 dizia "um helper genérico de render por papel é escopo da
+          FM-03". `email` era a pergunta ERRADA aqui: gerenciar o time da
+          clínica é literalmente função de GESTOR (papel), não de "estar
+          autenticado" — um VETERINARIO puro também tem `email` e não deveria
+          ver esta seção. Gate agora é `isGestor` (`useIsGestor`, FM-03,
+          pergunta "meu papel me permite VER isto?" — ver o desenho no
+          cabeçalho de `useIsGestor.ts`). Comportamento: a seção SOME para
+          quem não é GESTOR (recomendação do backlog, `§E27`), não aparece
+          desabilitada. */}
+      {isGestor && (
         <View style={styles.section}>
           <KCCard>
             <View style={styles.titleRow}>
