@@ -24,6 +24,12 @@ function sessao(over: Record<string, unknown> = {}) {
     email: 'dr@clinic.com',
     tpPerfil: 'VETERINARIO' as const,
     usuario: VET,
+    // FM-03 fix wave — `_hasHydrated` EXPLICITO. No ambiente de teste ele ja
+    // nasce `true` (o middleware `persist` hidrata na hora, porque o
+    // AsyncStorage mockado resolve), entao ate agora ele estava certo por
+    // ACIDENTE. Deixar implicito significaria que o dia em que o mock mudasse,
+    // toda esta suite passaria a medir outra coisa sem ninguem perceber.
+    _hasHydrated: true,
     ...over,
   };
 }
@@ -35,6 +41,9 @@ function semSessao() {
     email: null,
     tpPerfil: null,
     usuario: null,
+    // Sem sessao, mas JA HIDRATADO: e o estado de quem abriu o app e nao tem
+    // sessao salva. Distinto de "ainda nao hidratou", que e o bloco abaixo.
+    _hasHydrated: true,
   };
 }
 
@@ -144,5 +153,68 @@ describe('useRequireGestor — redirect e não-flash', () => {
     const { getByTestId } = render(<ProbeRequireGestor />);
     expect(getByTestId('conteudo-protegido')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+
+// ─── FM-03, fix wave: "não é gestor" × "ainda não hidratou" ────────────────
+//
+// 🔴 ACHADO DO MAESTRO na verificação, medido por sonda e NÃO previsto no
+// brief: sem guarda de hidratação, `useRequireGestor` não consegue distinguir
+// **falta de permissão** de **falta de informação**. Com `tpPerfil: null` e
+// `_hasHydrated: false` — o estado de TODA partida a frio com sessão salva —
+// ele devolvia `false` e disparava `router.replace('/dashboard')` na hora.
+//
+// ⚠️ E compõe mal com o `jaRedirecionou` (a guarda que existe por causa da
+// G2 da FM-01): uma vez disparado, o efeito nunca reavalia, então quando a
+// hidratação revelasse `GESTOR` a pessoa **já teria sido expulsa e não
+// voltaria**. Duas guardas corretas isoladamente, erradas juntas.
+//
+// ⚠️ **Isto pode estar mascarado hoje** por `(app)/_layout.tsx`, que
+// redireciona para `/login` quando `isAuthenticated()` é falso — e
+// pré-hidratação ele é falso. **Mas "mascarado" depende da ordem de render do
+// expo-router, que ninguém mediu**, e a FM-02 será a primeira tela real a
+// consumir este hook.
+//
+// 🔴 Estes testes precisam setar `_hasHydrated: false` EXPLICITAMENTE porque
+// no ambiente de teste ele nasce `true` (o `persist` hidrata na hora com o
+// AsyncStorage mockado) — ou seja, sem eles a correção passa INVISÍVEL, que é
+// exatamente o defeito "check que nunca executou não é cobertura, é intenção".
+describe('useRequireGestor — antes da hidratação do store', () => {
+  it('GESTOR com sessão salva NÃO é expulso enquanto o store não hidratou', () => {
+    useAuthStore.setState({
+      ...sessao({ tpPerfil: 'GESTOR', usuario: null }),
+      // O AsyncStorage ainda não respondeu: o papel real ainda não chegou.
+      tpPerfil: null,
+      _hasHydrated: false,
+    });
+
+    render(<ProbeRequireGestor />);
+
+    // Sem redirect: expulsar aqui seria expulsar por falta de INFORMAÇÃO,
+    // não por falta de PERMISSÃO — e o `jaRedirecionou` tornaria definitivo.
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('não hidratado renderiza NADA — não pisca conteúdo restrito', () => {
+    useAuthStore.setState({
+      ...sessao({ tpPerfil: 'GESTOR' }),
+      tpPerfil: null,
+      _hasHydrated: false,
+    });
+
+    const { queryByTestId } = render(<ProbeRequireGestor />);
+
+    expect(queryByTestId('conteudo-protegido')).toBeNull();
+  });
+
+  // CONTROLE POSITIVO: hidratado e NÃO gestor continua sendo expulso. Sem
+  // este caso, os dois acima seriam compatíveis com "o hook nunca redireciona".
+  it('CONTROLE — hidratado e não-gestor: redireciona normalmente', () => {
+    useAuthStore.setState(sessao({ tpPerfil: 'VETERINARIO' }));
+
+    render(<ProbeRequireGestor />);
+
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.app.dashboard);
   });
 });

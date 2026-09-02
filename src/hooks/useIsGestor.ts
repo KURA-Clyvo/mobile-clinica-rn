@@ -90,17 +90,47 @@ export function useIsGestor(): boolean {
 //      ninguém documentou — o `ref` torna o comportamento correto sob
 //      QUALQUER identidade (redireciona exatamente uma vez por montagem,
 //      independente de `router` mudar de identidade ou não).
+//
+// 🔴 TERCEIRA lição, medida pelo maestro na verificação desta task e NÃO
+// prevista no brief: sem `hidratou`, este hook NÃO CONSEGUE DISTINGUIR
+// "não é gestor" de "o AsyncStorage ainda não respondeu".
+//
+// Medido por sonda: com `tpPerfil: null` e `_hasHydrated: false` — o estado de
+// TODA partida a frio com sessão persistida — a versão sem esta guarda
+// devolvia `false` e disparava `router.replace('/dashboard')` na hora.
+//
+// ⚠️ E o `jaRedirecionou` da lição 1 transforma isso de transitório em
+// PERMANENTE: uma vez disparado, o efeito nunca reavalia, então quando a
+// hidratação revelasse `GESTOR` a pessoa já teria sido expulsa e não voltaria.
+// As duas guardas são corretas isoladamente e se compõem mal — é a mesma forma
+// dos achados que mais custaram a este projeto.
+//
+// **Isto pode estar mascarado hoje**, porque `(app)/_layout.tsx` redireciona
+// para `/login` quando `isAuthenticated()` é falso, e pré-hidratação ele é
+// falso — então a tela filha talvez nem monte. **Mas "mascarado" depende da
+// ordem de render do expo-router, que ninguém mediu**, e a FM-02 será a
+// primeira tela real a consumir este hook. Não se constrói o primeiro
+// precedente do app sobre uma suposição de ordem de render.
 export function useRequireGestor(redirectTo: Href = ROUTES.app.dashboard): boolean {
   const router = useRouter();
   const isGestor = useIsGestor();
+  const hidratou = useAuthStore((s) => s._hasHydrated);
   const jaRedirecionou = useRef(false);
 
   useEffect(() => {
+    // Enquanto não hidratou, `tpPerfil` é null para TODO MUNDO — inclusive
+    // para um gestor com sessão salva. Redirecionar aqui é expulsar por falta
+    // de informação, não por falta de permissão.
+    if (!hidratou) return;
     if (!isGestor && !jaRedirecionou.current) {
       jaRedirecionou.current = true;
       router.replace(redirectTo);
     }
-  }, [isGestor, redirectTo, router]);
+  }, [hidratou, isGestor, redirectTo, router]);
 
-  return isGestor;
+  // ⚠️ Devolve `false` enquanto não hidratou, e isso é DELIBERADO: a tela
+  // renderiza `null` (nada pisca) até haver informação para decidir. O preço é
+  // um quadro em branco na partida a frio, que é estritamente melhor que
+  // piscar conteúdo restrito — ou que expulsar quem tinha direito de entrar.
+  return hidratou && isGestor;
 }
