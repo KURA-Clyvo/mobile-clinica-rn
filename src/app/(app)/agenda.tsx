@@ -16,6 +16,8 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
+import { AgendamentoStatusMenu } from '@components/domain/AgendamentoStatusMenu';
+import { getTransicoesPermitidas } from '@services/agenda.service';
 import { ROUTES } from '@constants/routes';
 import {
   formatTime,
@@ -177,12 +179,20 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 12,
       color: colors.textMute,
     },
+    // FM-04: teleBtn e statusBtn (novo) agora moram lado a lado dentro de
+    // actionsRow — o marginTop:8 saiu daqui e foi para o container, senão a
+    // linha inteira duplicaria o respiro em vez de só o topo do bloco.
+    actionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
     teleBtn: {
       alignSelf: 'flex-start',
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      marginTop: 8,
       paddingVertical: 4,
       paddingHorizontal: 8,
       borderRadius: 8,
@@ -193,16 +203,49 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 11,
       color: colors.textOnPrimary,
     },
+    // FM-04: botão "..." que abre o menu contextual de status (Ruling D-13 —
+    // vive no card da agenda, não numa tela de "fechar atendimento" separada).
+    // Estilo neutro (borda + surface), de propósito diferente do teleBtn
+    // (primary, cor de destaque) — teleconsulta é a ação principal do card;
+    // mudar status é secundária.
+    statusBtn: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    statusBtnText: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 11,
+      color: colors.text,
+    },
   });
 
 interface AgendaAppointmentCardProps {
   appointment: AgendamentoResponse;
+  onAbrirStatusMenu: (appointment: AgendamentoResponse) => void;
 }
 
-function AgendaAppointmentCard({ appointment: a }: AgendaAppointmentCardProps) {
+function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppointmentCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+
+  // FM-04 — Ruling D-13: o menu só oferece os destinos que a máquina de
+  // estados permite a partir do status ATUAL (dsStatusOrigem cru, não
+  // sgStatus traduzido — ver comentário em AgendamentoResponse, types/api.ts).
+  // Um agendamento terminal (REALIZADO/CANCELADO/NAO_COMPARECEU) devolve []
+  // aqui e o botão "..." nem aparece — é o teste "REALIZADO não oferece
+  // ação nenhuma" do brief.
+  const destinosDisponiveis = getTransicoesPermitidas(a.dsStatusOrigem);
+  const temTeleconsulta = a.sgStatus !== 'CANCELADA';
+  const temAcoesStatus = destinosDisponiveis.length > 0;
 
   return (
     <KCCard style={styles.apptCard} testID="agenda-appointment">
@@ -227,16 +270,31 @@ function AgendaAppointmentCard({ appointment: a }: AgendaAppointmentCardProps) {
             </Text>
           )}
           <Text style={styles.tutorText} numberOfLines={1}>{a.tutor.nmTutor}</Text>
-          {a.sgStatus !== 'CANCELADA' && (
-            <TouchableOpacity
-              style={styles.teleBtn}
-              onPress={() => router.push(ROUTES.app.teleorientacao(a.pet.id, a.id))}
-              testID="btn-iniciar-teleconsulta"
-              accessibilityLabel="Iniciar teleconsulta"
-            >
-              <KCIcon name="cam" size={12} color={colors.textOnPrimary} />
-              <Text style={styles.teleBtnText}>Teleconsulta</Text>
-            </TouchableOpacity>
+          {(temTeleconsulta || temAcoesStatus) && (
+            <View style={styles.actionsRow}>
+              {temTeleconsulta && (
+                <TouchableOpacity
+                  style={styles.teleBtn}
+                  onPress={() => router.push(ROUTES.app.teleorientacao(a.pet.id, a.id))}
+                  testID="btn-iniciar-teleconsulta"
+                  accessibilityLabel="Iniciar teleconsulta"
+                >
+                  <KCIcon name="cam" size={12} color={colors.textOnPrimary} />
+                  <Text style={styles.teleBtnText}>Teleconsulta</Text>
+                </TouchableOpacity>
+              )}
+              {temAcoesStatus && (
+                <TouchableOpacity
+                  style={styles.statusBtn}
+                  onPress={() => onAbrirStatusMenu(a)}
+                  testID={`btn-status-menu-${a.id}`}
+                  accessibilityLabel="Alterar status do agendamento"
+                >
+                  <KCIcon name="more" size={12} color={colors.text} />
+                  <Text style={styles.statusBtnText}>Status</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -250,6 +308,11 @@ export default function AgendaScreen() {
 
   const [semanaBase, setSemanaBase] = React.useState(() => new Date());
   const [selectedDay, setSelectedDay] = React.useState(() => new Date());
+  // FM-04: um único menu no nível da tela (não um Modal por card) — evita
+  // overlays empilhados e mantém o estado de "qual agendamento está com o
+  // menu aberto" num só lugar.
+  const [statusMenuAppointment, setStatusMenuAppointment] =
+    React.useState<AgendamentoResponse | null>(null);
 
   const { data, isLoading, semanaStart, semanaEnd, refetch } = useAgendaSemana(semanaBase);
 
@@ -401,10 +464,23 @@ export default function AgendaScreen() {
           />
         ) : (
           appointmentsForDay.map((a) => (
-            <AgendaAppointmentCard key={a.id} appointment={a} />
+            <AgendaAppointmentCard
+              key={a.id}
+              appointment={a}
+              onAbrirStatusMenu={setStatusMenuAppointment}
+            />
           ))
         )}
       </ScrollView>
+
+      <AgendamentoStatusMenu
+        visible={statusMenuAppointment !== null}
+        onClose={() => setStatusMenuAppointment(null)}
+        idAgendamento={statusMenuAppointment?.id ?? 0}
+        nrVersion={statusMenuAppointment?.nrVersion ?? 0}
+        dsStatusOrigem={statusMenuAppointment?.dsStatusOrigem ?? ''}
+        nmPet={statusMenuAppointment?.pet.nmPet ?? ''}
+      />
     </ScreenContainer>
   );
 }

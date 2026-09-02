@@ -60,6 +60,9 @@ const agendamentoFixture: AgendamentoResponse = {
   dtInicio: '2026-05-06T09:00:00.000Z',
   nrDuracaoMinutos: 30,
   sgStatus: 'AGENDADA',
+  // FM-04: campos novos e obrigatórios de AgendamentoResponse.
+  dsStatusOrigem: 'AGENDADO',
+  nrVersion: 1,
   pet: { id: 1, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Labrador' },
   tutor: { id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001' },
   veterinario: { id: 20, nmVeterinario: 'Dr. Felipe Ferrete', nrCRMV: 'SP-12345' },
