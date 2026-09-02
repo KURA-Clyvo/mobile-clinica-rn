@@ -6,6 +6,8 @@ import * as petsMock from '../../mocks/pets.mock';
 import * as eventosMock from '../../mocks/eventos-clinicos.mock';
 import * as lunaMock from '../../mocks/luna.mock';
 import * as teleconsultaMock from '../../mocks/teleconsulta.mock';
+import * as veterinariosMock from '../../mocks/veterinarios.mock';
+import * as usuariosClinicaMock from '../../mocks/usuarios-clinica.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
@@ -37,6 +39,17 @@ const ROUTES: [RegExp, MockHandler][] = [
   // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
   // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).
   [/\/teleconsulta\/\d+\/sala$/, teleconsultaMock.sala],
+  [/\/veterinarios$/, veterinariosMock.veterinarios],
+  // FM-02 — 4 rotas de UsuariosClinicaController batem só 2 formas de URL,
+  // despachadas por config.method dentro de UM handler cada (mesmo padrão de
+  // teleconsultaMock.sala, citado acima). ORDEM IMPORTA: as duas rotas mais
+  // específicas (/senha, /reativacao) têm que vir ANTES de
+  // /usuarios-clinica/\d+$/, senão a genérica casaria primeiro e nunca
+  // deixaria as específicas serem alcançadas.
+  [/\/usuarios-clinica\/\d+\/senha$/, usuariosClinicaMock.senha],
+  [/\/usuarios-clinica\/\d+\/reativacao$/, usuariosClinicaMock.reativacao],
+  [/\/usuarios-clinica\/\d+$/, usuariosClinicaMock.byId], // GET | PUT | DELETE
+  [/\/usuarios-clinica$/, usuariosClinicaMock.colecao], // GET | POST
 ];
 
 const MOCK_LATENCY_MS = 300;

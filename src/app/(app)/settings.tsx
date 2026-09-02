@@ -14,6 +14,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { perfilLabel } from '@utils/perfilUsuario';
 import { useIsGestor } from '@hooks/useIsGestor';
+import { ROUTES } from '@constants/routes';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -209,16 +210,25 @@ export default function SettingsScreen() {
             <Text style={[styles.prefCaption, { marginBottom: 8 }]}>
               Membros da clínica
             </Text>
+            {/* FM-02: era `Alert.alert('Funcionalidade em breve')` — o texto
+                abaixo já prometia exatamente esta tela ("Gerenciamento de
+                equipe"), então virou o ponto de entrada natural. SÓ o
+                onPress/texto mudaram — nada foi inserido ANTES deste
+                TouchableOpacity na árvore (ver o aviso de geometria
+                posicional mais abaixo, no bloco PRIMEIROS PASSOS:
+                SettingsScreen#3 em tests/touchTargetRegistry.tsx continua
+                sendo ESTE nó — `npx jest touchTargetRegistry` reconfirmado
+                sem rebind, ver relatório da task). */}
             <TouchableOpacity
               style={styles.inviteRow}
-              onPress={() => Alert.alert('Funcionalidade em breve')}
+              onPress={() => router.push(ROUTES.app.usuarios)}
               testID="btn-convidar"
             >
               <KCIcon name="plus" size={18} color={colors.primary} />
-              <Text style={styles.inviteText}>Convidar membro</Text>
+              <Text style={styles.inviteText}>Gerenciar usuários</Text>
             </TouchableOpacity>
             <Text style={styles.noteText}>
-              Gerenciamento de equipe disponível na versão web
+              Adicione, edite e desative usuários da clínica
             </Text>
           </KCCard>
         </View>
