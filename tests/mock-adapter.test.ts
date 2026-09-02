@@ -1,9 +1,17 @@
 import { resolveMock, EMPTY_LIST_TRANSFORMS } from '../src/services/api/mock-adapter';
+import { __resetStoreParaTeste } from '../src/mocks/agenda.mock';
 import type { InternalAxiosRequestConfig } from 'axios';
 
-function makeConfig(url: string, method = 'GET'): InternalAxiosRequestConfig {
-  return { url, method, headers: {} } as InternalAxiosRequestConfig;
+function makeConfig(url: string, method = 'GET', data?: unknown): InternalAxiosRequestConfig {
+  return { url, method, headers: {}, data: data !== undefined ? JSON.stringify(data) : undefined } as InternalAxiosRequestConfig;
 }
+
+// FM-04: o mock de agenda passou a ser stateful (agenda.mock.ts::_store) —
+// sem resetar entre testes, um PATCH de um `it()` vazaria pro próximo (o
+// registro de módulos do Jest é por ARQUIVO, não por `it()`).
+beforeEach(() => {
+  __resetStoreParaTeste();
+});
 
 describe('mock-adapter', () => {
   it('resolves /auth/login', async () => {
@@ -237,6 +245,60 @@ describe('mock-adapter — EXPO_PUBLIC_MOCK_EMPTY (CQ-13, item 5)', () => {
     expect(data.totalPages).toBe(0);
     expect(typeof data.page).toBe('number');
     expect(typeof data.pageSize).toBe('number');
+  });
+});
+
+// FM-04: primeiro handler de PATCH deste repo. Prova as duas coisas que o
+// brief chamou de achado nº 3 e nº 4 — a rota existe no mock-adapter, E o
+// PATCH persiste no MESMO store que o GET /agenda lê depois.
+describe('mock-adapter — PATCH /agendamentos/{id}/status (FM-04)', () => {
+  it('rota nova existe: PATCH /agendamentos/5/status não lança "No mock for..."', async () => {
+    const res = await resolveMock(
+      makeConfig('/agendamentos/5/status', 'PATCH', { dsStatus: 'CONFIRMADO', nrVersion: 1 }),
+    );
+    expect(res.status).toBe(200);
+    const data = res.data as { idAgendamento: number; dsStatus: string; nrVersion: number };
+    expect(data.idAgendamento).toBe(5);
+    expect(data.dsStatus).toBe('CONFIRMADO');
+    // nrVersion incrementado pelo "servidor" mock, igual ao real (AgendaService.cs:
+    // `agendamento.NrVersion = dto.NrVersion + 1`).
+    expect(data.nrVersion).toBe(2);
+  });
+
+  // A prova central do achado nº 3: buildAppointments() reconstruía a lista
+  // do zero a cada chamada — um GET /agenda depois do PATCH devolvia o
+  // status ORIGINAL, revertendo a mudança na tela. Mordida: comentar a linha
+  // `if (!_store) { _store = buildAppointments(); }` para sempre chamar
+  // `buildAppointments()` direto (o comportamento antigo) faz este teste
+  // falhar — `depoisDoPatch.dsStatus` volta a ser 'AGENDADO'.
+  it('um GET /agenda depois do PATCH reflete o novo status (não reverte)', async () => {
+    const antesDoPatch = await resolveMock(
+      makeConfig('/agenda', 'GET', undefined) as unknown as InternalAxiosRequestConfig,
+    );
+    const antes = (antesDoPatch.data as { agendamentos: { idAgendamento: number; dsStatus: string }[] })
+      .agendamentos.find((a) => a.idAgendamento === 3);
+    expect(antes?.dsStatus).toBe('AGENDADO');
+
+    await resolveMock(
+      makeConfig('/agendamentos/3/status', 'PATCH', { dsStatus: 'CONFIRMADO', nrVersion: 1 }),
+    );
+
+    const depoisDoPatch = await resolveMock(makeConfig('/agenda'));
+    const depois = (depoisDoPatch.data as { agendamentos: { idAgendamento: number; dsStatus: string }[] })
+      .agendamentos.find((a) => a.idAgendamento === 3);
+    expect(depois?.dsStatus).toBe('CONFIRMADO');
+  });
+
+  it('rejeita com 409 quando nrVersion não bate com o do agendamento armazenado', async () => {
+    await expect(
+      resolveMock(makeConfig('/agendamentos/3/status', 'PATCH', { dsStatus: 'CONFIRMADO', nrVersion: 999 })),
+    ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejeita com 404 para um id de agendamento inexistente', async () => {
+    await expect(
+      resolveMock(makeConfig('/agendamentos/99999/status', 'PATCH', { dsStatus: 'CONFIRMADO', nrVersion: 1 })),
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
 
