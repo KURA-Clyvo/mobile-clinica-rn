@@ -48,7 +48,9 @@ export interface Agendamento {
   id: number;
   inicio: Date;
   duracaoMinutos: number;
-  status: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA';
+  // FM-04: acompanha o union de AgendamentoResponse['sgStatus'] (api.ts) — só para
+  // mapAgendamentoDto continuar atribuível; não é usado por nenhuma tela hoje.
+  status: 'AGENDADA' | 'CONFIRMADA' | 'CONCLUIDA' | 'CANCELADA' | 'NAO_COMPARECEU';
   pet: {
     id: number;
     nome: string;
