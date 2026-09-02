@@ -204,3 +204,86 @@ describe('NavDrawer — role de menu/menuitem (CQ-08, achado 4 da G2)', () => {
     },
   );
 });
+
+// ─── FM-01 — identidade no rodapé, com e sem ficha de veterinário ──────────
+//
+// 🔴 O sítio mais grave dos 7 da varredura. Antes desta task o rodapé inteiro
+// — nome, CRMV **e o botão de sair** — só renderizava quando `usuario` (a
+// FICHA de veterinário) existia. Um GESTOR sem vínculo, que é um login
+// perfeitamente legítimo desde a FD-03, ficava:
+//
+//   1. sem o próprio nome em lugar NENHUM do app, e
+//   2. **sem jeito de sair pelo drawer.**
+//
+// ⚠️ Este estado NÃO ocorre subindo o app: `RegisterClinicaAsync:296-308`
+// cria o gestor COM vínculo, então o login de demonstração sempre traz
+// `usuario` preenchido. Só existe construído — e é por isso que precisa de
+// teste, não de inspeção visual.
+describe('NavDrawer — identidade do rodapé (FM-01)', () => {
+  const SESSAO_BASE = {
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+  };
+
+  it('COM ficha: mostra o nome e o CRMV do veterinário', () => {
+    useAuthStore.setState({
+      ...SESSAO_BASE,
+      email: 'felipe@kuraclinica.com.br',
+      tpPerfil: 'VETERINARIO',
+      usuario: {
+        id: 1,
+        nmVeterinario: 'Dr. Felipe Ferrete',
+        nrCRMV: 'SP-12345',
+        dsEmail: 'felipe@kuraclinica.com.br',
+      },
+    });
+    const { getByTestId } = wrap(0);
+
+    expect(getByTestId('nav-drawer-user-primary').props.children).toBe('Dr. Felipe Ferrete');
+    expect(getByTestId('nav-drawer-user-secondary').props.children).toBe('SP-12345');
+  });
+
+  it('SEM ficha (GESTOR): degrada para e-mail + papel, em vez de sumir', () => {
+    useAuthStore.setState({
+      ...SESSAO_BASE,
+      email: 'gestor@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+    });
+    const { getByTestId } = wrap(0);
+
+    expect(getByTestId('nav-drawer-user-primary').props.children).toBe('gestor@kuraclinica.com.br');
+    expect(getByTestId('nav-drawer-user-secondary').props.children).toBe('Gestor');
+  });
+
+  // 🔴 A mordida que mais importa das três: sem ficha, o gestor precisa
+  // conseguir SAIR. O gate antigo (`{usuario && ...}`) levava o botão de
+  // logout junto com o bloco de identidade.
+  it('SEM ficha (GESTOR): o botão de sair continua existindo', () => {
+    useAuthStore.setState({
+      ...SESSAO_BASE,
+      email: 'gestor@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+    });
+    const { getByTestId } = wrap(0);
+
+    expect(getByTestId('nav-drawer-logout')).toBeTruthy();
+  });
+
+  // Controle negativo: sem sessão nenhuma o rodapé NÃO aparece. Sem isto,
+  // os três acima seriam compatíveis com "o rodapé sempre renderiza".
+  it('CONTROLE — sem sessão, o rodapé não renderiza', () => {
+    useAuthStore.setState({
+      token: null,
+      expiresAt: null,
+      email: null,
+      tpPerfil: null,
+      usuario: null,
+    });
+    const { queryByTestId } = wrap(0);
+
+    expect(queryByTestId('nav-drawer-logout')).toBeNull();
+    expect(queryByTestId('nav-drawer-user-primary')).toBeNull();
+  });
+});
