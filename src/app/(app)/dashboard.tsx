@@ -14,6 +14,7 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
+import { primeiroNomeDeEmail } from '@utils/perfilUsuario';
 import { STRINGS } from '@constants/strings';
 import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api';
 import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
@@ -219,6 +220,7 @@ export default function DashboardScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const usuario = useAuthStore((s) => s.usuario);
+  const email = useAuthStore((s) => s.email);
   const { isAtLeast } = useBreakpoint();
 
   const { data: hoje, isLoading: loadingHoje, refetch: refetchHoje } = useDashboardHoje();
@@ -234,7 +236,28 @@ export default function DashboardScreen() {
   }, [refetchHoje, refetchAlertas, refetchRecentes]);
 
   const metrics = hoje?.metrics;
-  const name = usuario ? firstName(usuario.nmVeterinario) : '';
+  // FM-01 + E26 — duas correções que caem na MESMA linha, e é por isso que o
+  // E26 entrou nesta task em vez de virar follow-up separado:
+  //
+  //   E26 (ruling D-3 do Felipe, FIXES_PENDENTES.md:112,848-884): `firstName`
+  //   devolvia o honorífico, e a primeira tela pós-login dizia "Boa noite,
+  //   Dr." em vez de "Boa noite, Felipe". Corrigido em utils/date.ts — a
+  //   chamada aqui não muda.
+  //
+  //   FM-01: `usuario` (a FICHA de veterinário) passou a poder ser nulo — um
+  //   GESTOR sem vínculo loga normalmente. Antes, a saudação dele ficava
+  //   VAZIA ("Boa noite" seco), porque o nome só existia dentro da ficha.
+  //   Hoje o store guarda `email`, presente sempre pós-login (authStore.ts),
+  //   e a saudação degrada para a parte local do e-mail em vez de degradar
+  //   para nada.
+  //
+  // ⚠️ A parte local do e-mail é um IDENTIFICADOR, não o nome da pessoa — por
+  // isso ela só entra quando NÃO há ficha; havendo ficha, o nome real sempre
+  // ganha. Aqui não se afirma autoria de nada (isso é `idVeterinario`, e
+  // exige ficha): só se cumprimenta alguém pelo identificador que ele mesmo
+  // digitou no login.
+  const nomeDaFicha = usuario ? firstName(usuario.nmVeterinario) : '';
+  const name = nomeDaFicha || primeiroNomeDeEmail(email);
 
   const metricsColumns = metricsColumnsFor(isAtLeast);
   const listColumns = listColumnsFor(isAtLeast);

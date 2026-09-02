@@ -25,6 +25,31 @@ export function perfilLabel(tpPerfil: TipoPerfilUsuario | null): string {
   return PERFIL_LABEL[tpPerfil];
 }
 
+// FM-01 — nome de exibição APROXIMADO, para quando não há ficha de
+// veterinário. Um GESTOR sem vínculo não tem `nmVeterinario`, e o `.NET` não
+// devolve o e-mail no corpo quando `usuario` é nulo (só dentro do JWT, que
+// este app deliberadamente não decodifica) — mas o app tem o e-mail que a
+// PESSOA DIGITOU no login, guardado no store.
+//
+// ⚠️ Isto é um IDENTIFICADOR, não o nome da pessoa. Só é usado onde errar
+// custa zero — a saudação do dashboard. Onde autoria importa (`idVeterinario`
+// de consulta e receituário) a resposta continua sendo EXIGIR ficha, nunca
+// aproximar: autoria ERRADA é estritamente pior que autoria ausente. É o
+// mesmo princípio que fez o `.NET` MATAR a heurística de fallback do login
+// (AuthService.cs:100-102) em vez de adivinhar o vínculo.
+//
+// `null`/vazio devolve string vazia, e quem chama decide o que fazer com ela
+// (o dashboard omite a vírgula e mostra só "Boa noite").
+export function primeiroNomeDeEmail(email: string | null): string {
+  if (!email) return '';
+  const local = email.split('@')[0] ?? '';
+  // Separadores comuns em e-mail corporativo: felipe.ferrete / felipe_ferrete
+  // / felipe-ferrete -> "Felipe". Sem separador, o local inteiro.
+  const primeiro = local.split(/[._-]/).filter(Boolean)[0] ?? '';
+  if (!primeiro) return '';
+  return primeiro.charAt(0).toUpperCase() + primeiro.slice(1);
+}
+
 // Deliberadamente NÃO há um `useIsGestor`/`podeAgirComoVeterinario` aqui.
 // Cada tela que precisa decidir "esta ação clínica está disponível?" checa
 // `usuario !== null` (a FICHA, não o `tpPerfil`) diretamente — ver
