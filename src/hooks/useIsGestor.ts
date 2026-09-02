@@ -105,12 +105,47 @@ export function useIsGestor(): boolean {
 // As duas guardas são corretas isoladamente e se compõem mal — é a mesma forma
 // dos achados que mais custaram a este projeto.
 //
-// **Isto pode estar mascarado hoje**, porque `(app)/_layout.tsx` redireciona
-// para `/login` quando `isAuthenticated()` é falso, e pré-hidratação ele é
-// falso — então a tela filha talvez nem monte. **Mas "mascarado" depende da
-// ordem de render do expo-router, que ninguém mediu**, e a FM-02 será a
-// primeira tela real a consumir este hook. Não se constrói o primeiro
-// precedente do app sobre uma suposição de ordem de render.
+// 🔴 CORREÇÃO DA REVISÃO G2 — o parágrafo acima descreve o comportamento do
+// HOOK isolado, e isso continua verdade. Mas a conclusão de que haveria um
+// defeito OBSERVÁVEL no app está ERRADA, e o revisor provou por um caminho que
+// eu não tinha tentado: leu o `persist` do zustand
+// (`node_modules/zustand/middleware.js:418-435`).
+//
+// O que a fonte mostra: `set(stateFromStorage, true)` aplica o estado
+// persistido INTEIRO de uma vez — `token`, `expiresAt`, `email`, `tpPerfil` e
+// `usuario` no MESMO `set()` — e só num `.then()` POSTERIOR o
+// `postRehydrationCallback` roda e `hasHydrated` vira `true`.
+//
+// ⇒ **Não existe janela em que `isAuthenticated()` seja verdadeiro com
+// `tpPerfil` velho.** O gate de `(app)/_layout.tsx` só deixa uma tela filha
+// montar quando há `token`, e o `token` chega no MESMO `set()` que o
+// `tpPerfil`. É **estrutural** — não é sorte da ordem de render do expo-router,
+// que era a minha hipótese e que ninguém conseguiu medir (o `<Drawer>` não
+// monta neste harness; limitação pré-existente).
+//
+// ⚠️ **A guarda `hidratou` FICA, com o rótulo honesto: DEFESA EM PROFUNDIDADE,
+// não conserto de bug.** Ela protege contra um consumidor futuro que monte a
+// tela fora do `(app)/_layout.tsx`, e contra uma mudança no `partialize` que
+// separe `token` de `tpPerfil`. **Não** protege contra nada observável hoje.
+//
+// ⇒ **E é por isso que `useIsGestor()` NÃO tem a mesma guarda:** é coerência
+// com o parágrafo acima, não esquecimento. Uma seção inline
+// (`{isGestor && …}`) só renderiza dentro de uma tela que já passou pelo gate
+// de sessão, onde o `tpPerfil` já chegou.
+//
+// 🔴 **AVISO PARA A `FM-02`/`FM-06` — a corrida de redirect duplo.** A revisão
+// montou uma tela de brinquedo combinando a guarda de FICHA (padrão da
+// `FM-01`, em `consulta`/`receituario`) com este `useRequireGestor` na MESMA
+// tela: quando os dois predicados falham juntos, os dois `useEffect`
+// independentes disparam `router.replace` para **destinos diferentes**.
+//
+// Nenhuma tela combina as duas guardas hoje, então **não é defeito da
+// `FM-03`**. Mas a pré-condição deixa de ser hipotética assim que a `FM-02`
+// entrar: a mordida OBRIGATÓRIA dela (`KURA_BACKLOG_FIN_MOBILE.md`) é
+// literalmente *criar um `VETERINARIO` sem `idVeterinario` e logar como ele* —
+// que é exatamente o estado em que os dois predicados falham.
+// **Quem combinar ficha + papel numa tela tem que resolver a precedência
+// explicitamente, não deixar dois efeitos correrem.**
 export function useRequireGestor(redirectTo: Href = ROUTES.app.dashboard): boolean {
   const router = useRouter();
   const isGestor = useIsGestor();
