@@ -39,5 +39,8 @@ export const ROUTES = {
     receituario: (idPet: number) => `/receituario/${idPet}` as Href,
     luna: '/luna',
     settings: '/settings',
+    // FM-02: src/app/(app)/usuarios/index.tsx, tela restrita a GESTOR
+    // (useRequireGestor). Ponto de entrada: settings.tsx, seção "Time".
+    usuarios: '/usuarios',
   },
 } as const;

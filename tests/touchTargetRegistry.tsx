@@ -98,6 +98,12 @@ import { PetListItem } from '../src/components/domain/PetListItem';
 import { TimelineItem } from '../src/components/domain/TimelineItem';
 import { WhatsAppModal } from '../src/components/domain/WhatsAppModal';
 import { AgendamentoStatusMenu } from '../src/components/domain/AgendamentoStatusMenu';
+// FM-02 — 2 modais novos (UsuarioClinicaFormModal, TrocarSenhaModal) + 1
+// tela nova (`(app)/usuarios/index.tsx`), mesmo dever de todo touchable
+// novo em `src/components/{primitives,layout,domain}`/`src/app/`: entrada
+// própria no registry abaixo, ou o gate de cobertura falha.
+import { UsuarioClinicaFormModal } from '../src/components/domain/UsuarioClinicaFormModal';
+import { TrocarSenhaModal } from '../src/components/domain/TrocarSenhaModal';
 // CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — 2 tocáveis novos em
 // `src/components/{primitives,domain}` (KCEmptyState, OnboardingChecklist) +
 // 1 em `src/app/(app)/settings.tsx` (SettingsScreen#4, "Rever primeiros
@@ -111,6 +117,8 @@ import type {
   TimelineEventResponse,
   AgendamentoResponse,
   MedicamentoResponse,
+  UsuarioClinicaResponse,
+  VeterinarioResponse,
 } from '../src/types/api';
 // Achado 2 (fix wave 2b): as 7 telas de `src/app/` que entraram na
 // descoberta nesta rodada — importadas aqui, no MESMO arquivo dos mocks
@@ -125,6 +133,7 @@ import PacienteDetailScreen from '../src/app/(app)/pacientes/[id]';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import SettingsScreen from '../src/app/(app)/settings';
+import UsuariosClinicaScreen from '../src/app/(app)/usuarios/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
 
@@ -247,6 +256,38 @@ const mockUseAtualizarStatusAgendamentoReturn = jest.fn(() => ({
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: () => mockUseAgendaSemanaReturn(),
   useAtualizarStatusAgendamento: () => mockUseAtualizarStatusAgendamentoReturn(),
+}));
+
+// FM-02 — mesmo padrão dos blocos acima: mocka-se o HOOK, não o service, o
+// dado exato é setado dentro do `verify()` de cada entrada.
+// `(app)/usuarios/index.tsx` importa os 4 primeiros;
+// `UsuarioClinicaFormModal.tsx` os 2 de mutação de criar/atualizar;
+// `TrocarSenhaModal.tsx` o de trocar senha.
+const mockUseUsuariosClinicaReturn = jest.fn(() => ({
+  data: [] as UsuarioClinicaResponse[],
+  isLoading: false,
+  refetch: jest.fn(),
+}));
+const mockUseVeterinariosParaSelecaoReturn = jest.fn(() => ({
+  data: [] as VeterinarioResponse[],
+  isLoading: false,
+}));
+const mockMutateCriarUsuarioClinica = jest.fn();
+const mockMutateAtualizarUsuarioClinica = jest.fn();
+const mockMutateDesativarUsuarioClinica = jest.fn();
+const mockMutateReativarUsuarioClinica = jest.fn();
+const mockMutateTrocarSenhaUsuarioClinica = jest.fn();
+jest.mock('@hooks/useUsuariosClinica', () => ({
+  useUsuariosClinica: () => mockUseUsuariosClinicaReturn(),
+  useVeterinariosParaSelecao: () => mockUseVeterinariosParaSelecaoReturn(),
+  useCriarUsuarioClinica: () => ({ mutate: mockMutateCriarUsuarioClinica, isPending: false }),
+  useAtualizarUsuarioClinica: () => ({ mutate: mockMutateAtualizarUsuarioClinica, isPending: false }),
+  useDesativarUsuarioClinica: () => ({ mutate: mockMutateDesativarUsuarioClinica, isPending: false }),
+  useReativarUsuarioClinica: () => ({ mutate: mockMutateReativarUsuarioClinica, isPending: false }),
+  useTrocarSenhaUsuarioClinica: () => ({
+    mutate: mockMutateTrocarSenhaUsuarioClinica,
+    isPending: false,
+  }),
 }));
 
 // `login.tsx`/`register.tsx` usam os hooks REAIS `useLoginMutation`/
@@ -401,6 +442,53 @@ const MEDICAMENTO_FIXTURE: MedicamentoResponse = {
   dsConcentracao: '500mg',
   dsApresentacao: 'Comprimido',
 };
+
+// FM-02 — 1 ATIVO + 1 INATIVO: a única forma de um ÚNICO render expor os 4
+// touchables de `UsuarioRow` (editar/trocar-senha aparecem nas duas linhas;
+// desativar SÓ na linha ativa; reativar SÓ na inativa — são 2 ramos de um
+// mesmo ternário, nunca os dois ao mesmo tempo numa única `UsuarioRow`).
+const USUARIO_CLINICA_ATIVO_FIXTURE: UsuarioClinicaResponse = {
+  id: 1,
+  idClinica: 1,
+  idVeterinario: null,
+  dsEmail: 'ativo@kura.vet',
+  tpPerfil: 'VETERINARIO',
+  stAtiva: true,
+  dtCriacao: '2026-08-01T10:00:00Z',
+  dtAtualizacao: null,
+};
+const USUARIO_CLINICA_INATIVO_FIXTURE: UsuarioClinicaResponse = {
+  id: 2,
+  idClinica: 1,
+  idVeterinario: null,
+  dsEmail: 'inativo@kura.vet',
+  tpPerfil: 'GESTOR',
+  stAtiva: false,
+  dtCriacao: '2026-08-01T10:00:00Z',
+  dtAtualizacao: null,
+};
+const VETERINARIO_FIXTURE: VeterinarioResponse = {
+  id: 1,
+  nmVeterinario: 'Dr. Felipe Ferrete',
+  nrCRMV: 'SP-12345',
+  dsEmail: 'felipe.ferrete@kura.vet',
+};
+
+// Sessão de GESTOR hidratada — necessária para `useRequireGestor()` deixar
+// `(app)/usuarios/index.tsx` renderizar o conteúdo real em vez de `null`
+// (ver useIsGestor.ts: sem `_hasHydrated:true` explícito, o guard trata o
+// estado como "ainda não sei" e não redireciona, mas TAMBÉM não libera o
+// conteúdo — `podeVer` só fica `true` com os dois, hidratado E gestor).
+function seedSessaoGestor() {
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'f@k.com',
+    tpPerfil: 'GESTOR',
+    usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
+    _hasHydrated: true,
+  });
+}
 
 function makeDrawerState(): DrawerContentComponentProps['state'] {
   return {
@@ -635,6 +723,104 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         />,
       );
       return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-status-menu').props.style));
+    },
+  },
+
+  // --- FM-02 — 2 modais domain novos (UsuarioClinicaFormModal,
+  // TrocarSenhaModal). Ambos usam `@hooks/useUsuariosClinica` (mockado
+  // acima) — nenhum QueryClientProvider necessário, os hooks já são
+  // dublês. ---
+
+  'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#1': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão de fechar (`btn-fechar-form-usuario`) só declara `{ padding: 4 }` inline — sem ' +
+      'height/minHeight/width/minWidth. Mesmo padrão de WhatsAppModal.tsx::WhatsAppModal#1 e ' +
+      'AgendamentoStatusMenu.tsx::AgendamentoStatusMenu#1 (não corrigido nesses também) — ' +
+      'candidato a follow-up conjunto dos 3.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <UsuarioClinicaFormModal
+          visible
+          onClose={() => {}}
+          usuario={null}
+          veterinarios={[VETERINARIO_FIXTURE]}
+        />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-form-usuario').props.style));
+    },
+  },
+
+  'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#2': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Opção de papel (`chip-papel-gestor`/`chip-papel-veterinario`) — `papelOption: { flex:1, ' +
+      'borderWidth:1.5, borderRadius:10, paddingVertical:12, alignItems:"center" }`, sem height/' +
+      'minHeight/width/minWidth. Não corrigido nesta task — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <UsuarioClinicaFormModal
+          visible
+          onClose={() => {}}
+          usuario={null}
+          veterinarios={[VETERINARIO_FIXTURE]}
+        />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('chip-papel-gestor').props.style));
+    },
+  },
+
+  'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#3': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Opção "Nenhuma ficha vinculada" (`option-veterinario-nenhum`) — `vetOption: { ' +
+      'flexDirection:"row", alignItems:"center", justifyContent:"space-between", borderWidth:1.5, ' +
+      'borderRadius:10, paddingVertical:12, paddingHorizontal:14, marginBottom:8 }`, sem height/' +
+      'minHeight/width/minWidth. Não corrigido nesta task — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <UsuarioClinicaFormModal
+          visible
+          onClose={() => {}}
+          usuario={null}
+          veterinarios={[VETERINARIO_FIXTURE]}
+        />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('option-veterinario-nenhum').props.style));
+    },
+  },
+
+  'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#4': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Opção de ficha de veterinário (`option-veterinario-{id}`) — mesmo `vetOption` do item ' +
+      '#3 acima, sem height/minHeight/width/minWidth. Não corrigido — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <UsuarioClinicaFormModal
+          visible
+          onClose={() => {}}
+          usuario={null}
+          veterinarios={[VETERINARIO_FIXTURE]}
+        />,
+      );
+      return expectSemGeometriaExplicita(
+        flat(getByTestId(`option-veterinario-${VETERINARIO_FIXTURE.id}`).props.style),
+      );
+    },
+  },
+
+  'TrocarSenhaModal.tsx::TrocarSenhaModal#1': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão de fechar (`btn-fechar-trocar-senha`) só declara `{ padding: 4 }` inline — sem ' +
+      'height/minHeight/width/minWidth. Mesmo padrão dos outros 2 "X" de modal deste registry ' +
+      '(WhatsAppModal, AgendamentoStatusMenu) — candidato a follow-up conjunto.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <TrocarSenhaModal visible onClose={() => {}} usuarioId={1} dsEmail="ativo@kura.vet" />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-trocar-senha').props.style));
     },
   },
 
@@ -924,6 +1110,105 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       });
       const { getByTestId } = wrap(<SettingsScreen />);
       return expectSemGeometriaExplicita(flat(getByTestId('btn-convidar').props.style));
+    },
+  },
+
+  // --- FM-02 — `(app)/usuarios/index.tsx`, tela nova restrita a GESTOR
+  // (`useRequireGestor`, ver `seedSessaoGestor()` acima). `UsuarioRow` não é
+  // exportada (função local do arquivo) — só alcançável renderizando a tela
+  // inteira com dado que force os 2 ramos do ternário desativar/reativar
+  // (ver USUARIO_CLINICA_ATIVO_FIXTURE/INATIVO_FIXTURE). ---
+
+  '(app)/usuarios/index.tsx::UsuarioRow#1': {
+    category: 'meets-min-one-axis',
+    reason:
+      'Botão "Editar" (`btn-editar-usuario`) — `actionButton: { ..., minHeight:44, ' +
+      'paddingHorizontal:10, borderRadius:8 }`, SEM width/minWidth: a linha tem 3 botões lado a ' +
+      'lado (Editar/Trocar senha/Desativar-Reativar, `actionsRow: { flexDirection:"row", gap:8 }`) ' +
+      '— cravar `minWidth:44` em cada um empurraria a linha para fora da largura do card em ' +
+      'telas estreitas. Mesma ruling de KCButton.tsx::KCButton#1 (não forçar largura).',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseUsuariosClinicaReturn.mockReturnValue({
+        data: [USUARIO_CLINICA_ATIVO_FIXTURE, USUARIO_CLINICA_INATIVO_FIXTURE],
+        isLoading: false,
+        refetch: jest.fn(),
+      });
+      mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+      const eixos = [expectAltura44(flat(getAllByTestId('btn-editar-usuario')[0]!.props.style))];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
+    },
+  },
+
+  '(app)/usuarios/index.tsx::UsuarioRow#2': {
+    category: 'meets-min-one-axis',
+    reason:
+      'Botão "Trocar senha" (`btn-trocar-senha`) — mesmo `actionButton` do #1 acima, mesma ' +
+      'razão para width não ser cravada (3 botões na mesma linha).',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseUsuariosClinicaReturn.mockReturnValue({
+        data: [USUARIO_CLINICA_ATIVO_FIXTURE, USUARIO_CLINICA_INATIVO_FIXTURE],
+        isLoading: false,
+        refetch: jest.fn(),
+      });
+      mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+      const eixos = [expectAltura44(flat(getAllByTestId('btn-trocar-senha')[0]!.props.style))];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
+    },
+  },
+
+  '(app)/usuarios/index.tsx::UsuarioRow#3': {
+    category: 'meets-min-one-axis',
+    reason:
+      'Botão "Desativar" (`btn-desativar-usuario`, só existe na linha de um usuário ATIVO — ' +
+      'ver USUARIO_CLINICA_ATIVO_FIXTURE) — mesmo `actionButton` do #1/#2, mesma razão de width.',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseUsuariosClinicaReturn.mockReturnValue({
+        data: [USUARIO_CLINICA_ATIVO_FIXTURE, USUARIO_CLINICA_INATIVO_FIXTURE],
+        isLoading: false,
+        refetch: jest.fn(),
+      });
+      mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+      const eixos = [expectAltura44(flat(getAllByTestId('btn-desativar-usuario')[0]!.props.style))];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
+    },
+  },
+
+  '(app)/usuarios/index.tsx::UsuarioRow#4': {
+    category: 'meets-min-one-axis',
+    reason:
+      'Botão "Reativar" (`btn-reativar-usuario`, só existe na linha de um usuário INATIVO — ' +
+      'ver USUARIO_CLINICA_INATIVO_FIXTURE) — mesmo `actionButton` do #1/#2/#3, mesma razão de ' +
+      'width. É o outro ramo do MESMO ternário do #3 — nunca coexistem numa única `UsuarioRow`.',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseUsuariosClinicaReturn.mockReturnValue({
+        data: [USUARIO_CLINICA_ATIVO_FIXTURE, USUARIO_CLINICA_INATIVO_FIXTURE],
+        isLoading: false,
+        refetch: jest.fn(),
+      });
+      mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+      const eixos = [expectAltura44(flat(getAllByTestId('btn-reativar-usuario')[0]!.props.style))];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
+    },
+  },
+
+  '(app)/usuarios/index.tsx::UsuariosClinicaScreen#1': {
+    category: 'meets-min',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseUsuariosClinicaReturn.mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() });
+      mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getByTestId } = wrap(<UsuariosClinicaScreen />);
+      const estilo = flat(getByTestId('btn-voltar-usuarios').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
