@@ -909,15 +909,17 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'Mesmo padrão de "funcionalidade em breve" de `pacientes/index.tsx::PacientesScreen#1`. ' +
       'Não corrigido — candidato a follow-up.',
     verify: () => {
-      // FM-01 — mesma razao do `renderNavDrawerComUsuario`: a secao "Time"
-      // (que contem `btn-convidar`) passou a gatear em `email` em vez de
-      // `usuario`, porque gerenciar a equipe e justamente funcao de GESTOR e
-      // um gestor sem ficha era quem MAIS perdia acesso a ela.
+      // FM-03 — a secao "Time" (que contem `btn-convidar`) passou a gatear em
+      // `isGestor` (`useIsGestor`, papel), nao mais em `email` (so "esta
+      // logado", correcao provisoria da FM-01) nem em `usuario` (ficha).
+      // Gerenciar a equipe e funcao de GESTOR: precisa de `tpPerfil:
+      // 'GESTOR'` aqui para a secao renderizar e este teste de geometria
+      // continuar exercitando o botao real.
       useAuthStore.setState({
         token: 'tok',
         expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
         email: 'f@k.com',
-        tpPerfil: 'VETERINARIO',
+        tpPerfil: 'GESTOR',
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
