@@ -27,6 +27,19 @@ export type CoverageEntry =
 export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   // agenda.service.ts
   'agenda.service.ts::getAgenda': { coberto: 'agenda (GET)' },
+  'agenda.service.ts::atualizarStatusAgendamento': {
+    naoCoberto:
+      'FM-04 (KURA_BACKLOG_FIN, ciclo metade cliente) — primeiro PATCH deste repo, ' +
+      'PATCH /api/v1/agendamentos/{id}/status (rota ABSOLUTA, fora de /api/v1/agenda; ' +
+      'ver AgendaController.cs). smoke-contratos.sh (DevOps-Cloud) não tem check para ' +
+      'ela hoje — grep confirmado (`grep -n "agendamentos.*status" scripts/smoke-' +
+      'contratos.sh` -> 0 linhas). Side-effecting (grava ST_STATUS/NR_VERSION no ' +
+      'Oracle real) e exige controle de concorrência otimista (NrVersion lido de uma ' +
+      'chamada anterior) — não é um GET idempotente como os outros checks. Estender ' +
+      'smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que só ' +
+      'toca mobile-clinica-rn) — candidato a follow-up, provavelmente FM-09 (o gate de ' +
+      'contrato do ciclo FIN) ou uma task própria em DevOps-Cloud.',
+  },
 
   // auth.service.ts
   'auth.service.ts::login': { coberto: 'auth/login (clinica)' },

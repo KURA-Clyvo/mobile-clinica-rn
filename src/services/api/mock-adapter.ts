@@ -13,6 +13,12 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/auth\/login$/, authMock.login],
   [/\/auth\/register-clinica$/, authMock.register],
   [/\/agenda$/, agendaMock.agenda],
+  // FM-04: rota ABSOLUTA (fora de /api/v1/agenda — ver AgendaController.cs,
+  // [HttpPatch("~/api/v1/agendamentos/{id:long}/status")]). Tem que vir
+  // antes de qualquer entrada que também case `/agenda` por engano — como
+  // não há nenhuma, a ordem aqui não importa por enquanto, mas o padrão de
+  // regex por URL (não por método) é o mesmo dos outros — ver resolveMock().
+  [/\/agendamentos\/\d+\/status$/, agendaMock.atualizarStatus],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],

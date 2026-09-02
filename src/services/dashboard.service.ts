@@ -1,5 +1,6 @@
 import { apiClient } from './api/client';
 import type { DashboardHojeResponse, AlertaResponse, RecentAppointmentResponse } from '../types/api';
+import { translateStatusAgendamento } from '../utils/statusAgendamento';
 
 // ─── Tipos "de fio" (wire shapes) — espelham os DTOs reais do .NET ─────────
 // (Kura.Application/DTOs/Dashboard/*.cs). Ficam locais a este service porque
@@ -44,32 +45,13 @@ export interface AlertaApiDto {
   dtCriacao: string;
 }
 
-// ─── Tabela de tradução de status de agendamento ───────────────────────────
-// Valores reais possíveis de ST_STATUS (ver CHK_AGEND_STATUS em
-// backend-tutor-java V1__initial_schema.sql, tabela compartilhada
-// AGENDAMENTO): 'INTENCAO' | 'AGENDADO' | 'CONFIRMADO' | 'REALIZADO' |
-// 'CANCELADO' | 'NAO_COMPARECEU'.
-// O enum consumido pelo app (RecentAppointmentResponse.sgStatus) não tem
-// equivalente 1:1 para todos — mapeamento por aproximação semântica:
-//   INTENCAO        -> AGENDADA      (ainda não confirmado, mais próximo de "agendado")
-//   AGENDADO        -> AGENDADA
-//   CONFIRMADO      -> EM_ANDAMENTO  (não há status "em andamento" real no backend;
-//                                     CONFIRMADO é o mais próximo de "processo em curso")
-//   REALIZADO       -> CONCLUIDA
-//   CANCELADO       -> CANCELADA
-//   NAO_COMPARECEU  -> CANCELADA     (não há bucket próprio; tratado como não concluído)
-const STATUS_TRANSLATION_TABLE: Record<string, RecentAppointmentResponse['sgStatus']> = {
-  INTENCAO: 'AGENDADA',
-  AGENDADO: 'AGENDADA',
-  CONFIRMADO: 'EM_ANDAMENTO',
-  REALIZADO: 'CONCLUIDA',
-  CANCELADO: 'CANCELADA',
-  NAO_COMPARECEU: 'CANCELADA',
-};
-
-function translateStatus(stStatus: string): RecentAppointmentResponse['sgStatus'] {
-  return STATUS_TRANSLATION_TABLE[stStatus] ?? 'AGENDADA';
-}
+// FM-04 (revisão pós-medição do maestro, 2026-09-02): esta tabela era uma
+// CÓPIA redigitada à mão da mesma tradução em agenda.service.ts — e tinha
+// divergido dela: CONFIRMADO caía em 'EM_ANDAMENTO' e NAO_COMPARECEU em
+// 'CANCELADA' aqui, enquanto a agenda (corrigida antes nesta mesma task)
+// já dizia 'CONFIRMADA'/'NAO_COMPARECEU' para o MESMO agendamento — duas
+// telas, o mesmo dado, rótulos diferentes. Ver utils/statusAgendamento.ts,
+// fonte única agora compartilhada pelos dois services.
 
 // ─── Tabela de tradução de tipo de alerta ──────────────────────────────────
 // Combinações reais emitidas por DashboardService.GetAlertasAsync:
@@ -129,7 +111,7 @@ function mapRecente(dto: AgendamentoResumoApiDto): RecentAppointmentResponse {
     nmTutor: '',
     dtAgendamento: dto.dtAgendamento,
     nmTipoConsulta: dto.dsServico,
-    sgStatus: translateStatus(dto.stStatus),
+    sgStatus: translateStatusAgendamento(dto.stStatus),
   };
 }
 

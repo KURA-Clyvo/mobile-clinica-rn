@@ -110,7 +110,16 @@ describe('dashboard.service', () => {
       expect(result[0].sgStatus).toBe('CONCLUIDA');
     });
 
-    it('translates each backend status to the correct RN enum value', async () => {
+    // FM-04 (revisão pós-medição do maestro, 2026-09-02): esta suíte
+    // asseverava a tabela ANTIGA (CONFIRMADO->'EM_ANDAMENTO', NAO_COMPARECEU
+    // ->'CANCELADA') — a mesma tradução com perda que o achado nº 2 da FM-04
+    // já tinha corrigido do lado da agenda, só que aqui redigitada e
+    // divergente. Prova de mordida: rodar esta suíte ANTES desta correção
+    // (contra o dashboard.service.ts anterior) falha exatamente assim —
+    // esperado ['AGENDADA','AGENDADA','CONFIRMADA','CONCLUIDA','CANCELADA',
+    // 'NAO_COMPARECEU'], recebido [...,'EM_ANDAMENTO',...,'CANCELADA',
+    // 'CANCELADA'] (RED capturado ao vivo antes deste commit).
+    it('translates each backend status to the correct RN enum value (own buckets for CONFIRMADO/NAO_COMPARECEU — mesma tabela da agenda)', async () => {
       mockApiGet.mockResolvedValue({
         data: [
           { id: 1, nmPaciente: 'A', dtAgendamento: 'x', dsServico: 's', stStatus: 'INTENCAO' },
@@ -127,10 +136,10 @@ describe('dashboard.service', () => {
       expect(result.map((r) => r.sgStatus)).toEqual([
         'AGENDADA',
         'AGENDADA',
-        'EM_ANDAMENTO',
+        'CONFIRMADA',
         'CONCLUIDA',
         'CANCELADA',
-        'CANCELADA',
+        'NAO_COMPARECEU',
       ]);
     });
   });

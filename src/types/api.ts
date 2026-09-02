@@ -1,3 +1,5 @@
+import type { StatusAgendamentoApp } from '../utils/statusAgendamento';
+
 // ─── Auth ─────────────────────────────────────────────────────
 export interface LoginRequest {
   dsEmail: string;
@@ -61,7 +63,12 @@ export interface RecentAppointmentResponse {
   nmTutor: string;
   dtAgendamento: string;
   nmTipoConsulta: string;
-  sgStatus: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA';
+  // FM-04: referencia o MESMO alias que AgendamentoResponse.sgStatus (abaixo)
+  // — antes eram dois unions redigitados à mão, e tinham divergido: este
+  // dizia 'EM_ANDAMENTO' para CONFIRMADO e 'CANCELADA' para NAO_COMPARECEU,
+  // enquanto a agenda já dizia 'CONFIRMADA'/'NAO_COMPARECEU' para o mesmo
+  // agendamento. Ver utils/statusAgendamento.ts para o porquê.
+  sgStatus: StatusAgendamentoApp;
 }
 
 // ─── Agenda ───────────────────────────────────────────────────
@@ -70,11 +77,27 @@ export interface AgendaQuery {
   dataFim: string;
   veterinarioId?: number;
 }
+// FM-04: sgStatus referencia StatusAgendamentoApp (utils/statusAgendamento.ts)
+// — o bucket TRADUZIDO, fonte única compartilhada com RecentAppointmentResponse
+// acima e com Agendamento.status (types/domain.ts).
 export interface AgendamentoResponse {
   id: number;
   dtInicio: string;
   nrDuracaoMinutos: number;
-  sgStatus: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA';
+  sgStatus: StatusAgendamentoApp;
+  // FM-04: valor CRU de ST_STATUS (INTENCAO|AGENDADO|CONFIRMADO|REALIZADO|CANCELADO|
+  // NAO_COMPARECEU), não traduzido. Necessário porque a máquina de estados do
+  // PATCH /agendamentos/{id}/status (AgendaService.TransicoesPermitidas, backend
+  // .NET) decide os destinos possíveis a partir do status de ORIGEM real — e
+  // sgStatus (traduzido) colapsa INTENCAO e AGENDADO no mesmo bucket 'AGENDADA',
+  // que têm transições DIFERENTES no backend (INTENCAO só permite CANCELADO;
+  // AGENDADO permite os 4 destinos). Usar sgStatus para decidir o menu ofereceria
+  // ações inválidas caso uma linha INTENCAO algum dia apareça na agenda.
+  dsStatusOrigem: string;
+  // FM-04: exigido pelo corpo do PATCH (controle de concorrência otimista,
+  // AtualizarStatusAgendamentoDto.NrVersion no .NET) — sem isto não há como montar
+  // a requisição de mudança de status.
+  nrVersion: number;
   pet: {
     id: number;
     nmPet: string;

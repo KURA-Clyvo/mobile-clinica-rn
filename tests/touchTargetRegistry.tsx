@@ -97,6 +97,7 @@ import { LunaSuggestionBadge } from '../src/components/domain/LunaSuggestionBadg
 import { PetListItem } from '../src/components/domain/PetListItem';
 import { TimelineItem } from '../src/components/domain/TimelineItem';
 import { WhatsAppModal } from '../src/components/domain/WhatsAppModal';
+import { AgendamentoStatusMenu } from '../src/components/domain/AgendamentoStatusMenu';
 // CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — 2 tocáveis novos em
 // `src/components/{primitives,domain}` (KCEmptyState, OnboardingChecklist) +
 // 1 em `src/app/(app)/settings.tsx` (SettingsScreen#4, "Rever primeiros
@@ -233,7 +234,20 @@ const mockUseAgendaSemanaReturn = jest.fn(() => ({
   semanaStart: new Date(),
   semanaEnd: new Date(),
 }));
-jest.mock('@hooks/useAgenda', () => ({ useAgendaSemana: () => mockUseAgendaSemanaReturn() }));
+// FM-04: AgendamentoStatusMenu (montado sempre dentro de AgendaScreen, ainda
+// que com visible=false) chama useAtualizarStatusAgendamento() — sem
+// mocká-lo aqui, `undefined()` derruba TODO render de AgendaScreen neste
+// arquivo (as 4 entradas `(app)/agenda.tsx::AgendaScreen#*`/
+// `AgendaAppointmentCard#*` do registry abaixo).
+const mockUseAtualizarStatusAgendamentoReturn = jest.fn(() => ({
+  mutate: jest.fn(),
+  isPending: false,
+  variables: undefined,
+}));
+jest.mock('@hooks/useAgenda', () => ({
+  useAgendaSemana: () => mockUseAgendaSemanaReturn(),
+  useAtualizarStatusAgendamento: () => mockUseAtualizarStatusAgendamentoReturn(),
+}));
 
 // `login.tsx`/`register.tsx` usam os hooks REAIS `useLoginMutation`/
 // `useRegisterMutation` (`@hooks/useAuth`, não mockado) — são wrappers finos
@@ -369,6 +383,12 @@ const AGENDAMENTO_FIXTURE: AgendamentoResponse = {
   dtInicio: TODAY_9AM.toISOString(),
   nrDuracaoMinutos: 30,
   sgStatus: 'AGENDADA',
+  // FM-04: campos novos e obrigatórios de AgendamentoResponse. dsStatusOrigem
+  // 'AGENDADO' (não terminal) é necessário para o botão "Status"
+  // (AgendaAppointmentCard#2) aparecer no render — um status terminal faria
+  // `getTransicoesPermitidas` devolver [] e o touchable nem existir.
+  dsStatusOrigem: 'AGENDADO',
+  nrVersion: 1,
   pet: { id: 1, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Labrador' },
   tutor: { id: 1, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001' },
   veterinario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345' },
@@ -581,6 +601,32 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
+  // FM-04: mesmo padrão do WhatsAppModal acima — outro sheet modal com botão
+  // de fechar. `useAtualizarStatusAgendamento` (usado internamente pelo
+  // componente) é mockado pelo `jest.mock('@hooks/useAgenda', ...)` deste
+  // arquivo (ver acima).
+  'AgendamentoStatusMenu.tsx::AgendamentoStatusMenu#1': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão de fechar (`btn-fechar-status-menu`) só declara `{ padding: 4 }` inline — sem ' +
+      'height/minHeight/width/minWidth. Ícone 20px + 4px de padding de cada lado ≈ 28px, ' +
+      'abaixo de 44px. Mesmo padrão de WhatsAppModal.tsx::WhatsAppModal#1 (não corrigido lá ' +
+      'também) — candidato a follow-up conjunto.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <AgendamentoStatusMenu
+          visible
+          onClose={() => {}}
+          idAgendamento={1}
+          nrVersion={1}
+          dsStatusOrigem="AGENDADO"
+          nmPet="Thor"
+        />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-status-menu').props.style));
+    },
+  },
+
   // --- Fix wave 2b (achado 2 da G2) — 14 entradas de `src/app/`, antes
   // INTEIRAMENTE fora da varredura (`tests/touch-target-coverage.test.ts`
   // não incluía `src/app` em `DIRS`). Ordem: mesma ordem de descoberta por
@@ -604,6 +650,30 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       });
       const { getByTestId } = wrap(<AgendaScreen />);
       return expectSemGeometriaExplicita(flat(getByTestId('btn-iniciar-teleconsulta').props.style));
+    },
+  },
+
+  // FM-04: botão "Status" novo (`btn-status-menu-{id}`), segundo tocável de
+  // AgendaAppointmentCard (aparece depois do teleBtn no JSX, dentro do MESMO
+  // actionsRow). Mesma limitação de geometria do teleBtn ao lado.
+  '(app)/agenda.tsx::AgendaAppointmentCard#2': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão "Status" (`btn-status-menu-{id}`) — `statusBtn` só declara paddingVertical:4/' +
+      'paddingHorizontal:8/borderRadius:8/borderWidth:1 — sem height/minHeight/width/' +
+      'minWidth, mesmo padrão do teleBtn vizinho (AgendaAppointmentCard#1). Não corrigido ' +
+      'nesta task (FM-04, fora do escopo declarado) — candidato a follow-up.',
+    verify: () => {
+      mockUseAgendaSemanaReturn.mockReturnValue({
+        data: [AGENDAMENTO_FIXTURE],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        semanaStart: new Date(),
+        semanaEnd: new Date(),
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId(`btn-status-menu-${AGENDAMENTO_FIXTURE.id}`).props.style));
     },
   },
 

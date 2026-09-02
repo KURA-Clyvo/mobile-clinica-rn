@@ -1,5 +1,6 @@
 import { apiClient } from './api/client';
 import type { AgendaQuery, AgendamentoResponse } from '../types/api';
+import { translateStatusAgendamento } from '../utils/statusAgendamento';
 
 // ─── Tipos "de fio" (wire shapes) — espelham os DTOs reais do .NET ─────────
 // (Kura.Application/DTOs/Agenda/AgendaResponseDto.cs e AgendamentoItemDto.cs).
@@ -28,31 +29,65 @@ export interface AgendaApiResponseDto {
   agendamentos: AgendamentoItemApiDto[];
 }
 
-// ─── Tabela de tradução de status de agendamento ───────────────────────────
-// Valores reais possíveis de ST_STATUS (ver CHK_AGEND_STATUS em
-// backend-tutor-java V1__initial_schema.sql, tabela compartilhada
-// AGENDAMENTO): 'INTENCAO' | 'AGENDADO' | 'CONFIRMADO' | 'REALIZADO' |
-// 'CANCELADO' | 'NAO_COMPARECEU'.
-// O enum consumido pelo app (AgendamentoResponse.sgStatus) não tem
-// equivalente 1:1 para todos — mapeamento por aproximação semântica:
-//   INTENCAO        -> AGENDADA      (ainda não confirmado, mais próximo de "agendado")
-//   AGENDADO        -> AGENDADA
-//   CONFIRMADO      -> EM_ANDAMENTO  (não há status "em andamento" real no backend;
-//                                     CONFIRMADO é o mais próximo de "processo em curso")
-//   REALIZADO       -> CONCLUIDA
-//   CANCELADO       -> CANCELADA
-//   NAO_COMPARECEU  -> CANCELADA     (não há bucket próprio; tratado como não concluído)
-const STATUS_TRANSLATION_TABLE: Record<string, AgendamentoResponse['sgStatus']> = {
-  INTENCAO: 'AGENDADA',
-  AGENDADO: 'AGENDADA',
-  CONFIRMADO: 'EM_ANDAMENTO',
-  REALIZADO: 'CONCLUIDA',
-  CANCELADO: 'CANCELADA',
-  NAO_COMPARECEU: 'CANCELADA',
+// FM-04 (revisão pós-medição do maestro): a tradução de status deixou de
+// morar aqui — dashboard.service.ts tinha a MESMA tabela, redigitada à mão,
+// e tinha divergido (CONFIRMADO->'EM_ANDAMENTO', NAO_COMPARECEU->'CANCELADA'
+// — o mesmo achado nº 2 desta task, só que entre telas). Ver
+// utils/statusAgendamento.ts, fonte única agora compartilhada com
+// dashboard.service.ts.
+
+// ─── Máquina de estados do PATCH de status ─────────────────────────────────
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar esta tabela.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/Services/AgendaService.cs:90-99
+//          (`TransicoesPermitidas`. Do lado de lá os estados terminais são
+//          DERIVADOS desse mapa em :115-119, não mantidos à mão.)
+// COMMIT:  de96c70e9f825eaf6e69f8c2a2f06669373fe29c  (`main`, 2026-09-01)
+// CONFERIDO EM: 2026-09-02 — bate linha a linha com a fonte nesse commit.
+//
+// COMO RECONFERIR — um pin só vale se alguém conseguir verificá-lo:
+//   git -C ../backend-clinica-dotnet show \
+//     de96c70:src/Kura.Application/Services/AgendaService.cs | sed -n '90,99p'
+//
+// Deliberadamente REESCRITA aqui, não importada: os dois repos não compartilham
+// código e não há como derivar entre eles. Ou seja, isto é uma CÓPIA À MÃO, e
+// cai sob a regra de ouro v7 deste projeto — *inventário escrito à mão apodrece
+// em silêncio*. O pin acima é a única defesa que existe: sem arquivo:linha e
+// commit, "espelha o backend" é uma afirmação que ninguém consegue conferir, e
+// cópia que ninguém confere é cópia que já divergiu — só não se sabe quando.
+//
+// RAIO DE FALHA, se divergir assim mesmo — e os dois lados NÃO são simétricos:
+//   • backend REMOVE uma transição → o app oferece, o servidor recusa com 422.
+//     Falha VISÍVEL, não corrupção silenciosa.
+//   • backend ACRESCENTA uma transição → a ação simplesmente não aparece no
+//     menu, sem erro nenhum. 🔴 É o mais difícil de notar dos dois, e é o que
+//     este comentário existe para tornar improvável.
+//
+// Chave = status de ORIGEM cru (não o sgStatus traduzido — ver comentário em
+// AgendamentoResponse.dsStatusOrigem, types/api.ts, sobre por que a origem
+// crua importa: INTENCAO e AGENDADO colapsam no mesmo bucket 'AGENDADA' mas
+// têm destinos diferentes).
+export type StatusDestino = 'REALIZADO' | 'CANCELADO' | 'NAO_COMPARECEU' | 'CONFIRMADO';
+
+const TRANSICOES_PERMITIDAS: Record<string, StatusDestino[]> = {
+  INTENCAO: ['CANCELADO'],
+  AGENDADO: ['CONFIRMADO', 'REALIZADO', 'CANCELADO', 'NAO_COMPARECEU'],
+  CONFIRMADO: ['REALIZADO', 'CANCELADO', 'NAO_COMPARECEU'],
+  REALIZADO: [],
+  CANCELADO: [],
+  NAO_COMPARECEU: [],
 };
 
-function translateStatus(dsStatus: string): AgendamentoResponse['sgStatus'] {
-  return STATUS_TRANSLATION_TABLE[dsStatus] ?? 'AGENDADA';
+// Estado de origem fora do mapa (coluna divergiu do CHECK) é tratado como sem
+// transição nenhuma, não como erro — o menu simplesmente não aparece. Ver a
+// mesma postura ("um mapa não reconhecer a origem é sinal de que o mapa
+// envelheceu") do lado .NET, onde a resposta é recusar (RegraDeNegocioException);
+// aqui, sem uma leitura fresca de servidor, a resposta segura é não oferecer
+// ação nenhuma.
+export function getTransicoesPermitidas(dsStatusOrigem: string): StatusDestino[] {
+  return TRANSICOES_PERMITIDAS[dsStatusOrigem] ?? [];
 }
 
 function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
@@ -60,7 +95,9 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     id: dto.idAgendamento,
     dtInicio: dto.dtAgendamento,
     nrDuracaoMinutos: dto.duracaoMinutos,
-    sgStatus: translateStatus(dto.dsStatus),
+    sgStatus: translateStatusAgendamento(dto.dsStatus),
+    dsStatusOrigem: dto.dsStatus,
+    nrVersion: dto.nrVersion,
     pet: {
       // TODO: AgendamentoItemDto não traz o id do pet, só o nome.
       id: 0,
@@ -92,4 +129,28 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
 export async function getAgenda(query: AgendaQuery): Promise<AgendamentoResponse[]> {
   const response = await apiClient.get<AgendaApiResponseDto>('/api/v1/agenda', { params: query });
   return response.data.agendamentos.map(mapAgendamentoItem);
+}
+
+export interface AtualizarStatusAgendamentoRequest {
+  dsStatus: StatusDestino;
+  nrVersion: number;
+  dsObservacao?: string;
+}
+
+// FM-04 — primeiro PATCH da história deste repo (medido: `grep -rn "apiClient\.
+// \(get\|post\|put\|patch\|delete\)("` dava 20 ocorrências, 0 `.patch(`, antes
+// desta função). Rota ABSOLUTA (`~/api/v1/agendamentos/{id}/status`, fora de
+// `/api/v1/agenda`) — ver AgendaController.cs, `[HttpPatch("~/api/v1/
+// agendamentos/{id:long}/status")]`. Corpo serializado em camelCase pelo
+// System.Text.Json (sem policy customizada no projeto .NET), então `req` (já
+// camelCase em TS) vai como está, sem mapper de saída.
+export async function atualizarStatusAgendamento(
+  idAgendamento: number,
+  req: AtualizarStatusAgendamentoRequest,
+): Promise<AgendamentoResponse> {
+  const response = await apiClient.patch<AgendamentoItemApiDto>(
+    `/api/v1/agendamentos/${idAgendamento}/status`,
+    req,
+  );
+  return mapAgendamentoItem(response.data);
 }

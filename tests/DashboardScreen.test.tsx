@@ -176,6 +176,43 @@ describe('DashboardScreen — loaded state', () => {
   });
 });
 
+// FM-04 (revisão pós-medição do maestro, 2026-09-02): antes desta correção,
+// o dashboard e a agenda mostravam rótulos DIFERENTES para o MESMO
+// agendamento (achado nº 2 replicado entre telas) — dashboard.tsx tinha sua
+// própria cópia divergente de statusTone/statusLabel. Estes testes provam
+// que hoje as duas telas concordam, usando a MESMA fonte
+// (utils/statusAgendamento.ts).
+describe('DashboardScreen — status labels agree with the agenda (FM-04)', () => {
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
+  });
+
+  it('renders "Confirmada" (not "Em andamento") for a CONFIRMADA recente item', () => {
+    mockUseRecentes.mockReturnValue({
+      data: [{ ...MOCK_RECENTE, sgStatus: 'CONFIRMADA' as const }],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+    });
+    const { getByText, queryByText } = wrap(<DashboardScreen />);
+    expect(getByText('Confirmada')).toBeTruthy();
+    expect(queryByText('Em andamento')).toBeNull();
+  });
+
+  it('renders "Não compareceu" (not "Cancelada") for a NAO_COMPARECEU recente item', () => {
+    mockUseRecentes.mockReturnValue({
+      data: [{ ...MOCK_RECENTE, sgStatus: 'NAO_COMPARECEU' as const }],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+    });
+    const { getByText, queryByText } = wrap(<DashboardScreen />);
+    expect(getByText('Não compareceu')).toBeTruthy();
+    expect(queryByText('Cancelada')).toBeNull();
+  });
+});
+
 describe('DashboardScreen — empty states', () => {
   beforeEach(() => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
