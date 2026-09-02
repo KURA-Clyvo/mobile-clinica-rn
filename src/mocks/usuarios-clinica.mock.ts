@@ -92,6 +92,54 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
   return Promise.reject({ status, code, message });
 }
 
+// ─── ANCORAGEM DAS REGRAS COPIADAS DO BACKEND ─────────────────────────────
+//
+// Este mock replica invariantes de negócio que moram em OUTRO REPOSITÓRIO.
+// Cópia cross-repo sem âncora é cópia que já divergiu — só não se sabe quando
+// (regra de ouro v7 deste projeto). O precedente de como ancorar foi criado
+// pela fix wave da FM-04, em `agenda.service.ts`: caminho + INTERVALO DE
+// LINHAS + commit + o comando que reproduz a conferência.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/Services/UsuarioClinicaService.cs
+// COMMIT:  de96c70e9f825eaf6e69f8c2a2f06669373fe29c  (`main`)
+// CONFERIDO EM: 2026-09-02 (sessão 9)
+// REPRODUZIR:
+//     git show de96c70:src/Kura.Application/Services/UsuarioClinicaService.cs \
+//       | sed -n '64,88p;153p;163,186p;196,204p;288,292p'
+//
+// As 3 regras replicadas, com a linha de cada uma:
+//   :288-292  GarantirUsuarioAtivo   -> 422 em usuário desativado. Chamado por
+//             AtualizarAsync (:153) e DefinirSenhaAsync (:198). ⚠️ NÃO é
+//             chamado por DesativarAsync (que faz early-return silencioso,
+//             :210-213) nem por ReativarAsync — replicado aqui igual.
+//   :64-69    MensagemUltimoGestor   -> invariante do último gestor ativo,
+//             disparado no PUT que REBAIXA um gestor (:171-172,:184-185) e no
+//             DELETE de um gestor (:226-227).
+//   :85-88    Mensagem do conflito de e-mail na REATIVAÇÃO.
+//
+// ⚠️ As mensagens abaixo são PARÁFRASES curtas, não os literais do backend —
+// o texto real é mais longo e instrui o próximo passo. Quem for casar texto
+// exato numa asserção, casar contra o backend, não contra este arquivo.
+//
+// 🔴 AS DUAS DIREÇÕES DE DIVERGÊNCIA NÃO SÃO SIMÉTRICAS (mesma lição da FM-04):
+//   backend fica MAIS restritivo  -> o mock aceita, o real recusa: a demo
+//        promete uma ação que o backend nega. **Foi exatamente isto que
+//        aconteceu com GarantirUsuarioAtivo** — a FM-02 não o replicou, a tela
+//        oferecia "Editar"/"Trocar senha" em linha inativa, e só o modo real
+//        recusaria. Falha VISÍVEL, mas só fora da demo.
+//   backend fica MENOS restritivo -> o mock recusa uma operação que o real
+//        permite: a ação some da demo sem erro nenhum. 🔴 É a difícil de notar.
+function garantirUsuarioAtivo(item: UsuarioClinicaResponse): Promise<never> | null {
+  if (item.stAtiva) return null;
+  return rejeitar(
+    422,
+    'USUARIO_DESATIVADO',
+    'Este usuário está DESATIVADO e alterações não têm efeito enquanto ele estiver assim. ' +
+      'Reative-o primeiro e refaça a alteração.',
+  );
+}
+
 // GET (lista) | POST (criar) — ambos batem em /api/v1/usuarios-clinica.
 export async function colecao(
   config: InternalAxiosRequestConfig,
@@ -142,6 +190,11 @@ export async function byId(
   }
 
   if (method === 'PUT') {
+    // UsuarioClinicaService.cs:153 — GarantirUsuarioAtivo ANTES de qualquer
+    // outra validação do PUT (ver bloco de ancoragem acima).
+    const desativado = garantirUsuarioAtivo(item);
+    if (desativado) return desativado;
+
     const body = parseBody<UsuarioClinicaUpdateRequest>(config);
 
     if (emailEmUsoPorOutroAtivo(body.dsEmail, item.id)) {
@@ -177,6 +230,13 @@ export async function senha(config: InternalAxiosRequestConfig): Promise<undefin
   if (!item) {
     return rejeitar(404, 'NOT_FOUND', `Usuário ${id} não encontrado`);
   }
+  // UsuarioClinicaService.cs:198 — DefinirSenhaAsync também exige usuário ATIVO.
+  // A razão do backend, literal: "definir senha de usuário desativado é gravação
+  // sem efeito observável — o login filtra ST_ATIVA, então a senha nova nunca
+  // seria usada. 422 em vez de 204 mentiroso."
+  const desativado = garantirUsuarioAtivo(item);
+  if (desativado) return desativado;
+
   const body = parseBody<UsuarioClinicaSenhaUpdateRequest>(config);
   if (!body.dsSenha || body.dsSenha.length < 6) {
     return rejeitar(400, 'SENHA_INVALIDA', 'A senha precisa ter pelo menos 6 caracteres.');

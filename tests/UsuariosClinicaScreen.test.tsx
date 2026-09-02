@@ -155,6 +155,23 @@ describe('UsuariosClinicaScreen — lista', () => {
     expect(emails).toEqual(['felipe.ferrete@kura.vet', 'ex.funcionario@kura.vet']);
   });
 
+  // Fix wave pós-G2 (sessão 9, achado do maestro em re-análise): o backend
+  // RECUSA com 422 tanto o PUT quanto o PUT /senha num usuário desativado
+  // (UsuarioClinicaService.cs:153,:198 -> GarantirUsuarioAtivo, :288-292,
+  // backend-clinica-dotnet@de96c70). A tela oferecia os 2 botões em toda linha,
+  // e o modo mock respondia 200 — o 422 só apareceria contra o backend real.
+  // A lista tem [ATIVO, INATIVO] nesta ordem, então 1 botão de cada = só a
+  // linha ativa os tem.
+  it('NÃO oferece "Editar"/"Trocar senha" na linha inativa — o backend recusa as duas com 422', () => {
+    const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+    expect(getAllByTestId('usuario-item')).toHaveLength(2);
+    expect(getAllByTestId('btn-editar-usuario')).toHaveLength(1);
+    expect(getAllByTestId('btn-trocar-senha')).toHaveLength(1);
+    // controle positivo: a linha inativa não ficou sem ação nenhuma — ela
+    // oferece "Reativar", que é o próximo passo que o próprio backend manda dar.
+    expect(getAllByTestId('btn-reativar-usuario')).toHaveLength(1);
+  });
+
   it('mostra "Desativar" só na linha ativa e "Reativar" só na inativa', () => {
     const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
     expect(getAllByTestId('btn-desativar-usuario')).toHaveLength(1);

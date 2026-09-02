@@ -368,6 +368,47 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       expect(atualizado.tpPerfil).toBe('GESTOR');
     });
 
+    // ─── Fix wave pós-G2 (sessão 9) — paridade com GarantirUsuarioAtivo ─────
+    // O backend recusa PUT e PUT /senha em usuário DESATIVADO com 422
+    // (UsuarioClinicaService.cs:153,:198 -> :288-292, backend-clinica-dotnet
+    // @de96c70). O mock da FM-02 não replicava, então o modo mock respondia 200
+    // numa operação que o backend real nega — e a tela oferecia os 2 botões na
+    // linha inativa. Estes 2 casos travam a paridade dos dois lados.
+    async function desativarUsuario1ComSegundoGestor(): Promise<void> {
+      // Promove o usuário 2 a GESTOR primeiro: sem isso, desativar o 1 esbarra
+      // no invariante do último gestor e o setup falharia por outro motivo.
+      await atualizarUsuarioClinica(2, {
+        dsEmail: 'camila.rocha@kura.vet',
+        tpPerfil: 'GESTOR',
+        idVeterinario: 2,
+      });
+      await desativarUsuarioClinica(1);
+    }
+
+    it('atualizarUsuarioClinica num usuário DESATIVADO rejeita 422 — o backend recusa (GarantirUsuarioAtivo)', async () => {
+      await desativarUsuario1ComSegundoGestor();
+      await expect(
+        atualizarUsuarioClinica(1, {
+          dsEmail: 'felipe.ferrete@kura.vet',
+          tpPerfil: 'GESTOR',
+          idVeterinario: 1,
+        }),
+      ).rejects.toMatchObject({ status: 422, code: 'USUARIO_DESATIVADO' });
+    });
+
+    it('trocarSenhaUsuarioClinica num usuário DESATIVADO rejeita 422 — senha nova nunca seria usada', async () => {
+      await desativarUsuario1ComSegundoGestor();
+      await expect(
+        trocarSenhaUsuarioClinica(1, { dsSenha: 'novasenha123' }),
+      ).rejects.toMatchObject({ status: 422, code: 'USUARIO_DESATIVADO' });
+
+      // Controle positivo: o MESMO chamado num usuário ATIVO passa — senão o
+      // caso acima seria indistinguível de "trocarSenha rejeita sempre".
+      await expect(
+        trocarSenhaUsuarioClinica(2, { dsSenha: 'novasenha123' }),
+      ).resolves.toBeUndefined();
+    });
+
     it('desativarUsuarioClinica (soft delete) que deixaria a clínica sem gestor rejeita 422', async () => {
       await expect(desativarUsuarioClinica(1)).rejects.toMatchObject({
         status: 422,

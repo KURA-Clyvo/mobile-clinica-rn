@@ -120,14 +120,49 @@ function UsuarioRow({
         </KCChip>
       </View>
 
+      {/* 🔴 "Editar" e "Trocar senha" SÓ existem para usuário ATIVO, e isso não é
+          preferência de UI: o backend RECUSA as duas operações num usuário desativado.
+          Medido na fonte, não deduzido —
+          backend-clinica-dotnet@de96c70:src/Kura.Application/Services/UsuarioClinicaService.cs
+            :153  AtualizarAsync    -> GarantirUsuarioAtivo(usuario)
+            :198  DefinirSenhaAsync -> GarantirUsuarioAtivo(usuario)
+            :288-292  private static void GarantirUsuarioAtivo -> RegraDeNegocioException
+          e `RegraDeNegocioException` vira **422** (ExceptionHandlerMiddleware.cs:74).
+          A razão do backend, com as palavras dele: "definir senha de usuário desativado é
+          gravação sem efeito observável — o login filtra ST_ATIVA, então a senha nova nunca
+          seria usada. 422 em vez de 204 mentiroso."
+
+          Antes deste fix a tela oferecia os 2 botões em TODA linha, inclusive inativa — e o
+          modo mock (default versionado, o caminho da demo) respondia 200, mascarando o 422
+          que o backend real devolveria. É a assinatura de defeito deste projeto ("mascarado
+          em modo mock"), e o `usuarios-clinica.mock.ts` passou a replicar a mesma recusa
+          para que a divergência não volte em silêncio.
+
+          Some em vez de aparecer desabilitado — doutrina já estabelecida no cabeçalho de
+          `useIsGestor.ts` (item indisponível SOME; desabilitado sem explicação é a classe
+          `§E27`). Não vira beco sem saída: a linha inativa continua oferecendo "Reativar",
+          que é exatamente o próximo passo que o backend manda dar ("Reative-o primeiro …
+          e refaça a alteração"). */}
       <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.actionButton} onPress={onEditar} testID="btn-editar-usuario">
-          <KCIcon name="edit" size={16} color={colors.primary} />
-          <Text style={styles.actionText}>Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onTrocarSenha} testID="btn-trocar-senha">
-          <Text style={styles.actionText}>Trocar senha</Text>
-        </TouchableOpacity>
+        {usuario.stAtiva && (
+          <>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onEditar}
+              testID="btn-editar-usuario"
+            >
+              <KCIcon name="edit" size={16} color={colors.primary} />
+              <Text style={styles.actionText}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onTrocarSenha}
+              testID="btn-trocar-senha"
+            >
+              <Text style={styles.actionText}>Trocar senha</Text>
+            </TouchableOpacity>
+          </>
+        )}
         {usuario.stAtiva ? (
           <TouchableOpacity
             style={styles.actionButton}
