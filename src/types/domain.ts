@@ -1,4 +1,5 @@
 import type { AlertaResponse, TimelineEventResponse } from './api';
+import type { StatusAgendamentoApp } from '../utils/statusAgendamento';
 
 export interface Tutor {
   id: number;
@@ -48,9 +49,10 @@ export interface Agendamento {
   id: number;
   inicio: Date;
   duracaoMinutos: number;
-  // FM-04: acompanha o union de AgendamentoResponse['sgStatus'] (api.ts) — só para
+  // FM-04: referencia StatusAgendamentoApp — mesma fonte única de
+  // AgendamentoResponse/RecentAppointmentResponse.sgStatus (api.ts). Só para
   // mapAgendamentoDto continuar atribuível; não é usado por nenhuma tela hoje.
-  status: 'AGENDADA' | 'CONFIRMADA' | 'CONCLUIDA' | 'CANCELADA' | 'NAO_COMPARECEU';
+  status: StatusAgendamentoApp;
   pet: {
     id: number;
     nome: string;

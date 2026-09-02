@@ -32,31 +32,10 @@ import {
 } from '@utils/date';
 import { STRINGS } from '@constants/strings';
 import type { AgendamentoResponse } from '../../types/api';
-import type { ChipTone } from '@components/primitives/KCChip';
-
-function statusTone(sgStatus: AgendamentoResponse['sgStatus']): ChipTone {
-  switch (sgStatus) {
-    case 'AGENDADA':       return 'ocean';
-    case 'CONFIRMADA':     return 'amber';
-    case 'CONCLUIDA':      return 'sage';
-    case 'CANCELADA':      return 'mute';
-    // FM-04: bucket próprio (antes caía em 'CANCELADA', indistinguível de um
-    // cancelamento de verdade — achado nº 2 do brief). 'clay' é o único tone
-    // que sobra em KCChip (sage/amber/ocean/mute já usados acima) — reforça
-    // que é um estado de atenção, diferente de cancelamento (mute).
-    case 'NAO_COMPARECEU': return 'clay';
-  }
-}
-
-function statusLabel(sgStatus: AgendamentoResponse['sgStatus']): string {
-  switch (sgStatus) {
-    case 'AGENDADA':       return 'Agendada';
-    case 'CONFIRMADA':     return 'Confirmada';
-    case 'CONCLUIDA':      return 'Concluída';
-    case 'CANCELADA':      return 'Cancelada';
-    case 'NAO_COMPARECEU': return 'Não compareceu';
-  }
-}
+// FM-04 (revisão pós-medição do maestro): statusTone/statusLabel eram locais
+// deste arquivo e tinham uma cópia divergente em dashboard.tsx — ver
+// utils/statusAgendamento.ts, fonte única compartilhada pelas duas telas.
+import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({

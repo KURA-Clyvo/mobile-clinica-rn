@@ -89,7 +89,9 @@ describe('useAlertas', () => {
 
 describe('useRecentes', () => {
   it('returns data with valid sgStatus values', async () => {
-    const validStatuses = ['AGENDADA', 'EM_ANDAMENTO', 'CONCLUIDA', 'CANCELADA'];
+    // FM-04: acompanha StatusAgendamentoApp (utils/statusAgendamento.ts) —
+    // 'EM_ANDAMENTO' nunca foi um valor real, era artefato da tradução antiga.
+    const validStatuses = ['AGENDADA', 'CONFIRMADA', 'CONCLUIDA', 'CANCELADA', 'NAO_COMPARECEU'];
     const mockRecentes = [
       { id: 101, nmPet: 'Thor', nmTutor: 'Carlos', dtAgendamento: new Date().toISOString(), nmTipoConsulta: 'Retorno', sgStatus: 'AGENDADA' as const },
       { id: 102, nmPet: 'Mel', nmTutor: 'Patrícia', dtAgendamento: new Date().toISOString(), nmTipoConsulta: 'Vacina', sgStatus: 'CONCLUIDA' as const },

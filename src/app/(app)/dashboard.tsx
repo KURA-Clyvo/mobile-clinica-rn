@@ -16,7 +16,7 @@ import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
 import { STRINGS } from '@constants/strings';
 import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api';
-import type { ChipTone } from '@components/primitives/KCChip';
+import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import type { MetricTone } from '@components/domain/MetricCard';
 
@@ -107,23 +107,12 @@ interface MetricItem {
   tone: MetricTone;
 }
 
-function statusTone(sgStatus: RecentAppointmentResponse['sgStatus']): ChipTone {
-  switch (sgStatus) {
-    case 'AGENDADA':     return 'ocean';
-    case 'EM_ANDAMENTO': return 'amber';
-    case 'CONCLUIDA':    return 'sage';
-    case 'CANCELADA':    return 'mute';
-  }
-}
-
-function statusLabel(sgStatus: RecentAppointmentResponse['sgStatus']): string {
-  switch (sgStatus) {
-    case 'AGENDADA':     return 'Agendada';
-    case 'EM_ANDAMENTO': return 'Em andamento';
-    case 'CONCLUIDA':    return 'Concluída';
-    case 'CANCELADA':    return 'Cancelada';
-  }
-}
+// FM-04 (revisão pós-medição do maestro, 2026-09-02): statusTone/statusLabel
+// eram uma cópia local, redigitada à mão, da MESMA função de agenda.tsx — e
+// tinha divergido dela (aqui CONFIRMADO virava 'EM_ANDAMENTO' e
+// NAO_COMPARECEU nem tinha bucket próprio, porque o union antigo de
+// RecentAppointmentResponse.sgStatus não incluía o valor). Ver
+// utils/statusAgendamento.ts, fonte única agora compartilhada com a agenda.
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({

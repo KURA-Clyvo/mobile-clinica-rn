@@ -1,3 +1,5 @@
+import type { StatusAgendamentoApp } from '../utils/statusAgendamento';
+
 // ─── Auth ─────────────────────────────────────────────────────
 export interface LoginRequest {
   dsEmail: string;
@@ -61,7 +63,12 @@ export interface RecentAppointmentResponse {
   nmTutor: string;
   dtAgendamento: string;
   nmTipoConsulta: string;
-  sgStatus: 'AGENDADA' | 'EM_ANDAMENTO' | 'CONCLUIDA' | 'CANCELADA';
+  // FM-04: referencia o MESMO alias que AgendamentoResponse.sgStatus (abaixo)
+  // — antes eram dois unions redigitados à mão, e tinham divergido: este
+  // dizia 'EM_ANDAMENTO' para CONFIRMADO e 'CANCELADA' para NAO_COMPARECEU,
+  // enquanto a agenda já dizia 'CONFIRMADA'/'NAO_COMPARECEU' para o mesmo
+  // agendamento. Ver utils/statusAgendamento.ts para o porquê.
+  sgStatus: StatusAgendamentoApp;
 }
 
 // ─── Agenda ───────────────────────────────────────────────────
@@ -70,15 +77,14 @@ export interface AgendaQuery {
   dataFim: string;
   veterinarioId?: number;
 }
-// FM-04: valores de sgStatus são o bucket TRADUZIDO (ver STATUS_TRANSLATION_TABLE
-// em agenda.service.ts). 'EM_ANDAMENTO' foi removido daqui — era um artefato da
-// tradução antiga, que não tinha bucket próprio para CONFIRMADO/NAO_COMPARECEU e
-// aproximava os dois por semântica. Hoje os dois têm rótulo e tone próprios.
+// FM-04: sgStatus referencia StatusAgendamentoApp (utils/statusAgendamento.ts)
+// — o bucket TRADUZIDO, fonte única compartilhada com RecentAppointmentResponse
+// acima e com Agendamento.status (types/domain.ts).
 export interface AgendamentoResponse {
   id: number;
   dtInicio: string;
   nrDuracaoMinutos: number;
-  sgStatus: 'AGENDADA' | 'CONFIRMADA' | 'CONCLUIDA' | 'CANCELADA' | 'NAO_COMPARECEU';
+  sgStatus: StatusAgendamentoApp;
   // FM-04: valor CRU de ST_STATUS (INTENCAO|AGENDADO|CONFIRMADO|REALIZADO|CANCELADO|
   // NAO_COMPARECEU), não traduzido. Necessário porque a máquina de estados do
   // PATCH /agendamentos/{id}/status (AgendaService.TransicoesPermitidas, backend
