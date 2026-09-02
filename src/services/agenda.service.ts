@@ -37,13 +37,33 @@ export interface AgendaApiResponseDto {
 // dashboard.service.ts.
 
 // ─── Máquina de estados do PATCH de status ─────────────────────────────────
-// Espelha, do lado cliente, AgendaService.TransicoesPermitidas
-// (backend-clinica-dotnet/src/Kura.Application/Services/AgendaService.cs) —
-// decide que ações o menu contextual da agenda pode oferecer a partir do
-// status CRU (dsStatusOrigem) de um agendamento. Deliberadamente reescrita
-// aqui, não importada (os dois repos não compartilham código) — se o backend
-// mudar esta tabela sem avisar, o pior caso é o app oferecer uma transição
-// que o servidor recusa com 422 (falha visível, não corrupção silenciosa).
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar esta tabela.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/Services/AgendaService.cs:90-99
+//          (`TransicoesPermitidas`. Do lado de lá os estados terminais são
+//          DERIVADOS desse mapa em :115-119, não mantidos à mão.)
+// COMMIT:  de96c70e9f825eaf6e69f8c2a2f06669373fe29c  (`main`, 2026-09-01)
+// CONFERIDO EM: 2026-09-02 — bate linha a linha com a fonte nesse commit.
+//
+// COMO RECONFERIR — um pin só vale se alguém conseguir verificá-lo:
+//   git -C ../backend-clinica-dotnet show \
+//     de96c70:src/Kura.Application/Services/AgendaService.cs | sed -n '90,99p'
+//
+// Deliberadamente REESCRITA aqui, não importada: os dois repos não compartilham
+// código e não há como derivar entre eles. Ou seja, isto é uma CÓPIA À MÃO, e
+// cai sob a regra de ouro v7 deste projeto — *inventário escrito à mão apodrece
+// em silêncio*. O pin acima é a única defesa que existe: sem arquivo:linha e
+// commit, "espelha o backend" é uma afirmação que ninguém consegue conferir, e
+// cópia que ninguém confere é cópia que já divergiu — só não se sabe quando.
+//
+// RAIO DE FALHA, se divergir assim mesmo — e os dois lados NÃO são simétricos:
+//   • backend REMOVE uma transição → o app oferece, o servidor recusa com 422.
+//     Falha VISÍVEL, não corrupção silenciosa.
+//   • backend ACRESCENTA uma transição → a ação simplesmente não aparece no
+//     menu, sem erro nenhum. 🔴 É o mais difícil de notar dos dois, e é o que
+//     este comentário existe para tornar improvável.
 //
 // Chave = status de ORIGEM cru (não o sgStatus traduzido — ver comentário em
 // AgendamentoResponse.dsStatusOrigem, types/api.ts, sobre por que a origem
