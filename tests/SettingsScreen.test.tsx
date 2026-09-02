@@ -232,3 +232,37 @@ describe('SettingsScreen — identidade sem ficha de veterinário (FM-01)', () =
     expect(queryByTestId('btn-convidar')).toBeNull();
   });
 });
+
+// ─── FM-03: a seção "Time" passou a ser gate de PAPEL, não de sessão ───────
+//
+// Histórico da linha, porque ela mudou três vezes e cada mudança teve razão:
+//   antes da FM-01: `{usuario && …}`  — qualquer um COM ficha de veterinário
+//   FM-01:          `{email && …}`    — qualquer um logado (provisório: o
+//                                       papel ainda não existia no app)
+//   FM-03:          `{isGestor && …}` — só GESTOR (o gate real)
+//
+// 🔴 A `FM-03` REMOVEU a seção de um veterinário puro — que é o login mais
+// comum deste app — e **nenhum teste afirmava isso**. O teste de gestor abaixo
+// (herdado da FM-01) sozinho é compatível com "a seção aparece para todo
+// mundo"; é este par que prova que o gate é de PAPEL.
+describe('SettingsScreen — a seção "Time" é só do GESTOR (FM-03)', () => {
+  it('VETERINÁRIO puro NÃO vê a seção "Time"', () => {
+    comSessao({ tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
+    const { queryByTestId } = wrap(<SettingsScreen />);
+
+    expect(queryByTestId('btn-convidar')).toBeNull();
+  });
+
+  // ⚠️ O caso que desmascara um gate que tivesse colapsado as duas perguntas
+  // do app ("tenho ficha?" × "meu papel deixa ver?"): este usuário responde
+  // SIM às duas, e é o ÚNICO que ocorre subindo o app de verdade
+  // (RegisterClinicaAsync cria o gestor COM vínculo). Um gate escrito como
+  // `usuario !== null` passaria aqui e no teste do veterinário FALHARIA —
+  // mas quem só testasse este caso não veria diferença nenhuma.
+  it('GESTOR COM ficha vê a seção "Time" — o caso de demonstração', () => {
+    comSessao({ tpPerfil: 'GESTOR', usuario: MOCK_VET });
+    const { getByTestId } = wrap(<SettingsScreen />);
+
+    expect(getByTestId('btn-convidar')).toBeTruthy();
+  });
+});
