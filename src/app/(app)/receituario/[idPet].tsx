@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateShort, formatDateFull } from '@utils/date';
+import { ROUTES } from '@constants/routes';
 import type { MedicamentoResponse } from '../../../types/api';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
 
@@ -157,6 +158,18 @@ export default function ReceituarioScreen() {
   const styles = makeStyles(colors);
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
+
+  // FM-01 — mesmo raciocínio de consulta/[idPet].tsx: não resolve o E27,
+  // só evita PIORÁ-LO. "Emitir receita" é a ÚNICA saída desta tela fora de
+  // modal (ver brief da task) — sem este redirect, um GESTOR sem ficha que
+  // chegasse aqui por deep link/URL direta ficaria preso: onSubmit faz
+  // `if (!petId || !usuario) return` (silêncio), e na web não há botão de
+  // voltar do sistema dentro da própria página.
+  useEffect(() => {
+    if (!usuario) {
+      router.replace(petId ? ROUTES.app.pacienteDetalhe(petId) : ROUTES.app.dashboard);
+    }
+  }, [usuario, petId, router]);
 
   const { data: pet } = usePetDetail(petId);
   const { mutate: criarPrescricao, isPending: isCriandoPrescricao } = useCriarPrescricao();

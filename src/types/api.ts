@@ -1,4 +1,5 @@
 import type { StatusAgendamentoApp } from '../utils/statusAgendamento';
+import type { TipoPerfilUsuario } from '../utils/perfilUsuario';
 
 // ─── Auth ─────────────────────────────────────────────────────
 export interface LoginRequest {
@@ -8,7 +9,13 @@ export interface LoginRequest {
 export interface LoginResponse {
   accessToken: string;
   expiresAt: string;
-  usuario: VeterinarioResponse;
+  // FM-01 — campo NOVO (TokenResponseDto.TpPerfil, backend-clinica-dotnet
+  // de96c70). Vem SEMPRE, mesmo quando `usuario` é nulo — é o que torna
+  // `usuario: null` interpretável em vez de indistinguível de erro.
+  tpPerfil: TipoPerfilUsuario;
+  // FM-01 — passou a ser nulável: um GESTOR sem vínculo em VETERINARIO não
+  // tem ficha para devolver aqui (ver TokenResponseDto.Usuario).
+  usuario: VeterinarioResponse | null;
 }
 
 export interface RegisterClinicaRequest {
@@ -31,6 +38,12 @@ export interface RegisterClinicaResponse {
   idVeterinarioAdmin: number;
   accessToken: string;
   expiresAt: string;
+  // FM-01 — campo NOVO, sempre "GESTOR" (RegisterClinicaAsync cria o
+  // USUARIO_CLINICA gestor na mesma transação que cria a clínica).
+  tpPerfil: TipoPerfilUsuario;
+  // Continua NÃO-nulo aqui, ao contrário de LoginResponse.usuario:
+  // RegisterClinicaAsync cria o Veterinario administrador na mesma
+  // transação, então sempre existe ficha (RegisterClinicaResponseDto.Usuario).
   usuario: VeterinarioResponse;
 }
 

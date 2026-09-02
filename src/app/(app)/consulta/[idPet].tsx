@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { LunaSuggestionBadge } from '@components/domain/LunaSuggestionBadge';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateFull } from '@utils/date';
+import { ROUTES } from '@constants/routes';
 
 const SOAP_DRAFT_LABELS: Record<keyof SoapDraft, string> = {
   s: 'Subjetivo',
@@ -157,6 +158,23 @@ export default function ConsultaScreen() {
   const styles = makeStyles(colors);
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
+
+  // FM-01 — fronteira com o E27 (FIXES_PENDENTES.md:113,895-930): NÃO
+  // acrescenta seta de voltar nem mexe em header/layout, isso continua
+  // decisão do Felipe (E27 é `DECISÃO`, não `PRONTO`). O que este efeito
+  // evita é PIORAR o E27: esconder o botão "Consulta" da ficha do pet
+  // (pacientes/[id].tsx) não impede chegar aqui por deep link/URL direta —
+  // a plataforma alvo é web, sem botão de voltar dentro da própria página.
+  // Sem este redirect, um GESTOR sem ficha que abrisse /consulta/123
+  // diretamente veria o formulário inteiro e ficaria PRESO ao tocar
+  // "Salvar" (onSubmit faz `if (!petId || !usuario) return` — silêncio).
+  // Redireciona para a ficha do pet (ou dashboard, sem petId válido) em vez
+  // de renderizar uma tela sem saída.
+  useEffect(() => {
+    if (!usuario) {
+      router.replace(petId ? ROUTES.app.pacienteDetalhe(petId) : ROUTES.app.dashboard);
+    }
+  }, [usuario, petId, router]);
 
   const { data: pet } = usePetDetail(petId);
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
