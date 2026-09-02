@@ -55,9 +55,33 @@ function buildAppointments(): AgendamentoItemApiDto[] {
   ];
 }
 
+// FM-04 — achado nº 3 do brief: buildAppointments() reconstruía a lista do
+// ZERO a cada chamada, então um PATCH em modo mock não sobrevivia ao refetch
+// seguinte (a mudança "revertia" na tela, na frente de quem estivesse vendo a
+// demo — o modo mock é justamente o caminho que a demo usa por padrão,
+// EXPO_PUBLIC_USE_MOCKS=true em .env.example). `_store` é preenchido uma
+// única vez (lazy, na primeira chamada) e passa a ser a fonte de verdade
+// tanto para `agenda()` (leitura) quanto para `atualizarStatus()` (escrita) —
+// o PATCH grava, o GET seguinte lê o que foi gravado.
+let _store: AgendamentoItemApiDto[] | null = null;
+
+function getStore(): AgendamentoItemApiDto[] {
+  if (!_store) {
+    _store = buildAppointments();
+  }
+  return _store;
+}
+
+// Exportado só para teste: `_store` é module-level e o registro de módulos
+// do Jest é por ARQUIVO de teste, não por `it()` — sem isto, um PATCH num
+// teste vazaria estado para o próximo teste do mesmo arquivo.
+export function __resetStoreParaTeste(): void {
+  _store = null;
+}
+
 export async function agenda(config: InternalAxiosRequestConfig): Promise<AgendaApiResponseDto> {
   const params = config.params as { dataInicio?: string; dataFim?: string } | undefined;
-  const all = buildAppointments();
+  const all = getStore();
 
   if (!params?.dataInicio || !params?.dataFim) {
     return { dataInicio: params?.dataInicio ?? '', dataFim: params?.dataFim ?? '', agendamentos: all };
@@ -72,4 +96,50 @@ export async function agenda(config: InternalAxiosRequestConfig): Promise<Agenda
   });
 
   return { dataInicio: params.dataInicio, dataFim: params.dataFim, agendamentos };
+}
+
+// FM-04: primeiro handler de PATCH deste repo. Persiste no MESMO `_store` que
+// `agenda()` lê — é o que resolve o achado nº 3 (mock stateless).
+//
+// Só o conflito de concorrência (409) é simulado como erro aqui — é o único
+// caso que o brief pede para o app tratar explicitamente (achado nº 5).
+// Validação de máquina de estados (422) fica só do lado real do .NET:
+// replicá-la aqui duplicaria TRANSICOES_PERMITIDAS (agenda.service.ts) e
+// arriscaria divergir dela em silêncio sem que nenhum teste pegasse — o
+// próprio app já decide quais botões oferecer a partir da MESMA tabela
+// (getTransicoesPermitidas) antes de disparar o PATCH, então uma transição
+// inválida não deveria chegar até aqui pelo fluxo normal da UI.
+export async function atualizarStatus(
+  config: InternalAxiosRequestConfig,
+): Promise<AgendamentoItemApiDto> {
+  const match = config.url?.match(/\/agendamentos\/(\d+)\/status$/);
+  const idAgendamento = match ? Number(match[1]) : 0;
+  const body = JSON.parse((config.data as string) ?? '{}') as {
+    dsStatus?: string;
+    nrVersion?: number;
+    dsObservacao?: string;
+  };
+
+  const store = getStore();
+  const item = store.find((a) => a.idAgendamento === idAgendamento);
+  if (!item) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Agendamento ${idAgendamento} não encontrado`,
+    });
+  }
+
+  if (typeof body.nrVersion === 'number' && body.nrVersion !== item.nrVersion) {
+    return Promise.reject({
+      status: 409,
+      code: 'CONFLITO_CONCORRENCIA',
+      message: `Agendamento ${idAgendamento} foi atualizado por outro processo. Releia antes de tentar de novo.`,
+    });
+  }
+
+  item.dsStatus = body.dsStatus ?? item.dsStatus;
+  item.nrVersion = item.nrVersion + 1;
+
+  return { ...item };
 }
