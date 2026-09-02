@@ -39,7 +39,11 @@ export function getGreeting(): string {
 // Lista vem do código (tabela abaixo), não do teste — ver tests/date.test.ts
 // para o teste derivado de tabela que prova cada honorífico + os casos de
 // borda (sem título, vazio, um token só).
-const HONORIFICOS = ['dr.', 'dra.', 'dr(a).'];
+// Exportada de propósito: o teste do E26 é DERIVADO desta lista (regra de ouro
+// v7 — "inventário escrito à mão apodrece em silêncio"). Um honorífico novo
+// aqui vira caso de teste sozinho; um teste que redigitasse a lista passaria
+// verde sobre um valor que a função não trata.
+export const HONORIFICOS = ['dr.', 'dra.', 'dr(a).'];
 
 export function firstName(fullName: string): string {
   const tokens = fullName.trim().split(/\s+/).filter(Boolean);
