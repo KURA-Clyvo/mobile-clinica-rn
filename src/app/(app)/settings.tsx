@@ -12,6 +12,7 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
+import { perfilLabel } from '@utils/perfilUsuario';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -58,6 +59,8 @@ export default function SettingsScreen() {
   const styles = makeStyles(colors);
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
+  const email = useAuthStore((s) => s.email);
+  const tpPerfil = useAuthStore((s) => s.tpPerfil);
   const clearSession = useAuthStore((s) => s.clearSession);
   const reopenOnboarding = useOnboardingStore((s) => s.reopen);
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -87,8 +90,11 @@ export default function SettingsScreen() {
           <View style={styles.separator} />
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Nome</Text>
+            {/* FM-01: sem ficha (GESTOR sem vínculo), não há `nmVeterinario`
+                para mostrar — mas isso não é motivo pra virar travessão como
+                antes: `perfilLabel` mostra o papel, que é sempre conhecido. */}
             <Text style={styles.fieldValue} testID="vet-name">
-              {usuario?.nmVeterinario ?? '—'}
+              {usuario ? usuario.nmVeterinario : perfilLabel(tpPerfil)}
             </Text>
           </View>
           <View style={styles.separator} />
@@ -101,7 +107,21 @@ export default function SettingsScreen() {
           <View style={styles.separator} />
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>E-mail</Text>
-            <Text style={styles.fieldValue}>{usuario?.dsEmail ?? '—'}</Text>
+            {/* FM-01: `usuario?.dsEmail` só existe com ficha. `email` (o que
+                a pessoa digitou no login) vem do store SEMPRE que há
+                sessão — troca de fonte, não perde a garantia de mostrar
+                algo real (o travessão só sobra se nem isso existir, o que
+                não deveria acontecer pós-login). */}
+            <Text style={styles.fieldValue} testID="vet-email">
+              {usuario?.dsEmail ?? email ?? '—'}
+            </Text>
+          </View>
+          <View style={styles.separator} />
+          <View style={styles.fieldRow}>
+            <Text style={styles.fieldLabel}>Perfil</Text>
+            <Text style={styles.fieldValue} testID="vet-perfil">
+              {perfilLabel(tpPerfil)}
+            </Text>
           </View>
           {usuario?.dsTelefone && (
             <>
@@ -165,8 +185,15 @@ export default function SettingsScreen() {
         </KCCard>
       </View>
 
-      {/* TIME */}
-      {usuario && (
+      {/* TIME. FM-01 — achado além dos 7 sítios do backlog (confirmado por
+          grep, não estava na tabela original): este bloco também gateava em
+          `usuario` (a FICHA), quando o que importa aqui é estar autenticado
+          — gerenciar o time da clínica é justamente uma função de GESTOR, e
+          um gestor sem ficha era exatamente quem MAIS perdia acesso a esta
+          seção. Trocado para `email` (mesma fonte de "está logado" usada no
+          footer do NavDrawer). Stub sem efeito real hoje (`Alert.alert`
+          "em breve"), então o risco da mudança é baixo. */}
+      {email && (
         <View style={styles.section}>
           <KCCard>
             <View style={styles.titleRow}>

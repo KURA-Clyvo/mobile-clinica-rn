@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { LunaSuggestionBadge } from '@components/domain/LunaSuggestionBadge';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateFull } from '@utils/date';
+import { ROUTES } from '@constants/routes';
 
 const SOAP_DRAFT_LABELS: Record<keyof SoapDraft, string> = {
   s: 'Subjetivo',
@@ -158,6 +159,39 @@ export default function ConsultaScreen() {
   const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
 
+  // FM-01 — fronteira com o E27 (FIXES_PENDENTES.md:113,895-930): NÃO
+  // acrescenta seta de voltar nem mexe em header/layout, isso continua
+  // decisão do Felipe (E27 é `DECISÃO`, não `PRONTO`). O que este efeito
+  // evita é PIORAR o E27: esconder o botão "Consulta" da ficha do pet
+  // (pacientes/[id].tsx) não impede chegar aqui por deep link/URL direta —
+  // a plataforma alvo é web, sem botão de voltar dentro da própria página.
+  // Sem este redirect, um GESTOR sem ficha que abrisse /consulta/123
+  // diretamente veria o formulário inteiro e ficaria PRESO ao tocar
+  // "Salvar" (onSubmit faz `if (!petId || !usuario) return` — silêncio).
+  // Redireciona para a ficha do pet (ou dashboard, sem petId válido) em vez
+  // de renderizar uma tela sem saída.
+  // FM-01 fix wave pos-G2 — `jaRedirecionou` existe porque o teste do redirect
+  // mediu `router.replace` sendo chamado DUAS vezes, nao uma.
+  //
+  // A causa: `router` esta nas dependencias, e `useRouter()` nao promete
+  // identidade estavel entre renders. Este projeto ja foi mordido pela mesma
+  // classe no sentido INVERSO (TASK-70/FIX_6: um `useEffect` dependia de uma
+  // funcao do Zustand cuja referencia ERA estavel, entao nunca re-disparava e
+  // o registro de push token nunca acontecia no login da sessao em curso).
+  // Depender da estabilidade -- ou da instabilidade -- de uma referencia que
+  // ninguem documentou e a suposicao, nao o `ref`.
+  //
+  // O `ref` torna o comportamento correto sob QUALQUER identidade: redireciona
+  // exatamente uma vez por montagem. Tirar `router` das dependencias tambem
+  // silenciaria o sintoma, mas trocaria uma suposicao por outra.
+  const jaRedirecionou = useRef(false);
+  useEffect(() => {
+    if (!usuario && !jaRedirecionou.current) {
+      jaRedirecionou.current = true;
+      router.replace(petId ? ROUTES.app.pacienteDetalhe(petId) : ROUTES.app.dashboard);
+    }
+  }, [usuario, petId, router]);
+
   const { data: pet } = usePetDetail(petId);
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
   const { mutate: enviarTranscricao, isPending: isEnviandoAudio } = useEnviarTranscricao();
@@ -276,6 +310,22 @@ export default function ConsultaScreen() {
       },
     );
   };
+
+  // FM-01, fix wave pos-G2 — a revisao mediu que SEM esta guarda a tela
+  // renderiza o formulario INTEIRO antes de o `useEffect` acima disparar o
+  // redirect: um GESTOR sem ficha que chegasse aqui por URL direta (a
+  // plataforma alvo e web) via, por um quadro, um formulario clinico que ele
+  // nao pode submeter. Nao e crash nem tela presa -- e pior de explicar:
+  // pisca uma coisa que nao deveria existir para ele.
+  //
+  // Todos os hooks acima ja rodaram, entao o `return` antecipado aqui NAO
+  // viola a regra de ordem de hooks -- a guarda esta deliberadamente no fim,
+  // colada ao `return` principal, e nao no topo do componente.
+  //
+  // ⛔ Isto NAO resolve o E27 (telas sem saida visivel), que continua decisao
+  // aberta do Felipe: nada de header, seta de voltar ou `_layout.tsx` foi
+  // tocado. O que a guarda faz e nao PIORAR o E27, nao consertá-lo.
+  if (!usuario) return null;
 
   return (
     // CQ-15: `paddingHorizontal={0}` — o header do pet, o form e o rodapé já

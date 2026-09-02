@@ -59,7 +59,7 @@ describe('AppHeader', () => {
 describe('auth:logout event integration', () => {
   it('clearSession empties token when called directly', () => {
     const futureDate = new Date(Date.now() + 3_600_000).toISOString();
-    useAuthStore.getState().setSession('tok', futureDate, MOCK_VET);
+    useAuthStore.getState().setSession({ token: 'tok', expiresAt: futureDate, email: MOCK_VET.dsEmail, tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
 
     useAuthStore.getState().clearSession();
 
@@ -86,7 +86,7 @@ describe('auth:logout event integration', () => {
 
   it('isAuthenticated returns false immediately after logout event', () => {
     const futureDate = new Date(Date.now() + 3_600_000).toISOString();
-    useAuthStore.getState().setSession('tok', futureDate, MOCK_VET);
+    useAuthStore.getState().setSession({ token: 'tok', expiresAt: futureDate, email: MOCK_VET.dsEmail, tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
     expect(useAuthStore.getState().isAuthenticated()).toBe(true);
 
     const sub = DeviceEventEmitter.addListener('auth:logout', () => {

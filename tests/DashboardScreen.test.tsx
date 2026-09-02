@@ -85,7 +85,13 @@ function wrap(ui: React.ReactElement) {
 }
 
 beforeEach(() => {
-  useAuthStore.setState({ token: 'tok', expiresAt: new Date(Date.now() + 3_600_000).toISOString(), usuario: MOCK_VET });
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'felipe@kuraclinica.com.br',
+    tpPerfil: 'VETERINARIO',
+    usuario: MOCK_VET,
+  });
   jest.clearAllMocks();
   REFETCH.mockResolvedValue(undefined);
   setViewport(400, 800);
@@ -118,13 +124,50 @@ describe('DashboardScreen — loaded state', () => {
     mockUseRecentes.mockReturnValue({ data: [MOCK_RECENTE], isLoading: false, isError: false, refetch: REFETCH });
   });
 
-  it('shows greeting with user first name', () => {
+  // 🔴 E26 (ruling D-3 do Felipe) — ESTE TESTE FIXAVA O DEFEITO.
+  //
+  // Ele se chamava "shows greeting with user first name" e afirmava
+  // `getAllByText(/Dr\./)`, com o comentário "The greeting text includes
+  // 'Dr.' as first name". Ou seja: passava verde enquanto a primeira tela
+  // pós-login dizia "Boa noite, Dr." — e teria REPROVADO a correção.
+  //
+  // É a armadilha que o próprio achado E26 nomeia: testar a IMPLEMENTAÇÃO
+  // (`firstName` devolve o primeiro token) em vez do REQUISITO (a tela
+  // cumprimenta a pessoa pelo nome). Um teste assim é pior que nenhum —
+  // não deixa o defeito passar, ele o TRANCA.
+  //
+  // Reescrito para o requisito, e com a asserção negativa junto: o
+  // honorífico não pode voltar.
+  it('saudação usa o primeiro NOME, não o honorífico (E26)', () => {
     const { getByTestId } = wrap(<DashboardScreen />);
-    const greetingText = getByTestId('greeting-block').findAll(() => true);
-    // greeting block renders a Text with the vet's first name
-    const { getAllByText } = wrap(<DashboardScreen />);
-    // The greeting text includes "Dr." as first name
-    expect(getAllByText(/Dr\./)).toBeTruthy();
+    const saudacao = within(getByTestId('greeting-block'));
+
+    expect(saudacao.getByText(/Felipe/)).toBeTruthy();
+    expect(saudacao.queryByText(/Dr\./)).toBeNull();
+  });
+
+  // 🔴 FM-01 — a prova que o backlog exige, literal: store com papel GESTOR
+  // e SEM ficha de veterinário, e a tela inicial renderiza sem crash.
+  //
+  // ⚠️ Este estado NÃO ocorre subindo o app: o registro de clínica
+  // (AuthService.RegisterClinicaAsync:296-308) cria o gestor COM vínculo,
+  // então o login de demonstração sempre traz `usuario` preenchido. Só
+  // existe construído — e é exatamente por isso que ele precisa de teste.
+  it('GESTOR sem ficha: a tela inicial renderiza, e a saudação não fica vazia', () => {
+    useAuthStore.setState({
+      token: 'tok',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor.silva@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+    });
+
+    const { getByTestId } = wrap(<DashboardScreen />);
+    const saudacao = within(getByTestId('greeting-block'));
+
+    // Sem a correção, `name` era '' e a linha ficava só "Boa noite" — um
+    // cumprimento truncado na primeira tela de toda sessão do gestor.
+    expect(saudacao.getByText(/Gestor/)).toBeTruthy();
   });
 
   // Prova por mordida (dev VsClaude, KURA_BACKLOG_CLINICA_1, task

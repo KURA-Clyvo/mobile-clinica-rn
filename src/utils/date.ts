@@ -33,8 +33,26 @@ export function getGreeting(): string {
   return 'Boa noite';
 }
 
+// E26 (FIXES_PENDENTES.md:112,848-884, marcado PRONTO — ruling do Felipe):
+// firstName('Dr. Felipe Ferrete') devolvia 'Dr.' e o dashboard renderizava
+// "Boa noite, Dr.". Ruling: lê "Boa noite, Felipe" — honorífico descartado.
+// Lista vem do código (tabela abaixo), não do teste — ver tests/date.test.ts
+// para o teste derivado de tabela que prova cada honorífico + os casos de
+// borda (sem título, vazio, um token só).
+// Exportada de propósito: o teste do E26 é DERIVADO desta lista (regra de ouro
+// v7 — "inventário escrito à mão apodrece em silêncio"). Um honorífico novo
+// aqui vira caso de teste sozinho; um teste que redigitasse a lista passaria
+// verde sobre um valor que a função não trata.
+export const HONORIFICOS = ['dr.', 'dra.', 'dr(a).'];
+
 export function firstName(fullName: string): string {
-  return fullName.split(' ')[0] ?? fullName;
+  const tokens = fullName.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return '';
+  const primeiro = tokens[0]!;
+  if (HONORIFICOS.includes(primeiro.toLowerCase()) && tokens.length > 1) {
+    return tokens[1]!;
+  }
+  return primeiro;
 }
 
 const DAYS_SHORT_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];

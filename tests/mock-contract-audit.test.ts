@@ -21,7 +21,7 @@
 //     nmPet/nmTipoConsulta undefined e sgStatus fixo em 'AGENDADA'.
 import { getHoje, getAlertas, getRecentes } from '../src/services/dashboard.service';
 import { getAgenda, atualizarStatusAgendamento } from '../src/services/agenda.service';
-import { login } from '../src/services/auth.service';
+import { login, registerClinica } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
 import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens } from '../src/services/luna.service';
@@ -126,6 +126,63 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
   // risco por construção, já que mock e service consomem o mesmo tipo app-facing.
   // Executados aqui, não só lidos por inspeção (mesma disciplina do passo 5 da
   // TASK-65 — "não classificar por leitura").
+  // ─── FM-01 ────────────────────────────────────────────────────────────
+  //
+  // Este bloco existe por um achado que a FM-04 mediu e a revisão G2 dela
+  // confirmou: `config.data` que chega a um handler de mock PELA CADEIA REAL
+  // do apiClient é o OBJETO JS original, nunca uma string JSON — o request
+  // interceptor rejeita ANTES de o axios serializar
+  // (services/api/client.ts::buildRequestInterceptor).
+  //
+  // `auth.mock.ts::register` fazia `JSON.parse(config.data ?? '{}')`, que
+  // sobre um objeto vira `JSON.parse("[object Object]")` e LANÇA. Nenhum
+  // teste deste repo exercitava `registerClinica` por essa cadeia — só por
+  // fixtures que montavam `config.data` como string à mão, o que escondia o
+  // defeito.
+  //
+  // 🔴 É exatamente por isso que este ARQUIVO existe: ele é o único que roda
+  // service -> apiClient real -> mock-adapter -> fixture, SEM `jest.mock`.
+  describe('auth.service — registerClinica pela cadeia real (FM-01)', () => {
+    const CORPO = {
+      nmClinica: 'Clínica Teste',
+      nrCnpj: '12345678000199',
+      dsEndereco: 'Rua A, 1',
+      nmCidade: 'São Paulo',
+      sgUf: 'SP',
+      nrCep: '01000000',
+      dsEmail: 'contato@clinica.com',
+      dsEmailAcesso: 'gestor@clinica.com',
+      dsSenha: 'segredo123',
+      nmVeterinarioAdmin: 'Dra. Ana Souza',
+      nrCRMV: 'SP-99999',
+    };
+
+    it('não lança com `config.data` OBJETO — a forma que a cadeia real entrega', async () => {
+      const res = await registerClinica(CORPO);
+      expect(res.accessToken).toEqual(expect.any(String));
+    });
+
+    it('lê o corpo de verdade: os campos enviados voltam na resposta', async () => {
+      const res = await registerClinica(CORPO);
+      // Se `parseBody` devolvesse `{}` em vez de lançar, isto ficaria
+      // `undefined` — ou seja, este par distingue "não lançou" de "leu".
+      expect(res.usuario.nmVeterinario).toBe('Dra. Ana Souza');
+      expect(res.usuario.nrCRMV).toBe('SP-99999');
+    });
+
+    it('devolve tpPerfil GESTOR, como o contrato real do .NET', async () => {
+      // RegisterClinicaResponseDto.TpPerfil é sempre 'GESTOR' — o registro
+      // cria o USUARIO_CLINICA gestor na mesma transação.
+      const res = await registerClinica(CORPO);
+      expect(res.tpPerfil).toBe('GESTOR');
+    });
+
+    it('login devolve tpPerfil — campo novo da FD-03', async () => {
+      const res = await login({ dsEmail: 'a@b.com', dsSenha: 'x' });
+      expect(res.tpPerfil).toBe('VETERINARIO');
+    });
+  });
+
   describe('pass-throughs (baixo risco, executados para confirmar)', () => {
     it('login / listPets / getPetById / getPetTimeline executam sem lançar', async () => {
       const loginRes = await login({ dsEmail: 'a@b.com', dsSenha: 'x' });

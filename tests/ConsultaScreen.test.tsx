@@ -8,9 +8,13 @@ import { useAuthStore } from '../src/store/authStore';
 import { layout } from '../src/theme/tokens';
 
 const mockBack = jest.fn();
+// FM-01: `replace` entra no mock porque a tela passou a redirecionar quem nao
+// tem ficha de veterinario. Sem ele, `router.replace` seria `undefined` e a
+// guarda quebraria -- e o teste falharia por um motivo diferente do real.
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace }),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
@@ -308,5 +312,64 @@ describe('ConsultaScreen — ScreenContainer adoption (CQ-15)', () => {
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
     expect(flatStyle.paddingHorizontal).toBe(0);
+  });
+});
+
+// ─── FM-01, fix wave pós-G2: a guarda de papel ─────────────────────────────
+//
+// 🔴 ACHADO `Important` DA REVISÃO G2: o brief da FM-01 exigia teste do
+// redirect e **não havia nenhum**. A revisão escreveu um descartável e mediu
+// que, sem guarda de RENDER, o formulário clínico inteiro renderizava antes
+// de o `useEffect` disparar o `router.replace` — um GESTOR sem ficha chegando
+// por URL direta (a plataforma alvo é web) via, por um quadro, um formulário
+// que ele não pode submeter.
+//
+// ⛔ Isto NÃO resolve o `E27` (telas sem saída visível), que continua decisão
+// aberta do Felipe — nada de header, seta de voltar ou `_layout.tsx`. A
+// guarda existe para **não piorar** o E27: esconder a ação em
+// `pacientes/[id].tsx` não impede chegar aqui por link.
+describe('ConsultaScreen — guarda de ficha de veterinário (FM-01)', () => {
+  it('SEM ficha: redireciona para a ficha do pet', () => {
+    useAuthStore.setState({
+      token: 'tok',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor@kura.vet',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+    });
+
+    wrap(<ConsultaScreen />);
+
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/pacientes/1');
+  });
+
+  // 🔴 A metade que a revisão mediu e que só a guarda de RENDER resolve: não
+  // basta redirecionar, o formulário não pode PISCAR no caminho.
+  it('SEM ficha: o formulário não chega a renderizar (sem flash)', () => {
+    useAuthStore.setState({
+      token: 'tok',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor@kura.vet',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+    });
+
+    const { queryByTestId } = wrap(<ConsultaScreen />);
+
+    // `btn-salvar` é o CTA do formulário. Se ele existe na árvore, o
+    // formulário renderizou — que é exatamente o quadro intermediário que a
+    // guarda elimina.
+    expect(queryByTestId('btn-salvar')).toBeNull();
+  });
+
+  // Controle positivo: COM ficha, nada disso acontece. Sem este caso, os dois
+  // acima seriam compatíveis com "a tela nunca renderiza" e com "a tela sempre
+  // redireciona".
+  it('CONTROLE — COM ficha: renderiza o formulário e NÃO redireciona', () => {
+    const { getByTestId } = wrap(<ConsultaScreen />);
+
+    expect(getByTestId('btn-salvar')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 });

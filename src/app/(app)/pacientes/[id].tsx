@@ -24,6 +24,7 @@ import { racaToPalette } from '@utils/mappers';
 import { calcularIdade, formatDateShort } from '@utils/date';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
+import { useAuthStore } from '@store/authStore';
 import type { TimelineEventResponse } from '../../../types/api';
 
 type TabKey = 'timeline' | 'vacinas' | 'docs';
@@ -245,6 +246,7 @@ export default function PacienteDetailScreen() {
   const styles = makeStyles(colors);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const usuario = useAuthStore((s) => s.usuario);
 
   const [activeTab, setActiveTab] = useState<TabKey>('timeline');
 
@@ -323,17 +325,31 @@ export default function PacienteDetailScreen() {
         </View>
       </View>
 
-      {/* Botões de ação */}
+      {/* Botões de ação. FM-01: "Consulta" e "Receituário" gravam
+          `idVeterinario: usuario.id` (consulta/[idPet].tsx,
+          receituario/[idPet].tsx) — sem ficha de veterinário (GESTOR sem
+          vínculo) essas telas não têm o que enviar. Recomendação do backlog
+          (§"as 2 telas que degradam em silêncio"): SOMEM da navegação, em
+          vez de ficarem visíveis e não fazerem nada ao toque — item
+          desabilitado sem explicação é a própria classe de defeito do E27.
+          "Teleorient." continua sempre visível: não depende de
+          `usuario.id` (só exibe o nome do vet no banner CFMV, já
+          condicional). Quem chegar direto em /consulta ou /receituario por
+          link (deep link, URL na web) sem ficha é redirecionado pela
+          própria tela — ver guarda em consulta/[idPet].tsx e
+          receituario/[idPet].tsx. */}
       <View style={styles.actionRow}>
-        <KCButton
-          variant="primary"
-          size="sm"
-          disabled={!pet}
-          onPress={() => router.push(ROUTES.app.consulta(pet.id))}
-          testID="btn-consulta"
-        >
-          Consulta
-        </KCButton>
+        {usuario && (
+          <KCButton
+            variant="primary"
+            size="sm"
+            disabled={!pet}
+            onPress={() => router.push(ROUTES.app.consulta(pet.id))}
+            testID="btn-consulta"
+          >
+            Consulta
+          </KCButton>
+        )}
         <KCButton
           variant="secondary"
           size="sm"
@@ -343,15 +359,17 @@ export default function PacienteDetailScreen() {
         >
           Teleorient.
         </KCButton>
-        <KCButton
-          variant="secondary"
-          size="sm"
-          disabled={!pet}
-          onPress={() => router.push(ROUTES.app.receituario(pet.id))}
-          testID="btn-rx"
-        >
-          Receituário
-        </KCButton>
+        {usuario && (
+          <KCButton
+            variant="secondary"
+            size="sm"
+            disabled={!pet}
+            onPress={() => router.push(ROUTES.app.receituario(pet.id))}
+            testID="btn-rx"
+          >
+            Receituário
+          </KCButton>
+        )}
       </View>
 
       {/* Tutores */}

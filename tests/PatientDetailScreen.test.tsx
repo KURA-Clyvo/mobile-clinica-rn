@@ -3,6 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import PatientDetailScreen from '../src/app/(app)/pacientes/[id]';
+import { useAuthStore } from '../src/store/authStore';
 import * as Clipboard from 'expo-clipboard';
 import type { PetResponse, TimelineEventResponse } from '../src/types/api';
 import { layout } from '../src/theme/tokens';
@@ -81,8 +82,42 @@ function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
 
+// FM-01 — a tela passou a depender do store de auth: "Consulta" e
+// "Receituário" gravam `idVeterinario: usuario.id`, então sem FICHA de
+// veterinário essas ações somem (recomendação do backlog: sumir, não
+// desabilitar sem explicação — item desabilitado mudo é a classe E27).
+// Antes desta task o teste não semeava sessão nenhuma e passava; hoje a
+// ausência de sessão é um estado com significado, e precisa ser dita.
+const MOCK_VET_LOGADO = {
+  id: 7,
+  nmVeterinario: 'Dra. Ana Souza',
+  nrCRMV: 'SP-99999',
+  dsEmail: 'ana@kuraclinica.com.br',
+};
+
+function logarComoVeterinario() {
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: MOCK_VET_LOGADO.dsEmail,
+    tpPerfil: 'VETERINARIO',
+    usuario: MOCK_VET_LOGADO,
+  });
+}
+
+function logarComoGestorSemFicha() {
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'gestor@kuraclinica.com.br',
+    tpPerfil: 'GESTOR',
+    usuario: null,
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  logarComoVeterinario();
   setViewport(400, 800);
   mockUseLocalSearchParams.mockReturnValue({ id: '1' });
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
@@ -108,6 +143,24 @@ describe('PatientDetailScreen', () => {
     // URL canônica sem o segmento de grupo `(app)` — CQ-03 (dev VsClaude,
     // KURA_BACKLOG_CLINICA_1). Trava de propósito, não afrouxar.
     expect(mockPush).toHaveBeenCalledWith('/consulta/1');
+  });
+
+  // 🔴 FM-01 — o par positivo/negativo. O teste acima prova que o veterinário
+  // VÊ a ação; sem este, "o botão existe" seria indistinguível de "o botão
+  // existe para todo mundo", e o esconder-para-gestor não estaria provado.
+  it('GESTOR sem ficha: ações clínicas somem, e o resto da tela continua de pé', () => {
+    logarComoGestorSemFicha();
+    const { queryByTestId, getByTestId } = wrap(<PatientDetailScreen />);
+
+    // Somem: as duas gravam `idVeterinario: usuario.id`, que não existe.
+    expect(queryByTestId('btn-consulta')).toBeNull();
+    expect(queryByTestId('btn-rx')).toBeNull();
+
+    // ⚠️ Continua: "Teleorient." NÃO depende de `usuario.id` — só exibe o
+    // nome do vet no banner CFMV, que já é condicional. Escondê-la também
+    // seria esconder mais do que o necessário, e a tela do paciente é
+    // legítima para um gestor consultar.
+    expect(getByTestId('btn-tele')).toBeTruthy();
   });
 
   it('calls Clipboard.setStringAsync on tutor phone tap', async () => {

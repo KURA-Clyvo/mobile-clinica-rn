@@ -455,6 +455,8 @@ describe('sítios de consumo — onFocus/onBlur e onMouseEnter/onMouseLeave apli
       useAuthStore.setState({
         token: 'tok',
         expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        email: 'f@k.com',
+        tpPerfil: 'VETERINARIO',
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       return wrap(

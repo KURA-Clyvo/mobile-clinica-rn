@@ -13,6 +13,7 @@ import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import { useWebInteractionState } from '@hooks/useWebInteractionState';
 import { getWebInteractionStyle } from '@theme/webInteraction';
+import { perfilLabel } from '@utils/perfilUsuario';
 
 // Nomes de tela do navigator do drawer (não são rotas/URL): chaves de
 // `ROUTES.app` cujo valor é uma string estática (exclui os helpers de rota
@@ -218,7 +219,7 @@ function NavDrawerItem({
 export function NavDrawer({ state }: DrawerContentComponentProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { usuario, clearSession } = useAuthStore();
+  const { usuario, email, tpPerfil, clearSession } = useAuthStore();
   const activeRouteName = state.routes[state.index]?.name;
   const logoutInteraction = useWebInteractionState();
 
@@ -261,13 +262,22 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
         })}
       </ScrollView>
 
-      {usuario && (
+      {/* FM-01: antes deste fix, este bloco inteiro (identidade E botão de
+          sair) só renderizava quando `usuario` (a ficha de veterinário)
+          existia — um GESTOR sem vínculo ficava sem nome em lugar NENHUM do
+          app, e sem jeito de sair pelo drawer. Gate trocado para `email`
+          (sempre presente pós-login, ver desenho do store) — a identidade
+          exibida degrada para e-mail + papel quando não há ficha, mas o
+          bloco continua existindo. */}
+      {email && (
         <SafeAreaView style={styles.footer} edges={['bottom']}>
           <View style={styles.userInfo}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {usuario.nmVeterinario}
+            <Text style={styles.userName} numberOfLines={1} testID="nav-drawer-user-primary">
+              {usuario ? usuario.nmVeterinario : email}
             </Text>
-            <Text style={styles.userCrmv}>{usuario.nrCRMV}</Text>
+            <Text style={styles.userCrmv} testID="nav-drawer-user-secondary">
+              {usuario ? usuario.nrCRMV : perfilLabel(tpPerfil)}
+            </Text>
           </View>
           <TouchableOpacity
             onPress={clearSession}
