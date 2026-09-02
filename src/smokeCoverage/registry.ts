@@ -111,4 +111,69 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   // teleconsulta.service.ts
   'teleconsulta.service.ts::criarOuObterSala': { coberto: 'teleconsulta/{id}/sala (POST criar)' },
   'teleconsulta.service.ts::obterSala': { coberto: 'teleconsulta/{id}/sala (GET obter)' },
+
+  // usuarios-clinica.service.ts / veterinarios.service.ts (FM-02) — as 8 entradas
+  // abaixo são `naoCoberto`, mesma classe da `atualizarStatusAgendamento` acima:
+  // `smoke-contratos.sh` (DevOps-Cloud) não tem check para NENHUMA delas hoje
+  // (endpoint novo deste ciclo) e estender aquele script é mudança em outro repo,
+  // fora do escopo desta task (que só toca mobile-clinica-rn). Marcar qualquer uma
+  // como `coberto: '<nome>'` sem o check existir de verdade seria exatamente a
+  // classe de defeito "documentação que garante o que o código não faz" que este
+  // projeto já reprovou 5x (CLAUDE.md) — por isso as 3 leituras simples (GET,
+  // idempotentes, sem side effect) recebem a MESMA categoria que as 5 de escrita,
+  // não uma categoria mais otimista.
+  'usuarios-clinica.service.ts::listUsuariosClinica': {
+    naoCoberto:
+      'GET /api/v1/usuarios-clinica — idempotente, sem side effect, candidato natural a ' +
+      'smoke-contratos.sh (mesmo perfil de pets/listar), mas o script real não tem check ' +
+      'para ele hoje. Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do ' +
+      'escopo desta task — candidato a follow-up, provavelmente no mesmo ciclo que ' +
+      'endereçar atualizarStatusAgendamento (FM-04) acima.',
+  },
+  'usuarios-clinica.service.ts::getUsuarioClinica': {
+    naoCoberto:
+      'GET /api/v1/usuarios-clinica/{id} — idempotente, sem side effect. Mesma razão de ' +
+      'listUsuariosClinica acima: sem check hoje, extensão de DevOps-Cloud fora do ' +
+      'escopo desta task.',
+  },
+  'usuarios-clinica.service.ts::criarUsuarioClinica': {
+    naoCoberto:
+      'POST /api/v1/usuarios-clinica — side-effecting (grava USUARIO_CLINICA no Oracle ' +
+      'real, com regra de negócio de e-mail único por clínica). Sem check hoje em ' +
+      'smoke-contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo desta task.',
+  },
+  'usuarios-clinica.service.ts::atualizarUsuarioClinica': {
+    naoCoberto:
+      'PUT /api/v1/usuarios-clinica/{id} — side-effecting, e a regra de negócio mais ' +
+      'sensível deste endpoint (nunca deixar a clínica sem nenhum GESTOR ativo, ver ' +
+      'tests/mock-contract-audit.test.ts) exigiria um smoke test com SETUP de dado ' +
+      'específico (2 gestores, rebaixar um) para ser útil — mais complexo que os checks ' +
+      'request/response simples que o script hoje contém. Sem check hoje; extensão fora ' +
+      'do escopo desta task.',
+  },
+  'usuarios-clinica.service.ts::desativarUsuarioClinica': {
+    naoCoberto:
+      'DELETE /api/v1/usuarios-clinica/{id} — side-effecting (soft delete real), mesma ' +
+      'regra de "não pode deixar a clínica sem gestor" do PUT acima. Sem check hoje; ' +
+      'extensão de DevOps-Cloud fora do escopo desta task.',
+  },
+  'usuarios-clinica.service.ts::reativarUsuarioClinica': {
+    naoCoberto:
+      'POST /api/v1/usuarios-clinica/{id}/reativacao — side-effecting, idempotente por ' +
+      'contrato (reativar já-ativo também dá 200) mas ainda assim sem check hoje em ' +
+      'smoke-contratos.sh — extensão fora do escopo desta task.',
+  },
+  'usuarios-clinica.service.ts::trocarSenhaUsuarioClinica': {
+    naoCoberto:
+      'PUT /api/v1/usuarios-clinica/{id}/senha — side-effecting (grava hash novo real) e ' +
+      'transporta segredo (dsSenha) no corpo — mesma cautela de enviarWhatsApp/dado ' +
+      'sensível acima quanto a incluir em um script versionado sem pensar no dado de ' +
+      'teste. Sem check hoje; extensão de DevOps-Cloud fora do escopo desta task.',
+  },
+  'veterinarios.service.ts::listVeterinarios': {
+    naoCoberto:
+      'GET /api/v1/veterinarios — idempotente, sem side effect, `[Authorize]` simples ' +
+      '(não SomenteGestor). Mesma razão de listUsuariosClinica: sem check hoje em ' +
+      'smoke-contratos.sh, extensão de DevOps-Cloud fora do escopo desta task.',
+  },
 };
