@@ -121,6 +121,29 @@ describe('UsuariosClinicaScreen — guarda de GESTOR', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(queryByTestId('usuarios-lista')).toBeTruthy();
   });
+
+  // G2 (fm-02-revisao.md, Important-1): o relatório da FM-02 alegava que ESTE
+  // describe já provava "um GESTOR sem ficha também vê a tela normalmente",
+  // citando este bloco — mas as 2 acima só cobrem VETERINARIO puro e GESTOR
+  // COM ficha (`seedGestor()` sempre popula `usuario`, nunca `null`). A prova
+  // real de "GESTOR sem ficha" que existia era só no hook, isolado
+  // (`useIsGestor.test.tsx`), nunca nesta tela. O comportamento estava
+  // correto (useRequireGestor nunca lê `usuario`) — só a alegação de
+  // cobertura estava errada. Este teste fecha a lacuna de verdade, em vez de
+  // só corrigir o texto do relatório.
+  it('um GESTOR SEM ficha (usuario: null) também vê a lista, sem redirecionar', () => {
+    useAuthStore.setState({
+      token: 'tok',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor.sem.ficha@kura.vet',
+      tpPerfil: 'GESTOR',
+      usuario: null,
+      _hasHydrated: true,
+    });
+    const { queryByTestId } = wrap(<UsuariosClinicaScreen />);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(queryByTestId('usuarios-lista')).toBeTruthy();
+  });
 });
 
 describe('UsuariosClinicaScreen — lista', () => {
