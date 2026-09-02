@@ -26,6 +26,16 @@ import { listPets, getPetById, getPetTimeline } from '../src/services/pets.servi
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
 import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens } from '../src/services/luna.service';
 import { criarOuObterSala, obterSala } from '../src/services/teleconsulta.service';
+import {
+  listUsuariosClinica,
+  criarUsuarioClinica,
+  atualizarUsuarioClinica,
+  desativarUsuarioClinica,
+  reativarUsuarioClinica,
+  trocarSenhaUsuarioClinica,
+} from '../src/services/usuarios-clinica.service';
+import { listVeterinarios } from '../src/services/veterinarios.service';
+import { __resetStoreParaTeste } from '../src/mocks/usuarios-clinica.mock';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
   const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
@@ -270,6 +280,135 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       const get = await obterSala(2);
       expect(post.dsSalaUrl).not.toBeNull();
       expect(get.dsSalaUrl).toBeNull();
+    });
+  });
+
+  // FM-02 — 7 rotas de UsuariosClinicaController + GET /veterinarios,
+  // cadeia real (service -> apiClient -> mock-adapter -> fixture), sem
+  // jest.mock de nenhum dos 3. `__resetStoreParaTeste()` porque, diferente
+  // do resto deste arquivo, várias `it()`s aqui MUTAM o mesmo store
+  // (criar/atualizar/desativar/reativar) e precisam de estado limpo a cada
+  // caso, não só entre arquivos de teste.
+  describe('usuarios-clinica.service / veterinarios.service (FM-02)', () => {
+    beforeEach(() => {
+      __resetStoreParaTeste();
+    });
+
+    it('listUsuariosClinica executa sem lançar e devolve o seed com o gestor de demonstração', async () => {
+      const lista = await listUsuariosClinica();
+      expect(Array.isArray(lista)).toBe(true);
+      expect(lista.length).toBeGreaterThan(0);
+      expect(lista.some((u) => u.tpPerfil === 'GESTOR' && u.stAtiva)).toBe(true);
+    });
+
+    it('listVeterinarios executa sem lançar e devolve fichas reais', async () => {
+      const vets = await listVeterinarios();
+      expect(Array.isArray(vets)).toBe(true);
+      expect(vets.length).toBeGreaterThan(0);
+      expect(typeof vets[0]!.nmVeterinario).toBe('string');
+    });
+
+    it('criarUsuarioClinica (VETERINARIO sem idVeterinario) devolve o registro CRIADO, não um eco do corpo enviado', async () => {
+      // Se o mock devolvesse só o corpo de entrada (sem id/idClinica/stAtiva/
+      // dtCriacao — os campos que só o BACKEND preenche), este teste
+      // distingue isso de um handler que realmente monta o DTO de resposta.
+      const criado = await criarUsuarioClinica({
+        dsEmail: 'contrato.vet@kura.vet',
+        dsSenha: 'senha123',
+        tpPerfil: 'VETERINARIO',
+      });
+      expect(typeof criado.id).toBe('number');
+      expect(criado.idClinica).toBe(1);
+      expect(criado.idVeterinario).toBeNull();
+      expect(criado.stAtiva).toBe(true);
+      expect(typeof criado.dtCriacao).toBe('string');
+      expect(criado.dtAtualizacao).toBeNull();
+      // NUNCA ecoa senha/hash — nem no corpo de entrada existiria campo pra
+      // isso vazar, mas confirma que ninguém adicionou um por engano.
+      expect('dsSenha' in criado).toBe(false);
+    });
+
+    it('criarUsuarioClinica com e-mail já em uso por outro ativo rejeita 422 EMAIL_EM_USO', async () => {
+      await expect(
+        criarUsuarioClinica({
+          // Mesmo e-mail do seed (ver usuarios-clinica.mock.ts::buildUsuarios).
+          dsEmail: 'felipe.ferrete@kura.vet',
+          dsSenha: 'senha123',
+          tpPerfil: 'VETERINARIO',
+        }),
+      ).rejects.toMatchObject({ status: 422, code: 'EMAIL_EM_USO' });
+    });
+
+    it('atualizarUsuarioClinica que rebaixaria o ÚLTIMO gestor ativo rejeita 422 SEM_GESTOR_ATIVO', async () => {
+      // O seed tem exatamente 1 GESTOR ativo (id 1) — rebaixá-lo pra
+      // VETERINARIO tem que reproduzir a MESMA regra que o .NET aplica
+      // (UsuariosClinicaService), replicada no mock (ver
+      // usuarios-clinica.mock.ts::ficariaSemGestorAtivo). Esta é a mordida
+      // que a mensagem do errors.ts fix precisa sobreviver intacta — ver
+      // tests/errors.test.ts para a mordida do lado do parser de erro.
+      await expect(
+        atualizarUsuarioClinica(1, {
+          dsEmail: 'felipe.ferrete@kura.vet',
+          tpPerfil: 'VETERINARIO',
+          idVeterinario: 1,
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        code: 'SEM_GESTOR_ATIVO',
+        message: 'A clínica ficaria sem nenhum gestor ativo.',
+      });
+    });
+
+    it('atualizarUsuarioClinica sem rebaixar o último gestor executa normalmente', async () => {
+      const atualizado = await atualizarUsuarioClinica(2, {
+        dsEmail: 'camila.rocha@kura.vet',
+        tpPerfil: 'GESTOR', // promove o 2º usuário -- agora há 2 gestores ativos
+        idVeterinario: 2,
+      });
+      expect(atualizado.tpPerfil).toBe('GESTOR');
+    });
+
+    it('desativarUsuarioClinica (soft delete) que deixaria a clínica sem gestor rejeita 422', async () => {
+      await expect(desativarUsuarioClinica(1)).rejects.toMatchObject({
+        status: 422,
+        code: 'SEM_GESTOR_ATIVO',
+      });
+    });
+
+    it('desativarUsuarioClinica de um NÃO-gestor executa (204, sem corpo) e o soft delete persiste no GET seguinte', async () => {
+      const antes = await desativarUsuarioClinica(2);
+      expect(antes).toBeUndefined();
+
+      // Persistência real (lição da TASK-71/FM-04: mock stateless "reverte
+      // na tela") -- lendo de novo tem que refletir a escrita anterior.
+      const lista = await listUsuariosClinica();
+      const usuario2 = lista.find((u) => u.id === 2);
+      expect(usuario2?.stAtiva).toBe(false);
+    });
+
+    it('reativarUsuarioClinica é idempotente: reativar um usuário JÁ ativo também devolve 200 (sem erro)', async () => {
+      const res = await reativarUsuarioClinica(1); // id 1 já nasce ativo no seed
+      expect(res.stAtiva).toBe(true);
+    });
+
+    it('reativarUsuarioClinica de um usuário desativado reativa de verdade e persiste', async () => {
+      await desativarUsuarioClinica(2);
+      const reativado = await reativarUsuarioClinica(2);
+      expect(reativado.stAtiva).toBe(true);
+
+      const lista = await listUsuariosClinica();
+      expect(lista.find((u) => u.id === 2)?.stAtiva).toBe(true);
+    });
+
+    it('trocarSenhaUsuarioClinica executa sem lançar e não devolve corpo (204)', async () => {
+      const res = await trocarSenhaUsuarioClinica(1, { dsSenha: 'novaSenha123' });
+      expect(res).toBeUndefined();
+    });
+
+    it('trocarSenhaUsuarioClinica com id inexistente rejeita 404', async () => {
+      await expect(trocarSenhaUsuarioClinica(999, { dsSenha: 'novaSenha123' })).rejects.toMatchObject({
+        status: 404,
+      });
     });
   });
 });
