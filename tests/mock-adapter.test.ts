@@ -1,9 +1,22 @@
 import { resolveMock, EMPTY_LIST_TRANSFORMS } from '../src/services/api/mock-adapter';
 import { __resetStoreParaTeste } from '../src/mocks/agenda.mock';
+import { __resetStoreParaTeste as __resetServicosPrecoParaTeste } from '../src/mocks/servicos-preco.mock';
 import type { InternalAxiosRequestConfig } from 'axios';
+import type { ServicoPrecoResponse } from '../src/types/api';
 
 function makeConfig(url: string, method = 'GET', data?: unknown): InternalAxiosRequestConfig {
   return { url, method, headers: {}, data: data !== undefined ? JSON.stringify(data) : undefined } as InternalAxiosRequestConfig;
+}
+
+// FM-05 — mesma forma de config que o axios de verdade produz para uma
+// chamada com `params`: NUNCA concatenados em `config.url` (ver brief
+// §3.2/mock-adapter.ts, cabeçalho de EMPTY_LIST_TRANSFORMS).
+function makeConfigComParams(
+  url: string,
+  method: string,
+  params: Record<string, unknown>,
+): InternalAxiosRequestConfig {
+  return { url, method, headers: {}, params } as InternalAxiosRequestConfig;
 }
 
 // FM-04: o mock de agenda passou a ser stateful (agenda.mock.ts::_store) —
@@ -11,6 +24,7 @@ function makeConfig(url: string, method = 'GET', data?: unknown): InternalAxiosR
 // registro de módulos do Jest é por ARQUIVO, não por `it()`).
 beforeEach(() => {
   __resetStoreParaTeste();
+  __resetServicosPrecoParaTeste();
 });
 
 describe('mock-adapter', () => {
@@ -355,4 +369,63 @@ describe('mock-adapter — EMPTY_LIST_TRANSFORMS preserva a FORMA da resposta no
       }
     },
   );
+});
+
+// FM-05 (brief §3.2/§3.3) — a armadilha central deste ciclo: as entradas de
+// ROUTES são regex ANCORADAS EM `$`, e `params` NUNCA aparece em
+// `config.url` na cadeia real (apiClient -> interceptor de mock ->
+// resolveMock). Se alguém concatenasse `?incluirInativos=true` na URL, o
+// `$` pararia de casar e o mock NUNCA dispararia — silenciosamente, em modo
+// mock, que é o caminho da demo. Este bloco prova as duas formas de
+// chamada (com e sem o flag) E a ordem de despacho entre as 3 rotas de
+// ServicosPrecoController que compartilham prefixo de URL.
+describe('mock-adapter — servicos-preco (FM-05)', () => {
+  it('GET /servicos-preco SEM params (equivalente a incluirInativos=false) devolve só os ATIVOS', async () => {
+    const res = await resolveMock(makeConfig('/servicos-preco'));
+    const lista = res.data as ServicoPrecoResponse[];
+    expect(lista.every((s) => s.stAtiva)).toBe(true);
+    // Controle positivo do próprio seed: se ISTO falhasse, o teste acima
+    // seria indistinguível de "a store não tem inativo nenhum".
+    expect(lista.length).toBeGreaterThan(0);
+  });
+
+  it('GET /servicos-preco COM params incluirInativos:true traz também o inativo do seed', async () => {
+    const res = await resolveMock(makeConfigComParams('/servicos-preco', 'GET', { incluirInativos: true }));
+    const lista = res.data as ServicoPrecoResponse[];
+    expect(lista.some((s) => !s.stAtiva)).toBe(true);
+  });
+
+  it('a lista vem ORDENADA por nmServico (ServicoPrecoRepository.cs:29, .OrderBy)', async () => {
+    const res = await resolveMock(makeConfigComParams('/servicos-preco', 'GET', { incluirInativos: true }));
+    const nomes = (res.data as ServicoPrecoResponse[]).map((s) => s.nmServico);
+    expect(nomes).toEqual([...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')));
+  });
+
+  it('POST /servicos-preco/{id}/reativacao NÃO é engolido pela rota genérica /servicos-preco/{id} (ordem em ROUTES)', async () => {
+    // Desativa o id 3 do seed e reativa por essa rota específica -- se a
+    // ordem de ROUTES estivesse errada (genérica antes da específica), esta
+    // chamada bateria em `byId` (que não tem verbo POST tratado como
+    // reativação) em vez de `reativacao`.
+    const reativado = await resolveMock(makeConfig('/servicos-preco/3/reativacao', 'POST'));
+    expect((reativado.data as ServicoPrecoResponse).stAtiva).toBe(true);
+  });
+
+  it('POST /servicos-preco (criar) não é afetado por EXPO_PUBLIC_MOCK_EMPTY (§5.4: sem entrada em EMPTY_LIST_TRANSFORMS)', async () => {
+    const original = process.env.EXPO_PUBLIC_MOCK_EMPTY;
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    try {
+      const res = await resolveMock(
+        makeConfig('/servicos-preco', 'POST', { nmServico: 'Exame de sangue', vlPreco: 80 }),
+      );
+      const criado = res.data as ServicoPrecoResponse;
+      // Se houvesse uma entrada para `/servicos-preco$/` em
+      // EMPTY_LIST_TRANSFORMS (decisão que este ciclo REJEITOU, ver
+      // mock-adapter.ts), esta resposta viraria `[]` -- a mordida que prova
+      // por que a rejeição é a decisão certa.
+      expect(Array.isArray(criado)).toBe(false);
+      expect(criado.nmServico).toBe('Exame de sangue');
+    } finally {
+      process.env.EXPO_PUBLIC_MOCK_EMPTY = original;
+    }
+  });
 });
