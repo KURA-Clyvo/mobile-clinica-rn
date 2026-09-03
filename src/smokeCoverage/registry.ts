@@ -232,4 +232,17 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'smoke-contratos.sh` -> 0 linhas). Estender smoke-contratos.sh é mudança em ' +
       'DevOps-Cloud, fora do escopo desta task (que só toca mobile-clinica-rn).',
   },
+
+  // financeiro.service.ts (FM-07, ciclo FIN)
+  'financeiro.service.ts::getResumoFinanceiro': {
+    naoCoberto:
+      'GET /api/v1/financeiro/resumo — idempotente, sem side effect (é só LEITURA agregada ' +
+      'sobre COBRANCA), mas exige um GESTOR autenticado (SomenteGestor no controller) e um ' +
+      'par de/ate válido — o script hoje só sabe autenticar (chamar/chamar_apikey), não ' +
+      'compor query string. grep confirmado (`grep -n "financeiro" scripts/smoke-contratos.sh` ' +
+      '-> 0 linhas, DevOps-Cloud @ verificado nesta task com o repo irmão clonado ao lado). ' +
+      'Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que ' +
+      'só toca mobile-clinica-rn) — mesma classe de decisão de agenda.service.ts:: ' +
+      'atualizarStatusAgendamento e cobrancas.service.ts::lancarCobranca acima.',
+  },
 };

@@ -46,6 +46,7 @@ import {
 } from '../src/services/servicos-preco.service';
 import { __resetStoreParaTeste as __resetServicosPrecoParaTeste } from '../src/mocks/servicos-preco.mock';
 import { lancarCobranca } from '../src/services/cobrancas.service';
+import { getResumoFinanceiro } from '../src/services/financeiro.service';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
   const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
@@ -796,6 +797,48 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       const cobranca = await lancarCobranca(508, {});
       expect(cobranca.vlCobrado).toBe(0);
       expect(cobranca.idServicoPreco).toBeNull();
+    });
+  });
+
+  // financeiro.service (FM-07) -- cadeia REAL service -> apiClient -> mock-adapter ->
+  // financeiro.mock.ts, mesma disciplina do resto deste arquivo (par service×mock novo entra
+  // aqui, SEM jest.mock, ver cabeçalho do arquivo).
+  describe('financeiro.service (FM-07)', () => {
+    it('getResumoFinanceiro executa sem lançar e ecoa o período pedido', async () => {
+      const res = await getResumoFinanceiro('2026-09-01', '2026-09-30');
+      expect(res.periodo.de).toBe('2026-09-01');
+      expect(res.periodo.ate).toBe('2026-09-30');
+      expect(res.periodo.inicioUtc).toBe('2026-09-01T00:00:00.000Z');
+      // +1 dia, EXCLUSIVO -- mesma aritmética de FinanceiroService.cs:286-294 (PeriodoResumo.
+      // Criar), replicada em financeiro.mock.ts::resolverPeriodo.
+      expect(res.periodo.fimExclusivoUtc).toBe('2026-10-01T00:00:00.000Z');
+    });
+
+    it('getResumoFinanceiro devolve o período ANTERIOR com a MESMA duração, imediatamente antes, sem sobrepor (PeriodoResumo.Anterior)', async () => {
+      // 30 dias (01 a 30 de setembro, inclusive) -- o anterior tem que ser os 30 dias
+      // imediatamente antes: 02/08 a 31/08.
+      const res = await getResumoFinanceiro('2026-09-01', '2026-09-30');
+      expect(res.periodoAnterior.de).toBe('2026-08-02');
+      expect(res.periodoAnterior.ate).toBe('2026-08-31');
+      // Contíguo: fimExclusivoUtc do anterior == inicioUtc do período pedido.
+      expect(res.periodoAnterior.fimExclusivoUtc).toBe(res.periodo.inicioUtc);
+    });
+
+    it('getResumoFinanceiro reconcilia: soma do mix == receitaBruta, soma de nrCobrancas do mix == nrCobrancas', async () => {
+      const res = await getResumoFinanceiro('2026-09-01', '2026-09-30');
+      const somaReceita = res.mixPorServico.reduce((acc, b) => acc + b.receita, 0);
+      const somaCobrancas = res.mixPorServico.reduce((acc, b) => acc + b.nrCobrancas, 0);
+      // Ponto flutuante: soma exata esperada é 4820.5 -- toBeCloseTo evita falso negativo por
+      // erro de arredondamento binário, sem mascarar uma divergência estrutural real.
+      expect(somaReceita).toBeCloseTo(res.receitaBruta, 2);
+      expect(somaCobrancas).toBe(res.nrCobrancas);
+    });
+
+    it('getResumoFinanceiro: de === ate (relatório de um dia) é aceito, não lança', async () => {
+      const res = await getResumoFinanceiro('2026-09-15', '2026-09-15');
+      expect(res.periodo.de).toBe('2026-09-15');
+      expect(res.periodo.ate).toBe('2026-09-15');
+      expect(res.periodo.fimExclusivoUtc).toBe('2026-09-16T00:00:00.000Z');
     });
   });
 });
