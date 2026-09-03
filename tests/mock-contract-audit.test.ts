@@ -45,6 +45,7 @@ import {
   desativarServicoPreco,
 } from '../src/services/servicos-preco.service';
 import { __resetStoreParaTeste as __resetServicosPrecoParaTeste } from '../src/mocks/servicos-preco.mock';
+import { lancarCobranca } from '../src/services/cobrancas.service';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
   const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
@@ -632,6 +633,119 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
 
     it('reativarServicoPreco com id inexistente rejeita 404', async () => {
       await expect(reativarServicoPreco(999)).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  // cobrancas.mock.ts replica invariantes de CobrancaService.cs (backend-clinica-dotnet
+  // @ 94f558d) contra a MESMA store de servicos-preco.mock.ts (cross-mock reference nova
+  // desta task, ver ancoragem em cobrancas.mock.ts).
+  describe('cobrancas.service (FM-06)', () => {
+    beforeEach(() => {
+      __resetServicosPrecoParaTeste();
+    });
+
+    it('lancarCobranca com idServicoPreco COPIA o preço de tabela para vlCobrado (ResolverValor, CobrancaService.cs:177-183)', async () => {
+      const [servico] = await listServicosPreco();
+      const cobranca = await lancarCobranca(500, { idServicoPreco: servico!.id });
+      expect(cobranca.vlCobrado).toBe(servico!.vlPreco);
+      expect(cobranca.idServicoPreco).toBe(servico!.id);
+      expect(cobranca.idEventoClinico).toBe(500);
+      expect(cobranca.stAtiva).toBe(true);
+      expect(typeof cobranca.id).toBe('number');
+      expect(typeof cobranca.dtCriacao).toBe('string');
+    });
+
+    // Mordida do invariante central da task (D-2): vlCobrado GANHA do preço
+    // de tabela quando os dois vêm -- desconto de balcão é lançamento
+    // legítimo. Sem este teste, um mock que sempre copiasse o preço (ou
+    // sempre usasse o valor informado, ignorando o serviço) passaria as
+    // outras asserções e este seria o único a discriminar os dois.
+    it('lancarCobranca com idServicoPreco E vlCobrado -- vlCobrado GANHA (override, D-2)', async () => {
+      const [servico] = await listServicosPreco();
+      const precoDeTabela = servico!.vlPreco;
+      const valorComDesconto = precoDeTabela - 10;
+      const cobranca = await lancarCobranca(501, {
+        idServicoPreco: servico!.id,
+        vlCobrado: valorComDesconto,
+      });
+      expect(cobranca.vlCobrado).toBe(valorComDesconto);
+      expect(cobranca.vlCobrado).not.toBe(precoDeTabela);
+      // A origem (idServicoPreco) continua gravada -- é rastreabilidade,
+      // não fonte de valor em leitura (comentário do DTO real).
+      expect(cobranca.idServicoPreco).toBe(servico!.id);
+    });
+
+    it('lancarCobranca só com vlCobrado (valor avulso, sem serviço) grava idServicoPreco null', async () => {
+      const cobranca = await lancarCobranca(502, { vlCobrado: 37.5 });
+      expect(cobranca.vlCobrado).toBe(37.5);
+      expect(cobranca.idServicoPreco).toBeNull();
+    });
+
+    it('lancarCobranca com idServicoPreco inexistente rejeita 422 SERVICO_INDISPONIVEL', async () => {
+      await expect(lancarCobranca(503, { idServicoPreco: 999 })).rejects.toMatchObject({
+        status: 422,
+        code: 'SERVICO_INDISPONIVEL',
+      });
+    });
+
+    // Mordida da race declarada no brief §3.5: o gestor pode desativar um
+    // serviço ENQUANTO a tela do veterinário está aberta. Prova que
+    // cobrancas.mock.ts lê a MESMA store que servicos-preco.mock.ts edita
+    // (cross-mock reference, buscarPorId) -- sem essa referência
+    // compartilhada, este teste teria que instanciar um serviço já-inativo
+    // "de fábrica" e nunca provaria a race de verdade.
+    it('lancarCobranca com serviço DESATIVADO (pelo gestor, na mesma sessão) rejeita 422 SERVICO_DESATIVADO', async () => {
+      const [servico] = await listServicosPreco();
+      await desativarServicoPreco(servico!.id);
+
+      await expect(
+        lancarCobranca(504, { idServicoPreco: servico!.id }),
+      ).rejects.toMatchObject({ status: 422, code: 'SERVICO_DESATIVADO' });
+
+      // Controle positivo: o MESMO serviço, antes de ser desativado,
+      // lança sem erro -- senão o caso acima seria indistinguível de
+      // "lançar rejeita sempre".
+      const [outroAtivo] = (await listServicosPreco()).filter((s) => s.id !== servico!.id);
+      await expect(
+        lancarCobranca(505, { idServicoPreco: outroAtivo!.id }),
+      ).resolves.toMatchObject({ idServicoPreco: outroAtivo!.id });
+    });
+
+    it('lancarCobranca apara (Trim) e normaliza dsFormaPagamento vazio/espaço para null (NormalizarFormaPagamento, CobrancaService.cs:213-219)', async () => {
+      const comEspaco = await lancarCobranca(506, { vlCobrado: 10, dsFormaPagamento: '   ' });
+      expect(comEspaco.dsFormaPagamento).toBeNull();
+
+      const comTexto = await lancarCobranca(507, {
+        vlCobrado: 10,
+        dsFormaPagamento: '  Pix  ',
+      });
+      expect(comTexto.dsFormaPagamento).toBe('Pix');
+    });
+
+    // ⚠️ SÓ testa idEventoClinico=0, não valor negativo: a entrada de
+    // mock-adapter.ts (`/\/eventos-clinicos\/\d+\/cobrancas$/`) usa `\d+`,
+    // que não casa string com sinal -- um `-1` nunca alcança
+    // cobrancas.mock.ts::lancar, o resolveMock() lança "No mock for POST
+    // ..." ANTES (medido: era exatamente essa a falha ao tentar este caso,
+    // não um 404 com status diferente). Mesma limitação estrutural de TODA
+    // entrada `\d+` deste arquivo (ex.: `/pets/\d+$/`) -- não é lacuna
+    // desta task, é o dispatch por regex do mock-adapter inteiro. `0` é o
+    // maior caso inválido que a regex ainda deixa passar até a função.
+    it('lancarCobranca com idEventoClinico=0 (rota malformada que a regex do mock-adapter ainda deixa passar) rejeita 404', async () => {
+      await expect(lancarCobranca(0, { vlCobrado: 10 })).rejects.toMatchObject({ status: 404 });
+    });
+
+    // 🔴 Divergência DECLARADA (ver "O QUE ESTE MOCK NÃO REPLICA" na
+    // ancoragem de cobrancas.mock.ts): o backend real recusaria isto com
+    // 400 MensagemSemOrigemDeValor (nem vlCobrado nem idServicoPreco). Este
+    // mock não replica as regras de 400 -- LancarCobrancaCard.tsx (zod)
+    // impede esse corpo de sair da UI. Registrado como teste, não como
+    // comentário solto, para que a divergência não aumente em silêncio se
+    // alguém "corrigir" o mock sem atualizar este teste.
+    it('lancarCobranca sem vlCobrado e sem idServicoPreco tem SUCESSO aqui (vlCobrado=0) -- backend real devolveria 400', async () => {
+      const cobranca = await lancarCobranca(508, {});
+      expect(cobranca.vlCobrado).toBe(0);
+      expect(cobranca.idServicoPreco).toBeNull();
     });
   });
 });
