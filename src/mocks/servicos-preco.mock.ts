@@ -71,6 +71,22 @@ export function __resetStoreParaTeste(): void {
   _store = null;
 }
 
+// FM-06 -- primeira REFERÊNCIA CRUZADA entre mocks deste repo (nenhum
+// precedente em src/mocks/*.mock.ts até esta task, ver comentário de
+// ancoragem em cobrancas.mock.ts). cobrancas.mock.ts precisa resolver
+// `idServicoPreco` contra o MESMO catálogo que a tela do gestor edita --
+// sem isto, desativar um serviço em servicos-preco/index.tsx não teria
+// efeito nenhum sobre um lançamento de cobrança em curso na tela do
+// veterinário, e o 422 SERVICO_DESATIVADO (brief §3.5, a race deliberada
+// "gestor desativa enquanto a tela do vet está aberta") ficaria
+// IRREPRODUZÍVEL em modo mock. Devolve o objeto da STORE (mesma referência
+// mutável) de propósito -- não uma cópia -- para que o 3º direção de
+// divergência da FM-05 (mock devolvendo estado que o backend nunca
+// produziria) não se repita aqui por um clone desatualizado.
+export function buscarPorId(id: number): ServicoPrecoResponse | undefined {
+  return getStore().find((s) => s.id === id);
+}
+
 // Mesma armadilha documentada em agenda.mock.ts::atualizarStatus /
 // usuarios-clinica.mock.ts::parseBody: `config.data` chega como objeto já
 // (não string JSON) pela cadeia real, mas aceita os dois formatos por
