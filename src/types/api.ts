@@ -297,6 +297,43 @@ export interface ServicoPrecoUpdateRequest {
   vlPreco: number;
 }
 
+// ─── Cobrança (FM-06, ciclo FIN) ──────────────────────────────────
+// Espelha CobrancaCreateDto/CobrancaResponseDto (backend-clinica-dotnet @
+// 94f558d, CobrancasController) 1:1, mesmo padrão de ServicoPrecoResponse
+// acima: sem tradução de shape, já camelCase.
+//
+// 🔴 NÃO existe IdEventoClinico nem IdClinica no corpo de CRIAÇÃO -- o
+// evento vem da ROTA (POST /api/v1/eventos-clinicos/{id}/cobrancas) e a
+// clínica do JWT, dentro de CobrancaService -- mesmo padrão da FD-09/FM-02.
+// TODOS os 4 campos são opcionais; a única regra de combinação (pelo menos
+// um entre vlCobrado/idServicoPreco) é do backend (CobrancaCreateValidator,
+// 400) e replicada só no CLIENTE (LancarCobrancaCard.tsx, zod) -- ver
+// cobrancas.mock.ts para a decisão de NÃO replicar as regras de 400 no mock.
+export interface CobrancaCreateRequest {
+  idServicoPreco?: number | null;
+  vlCobrado?: number | null;
+  dsFormaPagamento?: string | null;
+  dtCobranca?: string | null;
+}
+
+// 🔴 `vlCobrado` é `decimal` no C# -> chega como `number` puro em JSON.
+// Seguro para EXIBIR (ver src/utils/moeda.ts); NÃO seguro para somar/
+// recalcular no cliente. Esta task só EXIBE o resultado do próprio POST --
+// nunca soma nada (agregação é a FD-11/FM-08) e nunca relista (os 2 GET de
+// CobrancasController são `SomenteGestor` -- ver cobrancas.service.ts).
+export interface CobrancaResponse {
+  id: number;
+  idEventoClinico: number;
+  idClinica: number;
+  idServicoPreco: number | null;
+  vlCobrado: number;
+  dsFormaPagamento: string | null;
+  dtCobranca: string;
+  stAtiva: boolean;
+  dtCriacao: string;
+  dtAtualizacao: string | null;
+}
+
 // ─── Luna (.NET — relatório agregado) ────────────────────────
 export interface TriagensRelatorioQuery {
   dataInicio: string;
