@@ -13,11 +13,23 @@ jest.mock('@hooks/useDashboard', () => ({
   useRecentes: jest.fn(),
 }));
 
+// FM-07 — mockado aqui pela MESMA razão dos 3 hooks acima: este arquivo testa o COMPONENTE
+// (renderização condicional dado um resultado de hook), não a integração hook->rede->mock,
+// que é o que tests/fm07-veterinario-sem-chamada-financeiro.test.tsx prova com a cadeia REAL
+// (sem mock deste módulo). Sem este jest.mock, useResumoFinanceiro chamaria useQuery sem
+// QueryClientProvider (este arquivo não envolve a árvore num, ver `wrap()`) e QUEBRARIA os
+// 39 testes pré-existentes que nunca ouviram falar de financeiro.
+jest.mock('@hooks/useFinanceiro', () => ({
+  useResumoFinanceiro: jest.fn(),
+}));
+
 import { useDashboardHoje, useAlertas, useRecentes } from '../src/hooks/useDashboard';
+import { useResumoFinanceiro } from '../src/hooks/useFinanceiro';
 
 const mockUseDashboardHoje = useDashboardHoje as jest.Mock;
 const mockUseAlertas = useAlertas as jest.Mock;
 const mockUseRecentes = useRecentes as jest.Mock;
+const mockUseResumoFinanceiro = useResumoFinanceiro as jest.Mock;
 
 // useWindowDimensions é o que useBreakpoint() consome (nunca Dimensions.get(),
 // que não re-renderiza em resize de janela na web). Mesmo padrão de
@@ -95,6 +107,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   REFETCH.mockResolvedValue(undefined);
   setViewport(400, 800);
+  // FM-07 — default para os 39 testes pré-existentes, que nunca ouviram falar de financeiro
+  // e o `tpPerfil: 'VETERINARIO'` do beforeEach acima já garante que o card nem renderiza
+  // (isGestor && ...) — o valor aqui só existe para a destructuring de useResumoFinanceiro()
+  // não quebrar. Describes que testam o card financeiro de verdade (GESTOR) sobrescrevem via
+  // mockUseResumoFinanceiro.mockReturnValue(...) no próprio teste.
+  mockUseResumoFinanceiro.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: REFETCH,
+    isGestor: false,
+  });
 });
 
 describe('DashboardScreen — loading state', () => {
