@@ -8,6 +8,7 @@ import * as lunaMock from '../../mocks/luna.mock';
 import * as teleconsultaMock from '../../mocks/teleconsulta.mock';
 import * as veterinariosMock from '../../mocks/veterinarios.mock';
 import * as usuariosClinicaMock from '../../mocks/usuarios-clinica.mock';
+import * as servicosPrecoMock from '../../mocks/servicos-preco.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
@@ -42,14 +43,50 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/veterinarios$/, veterinariosMock.veterinarios],
   // FM-02 — 4 rotas de UsuariosClinicaController batem só 2 formas de URL,
   // despachadas por config.method dentro de UM handler cada (mesmo padrão de
-  // teleconsultaMock.sala, citado acima). ORDEM IMPORTA: as duas rotas mais
-  // específicas (/senha, /reativacao) têm que vir ANTES de
-  // /usuarios-clinica/\d+$/, senão a genérica casaria primeiro e nunca
-  // deixaria as específicas serem alcançadas.
+  // teleconsultaMock.sala, citado acima).
+  //
+  // 🔴 CORRIGIDO na fix wave da FM-05 (G2, achado A-1). Este comentário dizia
+  // "ORDEM IMPORTA: as duas rotas mais específicas (/senha, /reativacao) têm
+  // que vir ANTES de /usuarios-clinica/\d+$/, senão a genérica casaria
+  // primeiro". **Isso é FALSO, e foi provado falso por mutação**: invertida a
+  // ordem exata que a frase dizia que quebraria tudo (byId promovido para
+  // antes de /senha e /reativacao), a suíte INTEIRA fica verde — 933/933,
+  // EXIT=0, medido em 2026-09-03 pelo maestro e, de forma independente, pela
+  // revisão G2. A razão é estrutural: as 4 regex são MUTUAMENTE EXCLUSIVAS
+  // por construção — todas ancoradas em `$`, e `\/\d+$/` exige a string
+  // TERMINAR EM DÍGITO, enquanto `/senha$` e `/reativacao$` terminam em letra.
+  //
+  // A varredura exaustiva da G2 confirmou que isso vale para o ROUTES inteiro:
+  // 28 entradas × 52 URLs derivadas do código por AST (nunca escritas à mão —
+  // regra de ouro v7) ⇒ 378 pares, ZERO colisões, e ZERO entradas sem `$`.
+  // Ambos os corpora com controle positivo disparando, porque um `0` só é
+  // interpretável se o instrumento provar que enxergaria um `1`.
+  //
+  // ⚠️ A ordem é mantida assim mesmo, por LEGIBILIDADE (específica antes de
+  // genérica é mais fácil de auditar visualmente) — não por obrigação
+  // funcional. E ela VOLTA a importar no dia em que alguém acrescentar uma
+  // entrada SEM `$`, ou cuja regex seja prefixo de outra: é essa a condição a
+  // vigiar, não a ordem em si.
+  //
+  // 🔴 Por que valeu corrigir uma frase que não causava bug: "documentação que
+  // garante o que o código não faz" é um padrão que já REPROVOU task neste
+  // projeto (lição do FIX_6), e esta frase estava no arquivo mais auditado do
+  // app — todo mock novo copia este bloco. Ela já tinha se propagado para o
+  // brief da FM-05 como se fosse fato medido.
   [/\/usuarios-clinica\/\d+\/senha$/, usuariosClinicaMock.senha],
   [/\/usuarios-clinica\/\d+\/reativacao$/, usuariosClinicaMock.reativacao],
   [/\/usuarios-clinica\/\d+$/, usuariosClinicaMock.byId], // GET | PUT | DELETE
   [/\/usuarios-clinica$/, usuariosClinicaMock.colecao], // GET | POST
+  // FM-05 — 6 rotas de ServicosPrecoController batem só 2 formas de URL,
+  // mesmo padrão de FM-02 acima. Mantido na mesma ORDEM (específica antes de
+  // genérica) por LEGIBILIDADE, não por obrigação funcional — as 3 regex
+  // abaixo são mutuamente exclusivas pela mesma razão estrutural explicada no
+  // bloco da FM-02 (âncora `$` + `\/\d+$/` exigir término em dígito).
+  // Provado por mutação nesta task e reconfirmado pela G2. Ver
+  // tests/mock-adapter.test.ts, describe "servicos-preco (FM-05)".
+  [/\/servicos-preco\/\d+\/reativacao$/, servicosPrecoMock.reativacao],
+  [/\/servicos-preco\/\d+$/, servicosPrecoMock.byId], // GET | PUT | DELETE
+  [/\/servicos-preco$/, servicosPrecoMock.colecao], // GET | POST
 ];
 
 const MOCK_LATENCY_MS = 300;
@@ -91,6 +128,18 @@ export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
       totalPages: 0,
     }),
   ],
+  // FM-05 (brief §5.4) — DECISÃO DELIBERADA: NÃO existe entrada aqui para
+  // `/usuarios-clinica$/` nem para `/servicos-preco$/`, e as duas pela
+  // MESMA razão. `applyMockEmptyOverride` casa por URL, CEGO A MÉTODO — a
+  // mesma URL serve GET (lista) e POST (criar) para os dois recursos.
+  // Adicionar uma entrada esvaziaria também a resposta de CRIAÇÃO sob
+  // `EXPO_PUBLIC_MOCK_EMPTY=true` (o objeto recém-criado viraria `[]`),
+  // quebrando "+ Novo" sob a flag — sem nenhum aviso, porque
+  // `applyMockEmptyOverride` não sabe que o handler despachou por POST.
+  // Replicar o padrão de `/agenda`/`/medicamentos` aqui reintroduziria essa
+  // classe de defeito por engano. Se um dia isto precisar de um estado
+  // vazio demonstrável, a correção é `applyMockEmptyOverride` também
+  // enxergar `method`, não uma entrada nova nesta lista.
 ];
 
 function applyMockEmptyOverride(url: string, data: unknown): unknown {

@@ -102,13 +102,20 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //
 // FONTE:   backend-clinica-dotnet
 //          src/Kura.Application/Services/UsuarioClinicaService.cs
-// COMMIT:  de96c70e9f825eaf6e69f8c2a2f06669373fe29c  (`main`)
-// CONFERIDO EM: 2026-09-02 (sessão 9)
+//          src/Kura.Infrastructure/Persistence/Repositories/UsuarioClinicaRepository.cs
+// COMMIT:  94f558d  (`main`) -- atualizado nesta task (FM-05, brief §4); a
+//          conferência ORIGINAL desta âncora foi feita em de96c70 (sessão
+//          9); as linhas do SERVICE abaixo não mudaram entre os dois
+//          commits (reconferido).
+// CONFERIDO EM: 2026-09-03 (implementador da FM-05, ruling D-14 do Felipe:
+//          "corrige a FM-05 e a FM-02 de uma vez")
 // REPRODUZIR:
-//     git show de96c70:src/Kura.Application/Services/UsuarioClinicaService.cs \
+//     git show 94f558d:src/Kura.Application/Services/UsuarioClinicaService.cs \
 //       | sed -n '64,88p;153p;163,186p;196,204p;288,292p'
+//     git show 94f558d:src/Kura.Infrastructure/Persistence/Repositories/UsuarioClinicaRepository.cs \
+//       | sed -n '60,90p'
 //
-// As 3 regras replicadas, com a linha de cada uma:
+// As regras replicadas, com a linha de cada uma:
 //   :288-292  GarantirUsuarioAtivo   -> 422 em usuário desativado. Chamado por
 //             AtualizarAsync (:153) e DefinirSenhaAsync (:198). ⚠️ NÃO é
 //             chamado por DesativarAsync (que faz early-return silencioso,
@@ -117,6 +124,22 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //             disparado no PUT que REBAIXA um gestor (:171-172,:184-185) e no
 //             DELETE de um gestor (:226-227).
 //   :85-88    Mensagem do conflito de e-mail na REATIVAÇÃO.
+//   🆕 Repository.cs:68-73  ListarDaClinicaAsync (FD-16) -> `(incluirInativos
+//             || u.StAtiva)` DENTRO do `Where` — SEM `incluirInativos=true`
+//             a lista NUNCA traz usuário inativo — e `.OrderBy(u =>
+//             u.DsEmail)`: a lista vem ORDENADA POR E-MAIL. Achado e
+//             corrigido na FM-05 (brief §4/§2): `colecao()` abaixo fazia
+//             `return [...store]` (store INTEIRA, incluindo inativos, sem
+//             ordenação) — ver a 3ª direção de divergência abaixo.
+//             ⚠️ A ordenação daqui é APROXIMADA DE PROPÓSITO (G2 da FM-05,
+//             achado A-3): usamos `localeCompare(…, 'pt-BR')` e o backend
+//             ordena pela COLLATION DO ORACLE (binária por padrão). Para
+//             `dsEmail` o risco é baixo — e-mail é ASCII minúsculo, onde as
+//             duas ordens coincidem — mas fica declarado, e a ressalva vale
+//             igualmente para `servicos-preco.mock.ts` (`nmServico`), onde
+//             acento e maiúscula fazem as duas DIVERGIREM de fato.
+//             🔴 NÃO É MEDIÇÃO CONTRA ORACLE: é inferência sobre a collation
+//             default; nenhum teste deste repo toca Oracle real.
 //
 // ⚠️ As mensagens abaixo são PARÁFRASES curtas, não os literais do backend —
 // o texto real é mais longo e instrui o próximo passo. Quem for casar texto
@@ -130,6 +153,16 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //        recusaria. Falha VISÍVEL, mas só fora da demo.
 //   backend fica MENOS restritivo -> o mock recusa uma operação que o real
 //        permite: a ação some da demo sem erro nenhum. 🔴 É a difícil de notar.
+//   🆕 TERCEIRA DIREÇÃO (achada na FM-05, brief §2): o backend RECORTA a
+//        LISTA de propósito (só ativos por padrão) e este mock devolvia a
+//        store INTEIRA — não é uma regra de negócio recusada/aceita errado,
+//        é a resposta mostrando um estado que o backend real NUNCA produz
+//        naquela chamada. Consequência real: a FM-02 shipou chip "Inativo"
+//        e botão "Reativar" na lista SEM toggle nenhum -- UI para um estado
+//        inalcançável contra o backend real, sem erro nenhum (a linha
+//        inativa simplesmente nunca chegava no GET real). Corrigido aqui
+//        (recorte + ordenação) e em `usuarios/index.tsx` (toggle "Mostrar
+//        desativados", mesmo padrão da FM-05).
 function garantirUsuarioAtivo(item: UsuarioClinicaResponse): Promise<never> | null {
   if (item.stAtiva) return null;
   return rejeitar(
@@ -138,6 +171,15 @@ function garantirUsuarioAtivo(item: UsuarioClinicaResponse): Promise<never> | nu
     'Este usuário está DESATIVADO e alterações não têm efeito enquanto ele estiver assim. ' +
       'Reative-o primeiro e refaça a alteração.',
   );
+}
+
+// FM-05 (brief §3.2/§4) — mesmo helper de servicos-preco.mock.ts::
+// lerIncluirInativos: o service OMITE `params` inteiro quando `false`
+// (decisão declarada em usuarios-clinica.service.ts); ausência de
+// `config.params` e `incluirInativos: false` explícito são EQUIVALENTES.
+// Nunca lê a URL (armadilha documentada no cabeçalho de mock-adapter.ts).
+function lerIncluirInativos(config: InternalAxiosRequestConfig): boolean {
+  return config.params?.incluirInativos === true;
 }
 
 // GET (lista) | POST (criar) — ambos batem em /api/v1/usuarios-clinica.
@@ -168,7 +210,16 @@ export async function colecao(
     return novo;
   }
 
-  return [...store];
+  // FM-05 (brief §2/§4) — recorta por stAtiva salvo incluirInativos=true, e
+  // ORDENA por e-mail (UsuarioClinicaRepository.cs:68-73, ver ancoragem no
+  // topo do arquivo). Antes desta task, `[...store]` devolvia a store
+  // INTEIRA, incluindo inativos — UI para um estado que o backend real
+  // nunca produz nesta chamada.
+  const incluirInativos = lerIncluirInativos(config);
+  return store
+    .filter((u) => incluirInativos || u.stAtiva)
+    .slice()
+    .sort((a, b) => a.dsEmail.localeCompare(b.dsEmail, 'pt-BR'));
 }
 
 // GET (detalhe) | PUT (atualizar) | DELETE (desativar) — todos batem em

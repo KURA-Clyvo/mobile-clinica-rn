@@ -2,11 +2,12 @@ import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
+const mockPush = jest.fn();
 const mockClearSession = jest.fn();
 const mockToggleTheme = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, push: mockPush }),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -264,5 +265,27 @@ describe('SettingsScreen — a seção "Time" é só do GESTOR (FM-03)', () => {
     const { getByTestId } = wrap(<SettingsScreen />);
 
     expect(getByTestId('btn-convidar')).toBeTruthy();
+  });
+});
+
+// ─── FM-05 — a seção "Financeiro" é o ponto de entrada da tabela de
+// preços, mesmo gate de papel da seção "Time" (é administração, não
+// atendimento clínico). ───────────────────────────────────────────────────
+describe('SettingsScreen — a seção "Financeiro" é só do GESTOR (FM-05)', () => {
+  it('VETERINÁRIO puro NÃO vê a seção "Financeiro"', () => {
+    comSessao({ tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
+    const { queryByTestId } = wrap(<SettingsScreen />);
+
+    expect(queryByTestId('btn-tabela-precos')).toBeNull();
+  });
+
+  it('GESTOR vê a seção "Financeiro" e "Gerenciar tabela de preços" navega para /servicos-preco', () => {
+    comSessao({ tpPerfil: 'GESTOR', usuario: MOCK_VET });
+    const { getByTestId } = wrap(<SettingsScreen />);
+
+    const botao = getByTestId('btn-tabela-precos');
+    expect(botao).toBeTruthy();
+    fireEvent.press(botao);
+    expect(mockPush).toHaveBeenCalledWith('/servicos-preco');
   });
 });

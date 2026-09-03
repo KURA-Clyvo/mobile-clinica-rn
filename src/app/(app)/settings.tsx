@@ -263,6 +263,40 @@ export default function SettingsScreen() {
         </KCCard>
       </View>
 
+      {/* FINANCEIRO — FM-05 (KURA_BACKLOG_FIN, ciclo metade cliente).
+          Restrito a GESTOR, mesmo gate da seção "Time" acima (é
+          administração de preço, não atendimento clínico). Posicionado
+          DEPOIS de "PRIMEIROS PASSOS" (SettingsScreen#4) DE PROPÓSITO:
+          inserir entre touchables existentes rebindaria em silêncio as
+          chaves posicionais do registry de alvo de toque
+          (`tests/touchTargetRegistry.tsx`) — aqui a entrada nova só pode
+          ficar depois do último tocável existente na árvore. */}
+      {isGestor && (
+        <View style={styles.section}>
+          <KCCard>
+            <View style={styles.titleRow}>
+              <KCIcon name="dashboard" size={18} color={colors.primary} />
+              <Text style={styles.titleText}>Financeiro</Text>
+            </View>
+            <View style={styles.separator} />
+            <Text style={[styles.prefCaption, { marginBottom: 8 }]}>
+              Tabela de preços
+            </Text>
+            <TouchableOpacity
+              style={styles.inviteRow}
+              onPress={() => router.push(ROUTES.app.servicosPreco)}
+              testID="btn-tabela-precos"
+            >
+              <KCIcon name="plus" size={18} color={colors.primary} />
+              <Text style={styles.inviteText}>Gerenciar tabela de preços</Text>
+            </TouchableOpacity>
+            <Text style={styles.noteText}>
+              Cadastre, edite, desative e reative os serviços cobrados pela clínica
+            </Text>
+          </KCCard>
+        </View>
+      )}
+
       {/* SOBRE */}
       <View style={styles.section}>
         <KCCard>

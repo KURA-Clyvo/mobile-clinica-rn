@@ -42,6 +42,10 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       gap: 10,
       marginTop: 4,
+      marginBottom: 4,
+    },
+    filterRow: {
+      flexDirection: 'row',
       marginBottom: 16,
     },
     backButton: {
@@ -193,7 +197,13 @@ export default function UsuariosClinicaScreen() {
   const router = useRouter();
   const podeVer = useRequireGestor();
 
-  const { data: usuarios, isLoading, refetch } = useUsuariosClinica();
+  // FM-05 (brief §4) — mesma correção da FM-02: a lista NASCE só com
+  // ativos (default do backend). Mostrar desativados é ato DELIBERADO do
+  // gestor, via este toggle — sem ele, um chip "Inativo"/botão "Reativar"
+  // seria UI para um estado que o backend real nunca produz na chamada
+  // default (ver usuarios-clinica.mock.ts, ancoragem).
+  const [mostrarInativos, setMostrarInativos] = useState(false);
+  const { data: usuarios, isLoading, refetch } = useUsuariosClinica(mostrarInativos);
   const { data: veterinarios = [] } = useVeterinariosParaSelecao();
   const { mutate: desativar, isPending: desativandoMutation } = useDesativarUsuarioClinica();
   const { mutate: reativar, isPending: reativandoMutation } = useReativarUsuarioClinica();
@@ -278,6 +288,19 @@ export default function UsuariosClinicaScreen() {
           <KCIcon name="back" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Usuários da clínica</Text>
+      </View>
+
+      {/* Toggle "Mostrar desativados" -- mesmo padrão de
+          servicos-preco/index.tsx (FM-05): KCChip (não TouchableOpacity
+          cru), já coberto genericamente no registry de alvo de toque. */}
+      <View style={styles.filterRow}>
+        <KCChip
+          tone={mostrarInativos ? 'ocean' : 'mute'}
+          onPress={() => setMostrarInativos((v) => !v)}
+          testID="toggle-mostrar-desativados"
+        >
+          {mostrarInativos ? 'Mostrando desativados' : 'Mostrar desativados'}
+        </KCChip>
       </View>
 
       {isLoading ? (

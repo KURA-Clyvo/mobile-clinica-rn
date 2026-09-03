@@ -36,6 +36,15 @@ import {
 } from '../src/services/usuarios-clinica.service';
 import { listVeterinarios } from '../src/services/veterinarios.service';
 import { __resetStoreParaTeste } from '../src/mocks/usuarios-clinica.mock';
+import {
+  listServicosPreco,
+  getServicoPreco,
+  criarServicoPreco,
+  atualizarServicoPreco,
+  reativarServicoPreco,
+  desativarServicoPreco,
+} from '../src/services/servicos-preco.service';
+import { __resetStoreParaTeste as __resetServicosPrecoParaTeste } from '../src/mocks/servicos-preco.mock';
 
 describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', () => {
   const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
@@ -422,9 +431,19 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
 
       // Persistência real (lição da TASK-71/FM-04: mock stateless "reverte
       // na tela") -- lendo de novo tem que refletir a escrita anterior.
-      const lista = await listUsuariosClinica();
-      const usuario2 = lista.find((u) => u.id === 2);
+      //
+      // FM-05 (brief §4/§2): o backend real NÃO devolve inativo na lista
+      // default -- é preciso incluirInativos:true para enxergar o soft
+      // delete no GET seguinte, senão o usuário 2 simplesmente não aparece.
+      const listaComInativos = await listUsuariosClinica(true);
+      const usuario2 = listaComInativos.find((u) => u.id === 2);
       expect(usuario2?.stAtiva).toBe(false);
+
+      // Controle positivo da 3ª direção de divergência que esta task
+      // corrigiu: SEM o flag, o usuário desativado NÃO aparece mais --
+      // antes desta task `[...store]` o devolveria de qualquer forma.
+      const listaDefault = await listUsuariosClinica();
+      expect(listaDefault.some((u) => u.id === 2)).toBe(false);
     });
 
     it('reativarUsuarioClinica é idempotente: reativar um usuário JÁ ativo também devolve 200 (sem erro)', async () => {
@@ -450,6 +469,169 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       await expect(trocarSenhaUsuarioClinica(999, { dsSenha: 'novaSenha123' })).rejects.toMatchObject({
         status: 404,
       });
+    });
+  });
+
+  // FM-05 (KURA_BACKLOG_FIN, ciclo metade cliente) — mesma disciplina G4b:
+  // exercita a função de verdade (service -> apiClient real -> mock-adapter
+  // -> servicos-preco.mock.ts), sem jest.mock do apiClient/mock-adapter.
+  describe('servicos-preco.service (FM-05)', () => {
+    beforeEach(() => {
+      __resetServicosPrecoParaTeste();
+    });
+
+    it('listServicosPreco executa sem lançar e devolve o seed com pelo menos 1 serviço ATIVO', async () => {
+      const lista = await listServicosPreco();
+      expect(Array.isArray(lista)).toBe(true);
+      expect(lista.length).toBeGreaterThan(0);
+      expect(lista.every((s) => s.stAtiva)).toBe(true);
+    });
+
+    // Mordida da 3ª direção de divergência (brief §2/§1.7a): SEM
+    // incluirInativos, o inativo do seed (id 3) NUNCA aparece -- é o
+    // recorte que o backend real faz (ServicoPrecoRepository.cs:24-30).
+    it('listServicosPreco(true) traz também o inativo do seed; sem o flag, ele NUNCA aparece', async () => {
+      const semFlag = await listServicosPreco();
+      expect(semFlag.some((s) => !s.stAtiva)).toBe(false);
+
+      const comFlag = await listServicosPreco(true);
+      expect(comFlag.some((s) => !s.stAtiva)).toBe(true);
+    });
+
+    it('a lista vem ORDENADA por nmServico (ServicoPrecoRepository.cs:29)', async () => {
+      const lista = await listServicosPreco(true);
+      const nomes = lista.map((s) => s.nmServico);
+      expect(nomes).toEqual([...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    });
+
+    it('getServicoPreco devolve o serviço mesmo DESATIVADO (Repository.cs:32-35, GET/{id} não filtra StAtiva)', async () => {
+      const listaComInativos = await listServicosPreco(true);
+      const inativoDoSeed = listaComInativos.find((s) => !s.stAtiva)!;
+      const detalhe = await getServicoPreco(inativoDoSeed.id);
+      expect(detalhe.stAtiva).toBe(false);
+      expect(detalhe.id).toBe(inativoDoSeed.id);
+    });
+
+    it('getServicoPreco com id inexistente rejeita 404', async () => {
+      await expect(getServicoPreco(999)).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('criarServicoPreco devolve o registro CRIADO (id/idClinica/stAtiva/dtCriacao do BACKEND, não eco do corpo)', async () => {
+      const criado = await criarServicoPreco({ nmServico: 'Exame de sangue', vlPreco: 80 });
+      expect(typeof criado.id).toBe('number');
+      expect(criado.idClinica).toBe(1);
+      expect(criado.nmServico).toBe('Exame de sangue');
+      expect(criado.stAtiva).toBe(true);
+      expect(typeof criado.dtCriacao).toBe('string');
+      expect(criado.dtAtualizacao).toBeNull();
+    });
+
+    it('criarServicoPreco apara (Trim) o nome antes de gravar (ServicoPrecoService.cs:211, NormalizarNome)', async () => {
+      const criado = await criarServicoPreco({ nmServico: '   Exame de urina   ', vlPreco: 45 });
+      expect(criado.nmServico).toBe('Exame de urina');
+    });
+
+    it('criarServicoPreco com nome já em uso por outro ATIVO rejeita 422 NOME_EM_USO', async () => {
+      // Mesmo nome do seed (ver servicos-preco.mock.ts::buildServicos), só
+      // com capitalização/espaço diferentes -- prova a comparação
+      // case-insensitive sobre o nome APARADO (Repository.cs:37-45).
+      await expect(
+        criarServicoPreco({ nmServico: '  consulta DE ROTINA  ', vlPreco: 200 }),
+      ).rejects.toMatchObject({ status: 422, code: 'NOME_EM_USO' });
+    });
+
+    it('criarServicoPreco com nome igual ao de um INATIVO NÃO bloqueia (FD-07 não criou UNIQUE de propósito)', async () => {
+      // id 3 do seed ("Banho e tosa (descontinuado)") está INATIVO -- o
+      // controle positivo é o teste anterior, que prova que o MESMO
+      // mecanismo bloqueia quando o outro está ATIVO.
+      const criado = await criarServicoPreco({
+        nmServico: 'Banho e tosa (descontinuado)',
+        vlPreco: 65,
+      });
+      expect(criado.stAtiva).toBe(true);
+    });
+
+    it('atualizarServicoPreco num serviço DESATIVADO rejeita 422 SERVICO_DESATIVADO (GarantirServicoAtivo ANTES de tudo)', async () => {
+      const listaComInativos = await listServicosPreco(true);
+      const inativoDoSeed = listaComInativos.find((s) => !s.stAtiva)!;
+      await expect(
+        atualizarServicoPreco(inativoDoSeed.id, { nmServico: 'Novo nome', vlPreco: 10 }),
+      ).rejects.toMatchObject({ status: 422, code: 'SERVICO_DESATIVADO' });
+
+      // Controle positivo: o MESMO chamado num serviço ATIVO passa --
+      // senão o caso acima seria indistinguível de "atualizar rejeita
+      // sempre".
+      const ativo = (await listServicosPreco()).find((s) => s.stAtiva)!;
+      await expect(
+        atualizarServicoPreco(ativo.id, { nmServico: ativo.nmServico, vlPreco: 999 }),
+      ).resolves.toMatchObject({ vlPreco: 999 });
+    });
+
+    it('atualizarServicoPreco renomeando para um nome em uso por outro ATIVO rejeita 422 NOME_EM_USO', async () => {
+      const [primeiro, segundo] = await listServicosPreco();
+      await expect(
+        atualizarServicoPreco(segundo!.id, { nmServico: primeiro!.nmServico, vlPreco: segundo!.vlPreco }),
+      ).rejects.toMatchObject({ status: 422, code: 'NOME_EM_USO' });
+    });
+
+    it('atualizarServicoPreco renomeando para o PRÓPRIO nome não dá conflito (excetoId)', async () => {
+      const [primeiro] = await listServicosPreco();
+      await expect(
+        atualizarServicoPreco(primeiro!.id, { nmServico: primeiro!.nmServico, vlPreco: 321 }),
+      ).resolves.toMatchObject({ vlPreco: 321 });
+    });
+
+    it('desativarServicoPreco (soft delete) executa (204, sem corpo) e o estado persiste no GET seguinte', async () => {
+      const [primeiro] = await listServicosPreco();
+      const antes = await desativarServicoPreco(primeiro!.id);
+      expect(antes).toBeUndefined();
+
+      const detalhe = await getServicoPreco(primeiro!.id);
+      expect(detalhe.stAtiva).toBe(false);
+
+      // Controle positivo da 3ª direção de divergência: SEM incluirInativos,
+      // ele some da lista.
+      const listaDefault = await listServicosPreco();
+      expect(listaDefault.some((s) => s.id === primeiro!.id)).toBe(false);
+    });
+
+    it('desativarServicoPreco já DESATIVADO faz early-return silencioso (não é erro, 204 de novo)', async () => {
+      const listaComInativos = await listServicosPreco(true);
+      const inativoDoSeed = listaComInativos.find((s) => !s.stAtiva)!;
+      await expect(desativarServicoPreco(inativoDoSeed.id)).resolves.toBeUndefined();
+    });
+
+    it('reativarServicoPreco é idempotente: reativar um serviço JÁ ativo também devolve 200 (sem erro)', async () => {
+      const [primeiro] = await listServicosPreco();
+      const res = await reativarServicoPreco(primeiro!.id);
+      expect(res.stAtiva).toBe(true);
+    });
+
+    it('reativarServicoPreco de um serviço desativado reativa de verdade e persiste', async () => {
+      const [primeiro] = await listServicosPreco();
+      await desativarServicoPreco(primeiro!.id);
+      const reativado = await reativarServicoPreco(primeiro!.id);
+      expect(reativado.stAtiva).toBe(true);
+
+      const listaDefault = await listServicosPreco();
+      expect(listaDefault.some((s) => s.id === primeiro!.id)).toBe(true);
+    });
+
+    it('reativarServicoPreco com o nome ocupado por outro ATIVO rejeita 422 REATIVACAO_NOME_OCUPADO', async () => {
+      // O id 3 do seed nasce INATIVO ("Banho e tosa (descontinuado)").
+      // Cria um serviço ATIVO com o MESMO nome antes de tentar reativar.
+      const listaComInativos = await listServicosPreco(true);
+      const inativoDoSeed = listaComInativos.find((s) => !s.stAtiva)!;
+      await criarServicoPreco({ nmServico: inativoDoSeed.nmServico, vlPreco: 1 });
+
+      await expect(reativarServicoPreco(inativoDoSeed.id)).rejects.toMatchObject({
+        status: 422,
+        code: 'REATIVACAO_NOME_OCUPADO',
+      });
+    });
+
+    it('reativarServicoPreco com id inexistente rejeita 404', async () => {
+      await expect(reativarServicoPreco(999)).rejects.toMatchObject({ status: 404 });
     });
   });
 });
