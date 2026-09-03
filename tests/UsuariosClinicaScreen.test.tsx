@@ -31,7 +31,9 @@ const mockMutateCriar = jest.fn();
 const mockMutateAtualizar = jest.fn();
 const mockMutateTrocarSenha = jest.fn();
 jest.mock('@hooks/useUsuariosClinica', () => ({
-  useUsuariosClinica: () => mockUseUsuariosClinicaReturn(),
+  // Repassa o argumento (incluirInativos) ao mock -- é o que permite provar
+  // a fiação do toggle "Mostrar desativados" (FM-05) sem QueryClientProvider real.
+  useUsuariosClinica: (incluirInativos: boolean) => mockUseUsuariosClinicaReturn(incluirInativos),
   useVeterinariosParaSelecao: () => mockUseVeterinariosParaSelecaoReturn(),
   useDesativarUsuarioClinica: () => ({ mutate: mockMutateDesativar, isPending: false }),
   useReativarUsuarioClinica: () => ({ mutate: mockMutateReativar, isPending: false }),
@@ -153,6 +155,18 @@ describe('UsuariosClinicaScreen — lista', () => {
     const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
     const emails = getAllByTestId('usuario-email').map((n) => n.props.children);
     expect(emails).toEqual(['felipe.ferrete@kura.vet', 'ex.funcionario@kura.vet']);
+  });
+
+  // FM-05 (brief §4) — mesma correção da FM-05, aplicada aqui: por padrão
+  // o hook é chamado com `false` (backend só devolve ativos); o toggle
+  // "Mostrar desativados" alterna o argumento.
+  it('por padrão chama useUsuariosClinica(false) e o toggle alterna para true', () => {
+    const { getByTestId } = wrap(<UsuariosClinicaScreen />);
+    expect(mockUseUsuariosClinicaReturn).toHaveBeenLastCalledWith(false);
+
+    fireEvent.press(getByTestId('toggle-mostrar-desativados'));
+
+    expect(mockUseUsuariosClinicaReturn).toHaveBeenLastCalledWith(true);
   });
 
   // Fix wave pós-G2 (sessão 9, achado do maestro em re-análise): o backend
