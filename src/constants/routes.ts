@@ -42,5 +42,9 @@ export const ROUTES = {
     // FM-02: src/app/(app)/usuarios/index.tsx, tela restrita a GESTOR
     // (useRequireGestor). Ponto de entrada: settings.tsx, seção "Time".
     usuarios: '/usuarios',
+    // FM-05: src/app/(app)/servicos-preco/index.tsx, tela restrita a GESTOR
+    // (useRequireGestor, mesmo padrão de `usuarios` acima). Ponto de
+    // entrada: settings.tsx, seção "Financeiro".
+    servicosPreco: '/servicos-preco',
   },
 } as const;

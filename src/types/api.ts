@@ -265,6 +265,38 @@ export interface UsuarioClinicaSenhaUpdateRequest {
   dsSenha: string;
 }
 
+// ─── Tabela de preços (FM-05, ciclo FIN) ─────────────────────────
+// Espelha ServicoPrecoResponseDto (backend-clinica-dotnet @ 94f558d,
+// ServicosPrecoController) 1:1, mesmo padrão de UsuarioClinicaResponse
+// acima: sem tradução de shape, já camelCase, `boolean` para StAtiva.
+//
+// 🔴 `vlPreco` é `decimal` no C# -> chega como `number` puro em JSON.
+// Seguro para EXIBIR (ver src/utils/moeda.ts); NÃO seguro para somar/
+// recalcular no cliente. Esta tela só exibe.
+export interface ServicoPrecoResponse {
+  id: number;
+  idClinica: number;
+  nmServico: string;
+  vlPreco: number;
+  stAtiva: boolean;
+  dtCriacao: string;
+  dtAtualizacao: string | null;
+}
+
+// POST /api/v1/servicos-preco -- sem IdClinica (sai do JWT no backend, ver
+// ServicoPrecoCreateDto) e sem StAtiva (nasce sempre ativo).
+export interface ServicoPrecoCreateRequest {
+  nmServico: string;
+  vlPreco: number;
+}
+
+// PUT /api/v1/servicos-preco/{id} -- mesmo shape do create (ServicoPrecoUpdateDto
+// não declara IdClinica nem StAtiva; ativar/desativar tem verbo próprio).
+export interface ServicoPrecoUpdateRequest {
+  nmServico: string;
+  vlPreco: number;
+}
+
 // ─── Luna (.NET — relatório agregado) ────────────────────────
 export interface TriagensRelatorioQuery {
   dataInicio: string;
