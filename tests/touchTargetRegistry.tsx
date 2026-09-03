@@ -104,6 +104,9 @@ import { AgendamentoStatusMenu } from '../src/components/domain/AgendamentoStatu
 // própria no registry abaixo, ou o gate de cobertura falha.
 import { UsuarioClinicaFormModal } from '../src/components/domain/UsuarioClinicaFormModal';
 import { TrocarSenhaModal } from '../src/components/domain/TrocarSenhaModal';
+// FM-05 — 1 modal novo (ServicoPrecoFormModal) + 1 tela nova
+// (`(app)/servicos-preco/index.tsx`), mesmo dever do bloco FM-02 acima.
+import { ServicoPrecoFormModal } from '../src/components/domain/ServicoPrecoFormModal';
 // CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — 2 tocáveis novos em
 // `src/components/{primitives,domain}` (KCEmptyState, OnboardingChecklist) +
 // 1 em `src/app/(app)/settings.tsx` (SettingsScreen#4, "Rever primeiros
@@ -119,6 +122,7 @@ import type {
   MedicamentoResponse,
   UsuarioClinicaResponse,
   VeterinarioResponse,
+  ServicoPrecoResponse,
 } from '../src/types/api';
 // Achado 2 (fix wave 2b): as 7 telas de `src/app/` que entraram na
 // descoberta nesta rodada — importadas aqui, no MESMO arquivo dos mocks
@@ -134,6 +138,7 @@ import PacientesScreen from '../src/app/(app)/pacientes/index';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import SettingsScreen from '../src/app/(app)/settings';
 import UsuariosClinicaScreen from '../src/app/(app)/usuarios/index';
+import ServicosPrecoScreen from '../src/app/(app)/servicos-preco/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
 
@@ -288,6 +293,26 @@ jest.mock('@hooks/useUsuariosClinica', () => ({
     mutate: mockMutateTrocarSenhaUsuarioClinica,
     isPending: false,
   }),
+}));
+
+// FM-05 — mesmo padrão do bloco FM-02 acima: mocka-se o HOOK, não o
+// service. `(app)/servicos-preco/index.tsx` importa os 3 primeiros;
+// `ServicoPrecoFormModal.tsx` os 2 de mutação de criar/atualizar.
+const mockUseServicosPrecoReturn = jest.fn(() => ({
+  data: [] as ServicoPrecoResponse[],
+  isLoading: false,
+  refetch: jest.fn(),
+}));
+const mockMutateCriarServicoPreco = jest.fn();
+const mockMutateAtualizarServicoPreco = jest.fn();
+const mockMutateDesativarServicoPreco = jest.fn();
+const mockMutateReativarServicoPreco = jest.fn();
+jest.mock('@hooks/useServicosPreco', () => ({
+  useServicosPreco: () => mockUseServicosPrecoReturn(),
+  useCriarServicoPreco: () => ({ mutate: mockMutateCriarServicoPreco, isPending: false }),
+  useAtualizarServicoPreco: () => ({ mutate: mockMutateAtualizarServicoPreco, isPending: false }),
+  useDesativarServicoPreco: () => ({ mutate: mockMutateDesativarServicoPreco, isPending: false }),
+  useReativarServicoPreco: () => ({ mutate: mockMutateReativarServicoPreco, isPending: false }),
 }));
 
 // `login.tsx`/`register.tsx` usam os hooks REAIS `useLoginMutation`/
@@ -1316,6 +1341,57 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const estilo = flat(getByTestId('btn-rever-onboarding').props.style);
       const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
       return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  // --- FM-05 — 1 tocável novo em `settings.tsx` (seção "Financeiro",
+  // posicionada DEPOIS de SettingsScreen#4 na árvore — ver comentário em
+  // settings.tsx) + 1 na tela nova `(app)/servicos-preco/index.tsx` + 1 em
+  // `ServicoPrecoFormModal.tsx`. ---
+
+  '(app)/settings.tsx::SettingsScreen#5': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão "Gerenciar tabela de preços" (`btn-tabela-precos`) reusa o MESMO estilo ' +
+      '`inviteRow` de SettingsScreen#3 (`btn-convidar`, seção "Time") — sem height/minHeight/' +
+      'width/minWidth. Mesmo padrão, não corrigido nesta task pela mesma razão de #3.',
+    verify: () => {
+      useAuthStore.setState({
+        token: 'tok',
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        email: 'f@k.com',
+        tpPerfil: 'GESTOR',
+        usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
+      });
+      const { getByTestId } = wrap(<SettingsScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-tabela-precos').props.style));
+    },
+  },
+
+  '(app)/servicos-preco/index.tsx::ServicosPrecoScreen#1': {
+    category: 'meets-min',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseServicosPrecoReturn.mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() });
+      const { getByTestId } = wrap(<ServicosPrecoScreen />);
+      const estilo = flat(getByTestId('btn-voltar-servicos').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  'ServicoPrecoFormModal.tsx::ServicoPrecoFormModal#1': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão de fechar (`btn-fechar-form-servico`) só declara `{ padding: 4 }` inline -- sem ' +
+      'height/minHeight/width/minWidth. Mesmo padrão de UsuarioClinicaFormModal.tsx::' +
+      'UsuarioClinicaFormModal#1/TrocarSenhaModal.tsx::TrocarSenhaModal#1 (não corrigido nesses ' +
+      'também) — candidato a follow-up conjunto dos 3.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <ServicoPrecoFormModal visible onClose={() => {}} servico={null} />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-form-servico').props.style));
     },
   },
 };
