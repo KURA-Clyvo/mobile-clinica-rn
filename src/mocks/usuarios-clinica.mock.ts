@@ -131,6 +131,15 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //             corrigido na FM-05 (brief §4/§2): `colecao()` abaixo fazia
 //             `return [...store]` (store INTEIRA, incluindo inativos, sem
 //             ordenação) — ver a 3ª direção de divergência abaixo.
+//             ⚠️ A ordenação daqui é APROXIMADA DE PROPÓSITO (G2 da FM-05,
+//             achado A-3): usamos `localeCompare(…, 'pt-BR')` e o backend
+//             ordena pela COLLATION DO ORACLE (binária por padrão). Para
+//             `dsEmail` o risco é baixo — e-mail é ASCII minúsculo, onde as
+//             duas ordens coincidem — mas fica declarado, e a ressalva vale
+//             igualmente para `servicos-preco.mock.ts` (`nmServico`), onde
+//             acento e maiúscula fazem as duas DIVERGIREM de fato.
+//             🔴 NÃO É MEDIÇÃO CONTRA ORACLE: é inferência sobre a collation
+//             default; nenhum teste deste repo toca Oracle real.
 //
 // ⚠️ As mensagens abaixo são PARÁFRASES curtas, não os literais do backend —
 // o texto real é mais longo e instrui o próximo passo. Quem for casar texto

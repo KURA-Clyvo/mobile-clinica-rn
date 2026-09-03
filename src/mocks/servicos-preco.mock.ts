@@ -124,10 +124,20 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //   :97,:127  GarantirNomeDisponivelAsync -> 422 em nome já usado por outro
 //             serviço ATIVO da clínica, na CRIAÇÃO e no UPDATE (com
 //             excetoId). Comparação case-insensitive sobre o nome APARADO
-//             (ServicoPrecoRepository.cs:37-45, ToUpper() dos dois lados) —
-//             só conta entre ATIVOS (Repository.cs:43 `&& s.StAtiva`); um
-//             INATIVO com o mesmo nome NÃO bloqueia recadastro (FD-07 não
-//             criou UNIQUE de propósito).
+//             (ServicoPrecoRepository.cs:37-52 — `ToUpper()` em :44 e em
+//             :50, os DOIS lados) — só conta entre ATIVOS
+//             (Repository.cs:49 `&& s.StAtiva`); um INATIVO com o mesmo
+//             nome NÃO bloqueia recadastro (FD-07 não criou UNIQUE de
+//             propósito).
+//             ⚠️ Os 3 ponteiros acima foram CORRIGIDOS na fix wave da FM-05
+//             (G2, achado A-2): diziam `:37-45` e `:43`, e **`:43` é linha
+//             de COMENTÁRIO** — o predicado `&& s.StAtiva` está em :49 e o
+//             segundo `ToUpper()` em :50, FORA do intervalo citado. O
+//             comando REPRODUZIR acima (`sed -n '24,52p'`) sempre cobriu as
+//             linhas certas, então quem o rodasse veria o código correto;
+//             o que apontava torto era o ponteiro inline. Registrado porque
+//             **âncora que aponta torto é pior que âncora ausente — ela
+//             PARECE conferida.**
 //   :160-176  ReativarAsync               -> 422 REATIVACAO_NOME_OCUPADO se
 //             o nome já pertence a outro serviço ATIVO (enquanto estava
 //             desativado, o nome pode ter sido recadastrado).
@@ -140,9 +150,34 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //             s.StAtiva)` — SEM incluirInativos=true a lista NUNCA traz
 //             inativo — e `.OrderBy(s => s.NmServico)`: a lista vem
 //             ORDENADA POR NOME.
+//             ⚠️ A ordenação daqui é APROXIMADA DE PROPÓSITO (G2, achado
+//             A-3): este mock usa `localeCompare(…, 'pt-BR')`, e o backend
+//             ordena pela COLLATION DO ORACLE (binária por padrão). Elas
+//             DIVERGEM para nome acentuado ou iniciando em minúscula —
+//             "Ácido…" vem primeiro em pt-BR e por ÚLTIMO em ordem binária.
+//             Escolhido pt-BR porque é a ordem certa para quem lê a tela;
+//             fica declarado que é uma forma que o backend real não produz
+//             exatamente. 🔴 NÃO É MEDIÇÃO CONTRA ORACLE — é inferência
+//             sobre a collation default; nenhum teste deste repo toca
+//             Oracle real. Mesma ressalva vale para
+//             usuarios-clinica.mock.ts (`dsEmail`), onde o risco é menor
+//             porque e-mail é ASCII minúsculo.
 //   Repository.cs:32-35  BuscarPorIdNaClinicaAsync -> NÃO filtra StAtiva —
 //             GET /{id} devolve o serviço mesmo DESATIVADO (só a LISTA
 //             filtra).
+//
+// 🔴 O QUE ESTE MOCK DELIBERADAMENTE **NÃO** REPLICA (G2, achado A-4):
+// as regras de **400** do `ServicoPrecoCreateValidator`/`UpdateValidator`
+// @ 94f558d — nome vazio, nome > 200 chars, preço negativo, preço acima de
+// 99.999.999,99 e mais de 2 casas decimais. `POST`/`PUT` daqui aceitam
+// qualquer corpo. **Isto é seguro hoje porque o `ServicoPrecoFormModal`
+// replica as 3 regras client-side** (`zod`, `PRECO_MAXIMO`,
+// `contarCasasDecimais`), então nenhum caminho de USUÁRIO alcança o mock
+// com corpo inválido. ⚠️ Mas `criarServicoPreco()`/`atualizarServicoPreco()`
+// chamados DIRETO (teste, ou tela futura sem o modal) têm SUCESSO aqui
+// onde o backend real devolveria `400`. É a direção **visível** da
+// divergência (backend mais restritivo), não a silenciosa — declarado em
+// vez de replicado para não duplicar a validação em 3 lugares.
 //
 // ⚠️ As mensagens abaixo são PARÁFRASES curtas do brief, não os literais do
 // backend — quem for casar texto exato numa asserção, casar contra o
