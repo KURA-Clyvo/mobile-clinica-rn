@@ -681,6 +681,55 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       expect(cobranca.idServicoPreco).toBeNull();
     });
 
+    // ─── I-1 da revisão G2 da FM-06: a cortesia (vlCobrado: 0) ────────────
+    //
+    // 🔴 O código já estava CERTO nos 5 pontos da cadeia; o que faltava era
+    // REDE. A G2 provou por mutação que trocar `??` por `||` em
+    // `cobrancas.mock.ts:171` (ou em `LancarCobrancaCard.tsx:184`) mantinha
+    // a suíte verde -- `101 passed`, reproduzido pelo maestro. Nenhum dos 24
+    // testes da task exercitava o valor zero.
+    //
+    // ⚠️ Zero não é caso de borda inventado: o backend aceita `>= 0` DE
+    // PROPÓSITO e documenta o motivo em ResolverValor
+    // (CobrancaService.cs:170-176) -- "cobrança de graça é um lançamento
+    // legítimo demais para nascer de um default". Cortesia, retorno sem
+    // custo e primeira consulta gratuita são lançamentos reais.
+    //
+    // 🔴 A CONSEQUÊNCIA MEDIDA de uma regressão aqui é DINHEIRO ERRADO, e é
+    // silenciosa: sob `||`, um veterinário que seleciona o serviço e digita
+    // `0` (cortesia) enviaria `vlCobrado: undefined`, e o backend COPIA O
+    // PREÇO CHEIO da tabela. O tutor é cobrado por algo registrado como
+    // gratuito -- sem erro, sem log, sem 4xx.
+    //
+    // É a regra de ouro deste projeto aplicada a um VALOR em vez de a um
+    // detector: *código certo sem gate é código certo até alguém editar.*
+    // `0` é o único `number` que `||` descarta e `??` preserva, então a
+    // mutação é invisível para qualquer teste que só use valores positivos
+    // -- que eram todos os que existiam.
+    it('lancarCobranca com vlCobrado ZERO (cortesia) grava 0, não o preço de tabela -- mordida I-1', async () => {
+      const [servico] = await listServicosPreco();
+      const precoDeTabela = servico!.vlPreco;
+      // Controle positivo: só faz sentido asseverar "não copiou o preço" se
+      // houvesse um preço diferente de zero para copiar por engano.
+      expect(precoDeTabela).toBeGreaterThan(0);
+
+      const cobranca = await lancarCobranca(504, {
+        idServicoPreco: servico!.id,
+        vlCobrado: 0,
+      });
+
+      expect(cobranca.vlCobrado).toBe(0);
+      expect(cobranca.vlCobrado).not.toBe(precoDeTabela);
+      // A origem continua gravada: cortesia DE UM SERVIÇO é rastreável.
+      expect(cobranca.idServicoPreco).toBe(servico!.id);
+    });
+
+    it('lancarCobranca com vlCobrado ZERO avulso (sem serviço) grava 0, não cai no fallback -- mordida I-1', async () => {
+      const cobranca = await lancarCobranca(505, { vlCobrado: 0 });
+      expect(cobranca.vlCobrado).toBe(0);
+      expect(cobranca.idServicoPreco).toBeNull();
+    });
+
     it('lancarCobranca com idServicoPreco inexistente rejeita 422 SERVICO_INDISPONIVEL', async () => {
       await expect(lancarCobranca(503, { idServicoPreco: 999 })).rejects.toMatchObject({
         status: 422,
@@ -738,7 +787,8 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
     // 🔴 Divergência DECLARADA (ver "O QUE ESTE MOCK NÃO REPLICA" na
     // ancoragem de cobrancas.mock.ts): o backend real recusaria isto com
     // 400 MensagemSemOrigemDeValor (nem vlCobrado nem idServicoPreco). Este
-    // mock não replica as regras de 400 -- LancarCobrancaCard.tsx (zod)
+    // mock não replica as regras de 400 -- LancarCobrancaCard.tsx (com
+    // validação escrita à mão, NÃO zod -- ver M-1 da G2)
     // impede esse corpo de sair da UI. Registrado como teste, não como
     // comentário solto, para que a divergência não aumente em silêncio se
     // alguém "corrigir" o mock sem atualizar este teste.

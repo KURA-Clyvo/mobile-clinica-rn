@@ -70,7 +70,22 @@ function validarValorTexto(valorTexto: string): string | null {
   if (Number.isNaN(n)) return 'Informe um número válido';
   if (n < 0) return 'Valor não pode ser negativo';
   if (n > VALOR_MAXIMO) return `Valor deve ser no máximo ${VALOR_MAXIMO}`;
-  if (contarCasasDecimais(t) > 2) return 'Valor deve ter no máximo 2 casas decimais';
+  if (contarCasasDecimais(t) > 2) {
+    // M-4 da G2: `2.500` (dois mil e quinhentos, com separador de milhar) é
+    // barrado — o que é CORRETO, porque `paraNumero` só aceita vírgula como
+    // separador decimal, e aceitar o ponto aqui tornaria `2.500` ambíguo
+    // entre 2500 e 2,5. Mas a mensagem genérica não descreve o problema DO
+    // USUÁRIO: ele digitou um valor que considera válido e não sabe o que
+    // corrigir.
+    //
+    // ⚠️ O valor nunca sai errado — esta é a direção SEGURA da falha, e é
+    // por isso que é UX, não dinheiro. Mas num campo de dinheiro a diferença
+    // entre "recusado com instrução" e "recusado sem instrução" é a
+    // diferença entre o veterinário corrigir e o veterinário desistir de
+    // lançar — e receita não lançada é receita que a FD-11 não encontra.
+    if (/^\d+\.\d{3}$/.test(t)) return 'Use vírgula para os centavos (ex.: 2500,00)';
+    return 'Valor deve ter no máximo 2 casas decimais';
+  }
   return null;
 }
 

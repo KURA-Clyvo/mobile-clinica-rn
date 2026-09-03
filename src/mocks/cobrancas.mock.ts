@@ -97,23 +97,65 @@ function rejeitar(status: number, code: string, message: string): Promise<never>
 //      "nem vlCobrado nem idServicoPreco" -> MensagemSemOrigemDeValor).
 //      MESMA classe de decisão da FM-05 (servicos-preco.mock.ts, achado
 //      A-4 da G2): isto é seguro porque LancarCobrancaCard.tsx replica as
-//      regras client-side (zod) e desabilita o botão de envio sem origem
+//      regras client-side (validação ESCRITA À MÃO -- `validarValorTexto`,
+//      `contarCasasDecimais`, e o gate `temOrigemDeValor`; o card NÃO usa
+//      zod, ver a nota abaixo) e desabilita o botão de envio sem origem
 //      de valor -- nenhum caminho de USUÁRIO alcança este mock com corpo
 //      inválido. `lancarCobranca()` chamado DIRETO (teste, ou UI futura
 //      sem o card) tem SUCESSO aqui onde o backend real devolveria 400 --
 //      é a direção VISÍVEL da divergência (backend mais restritivo),
 //      declarada em vez de replicada para não duplicar validação em 3
-//      lugares (validator real, zod, mock).
+//      lugares (validator real, card, mock).
+//
+//      📌 M-3 da G2 -- uma divergência a MAIS, na direção inócua: o CLIENTE
+//      é ligeiramente mais restritivo que o backend em zero à direita. O
+//      validator real usa `PrecisionScale(10, 2, ignoreTrailingZeros: true)`
+//      e aceitaria `45,900`; `contarCasasDecimais` conta caracteres e
+//      recusa. ⇒ O usuário só não consegue digitar um zero sobrando.
+//      Registrado por completude da tabela de divergências, não como
+//      defeito -- cliente mais restritivo que o servidor nunca produz valor
+//      errado, só atrito.
+//
+//      ⚠️ CORRIGIDO na fix wave da G2 (achado M-1): estas linhas diziam
+//      "zod". `grep -c zod src/components/domain/LancarCobrancaCard.tsx`
+//      devolve 0 -- a validação do card é escrita à mão. O que torna o
+//      engano PIOR que um typo é que zod É usado neste repo, inclusive na
+//      TELA QUE HOSPEDA O CARD (`consulta/[idPet].tsx`) e no
+//      `ServicoPrecoFormModal.tsx` da FM-05: a afirmação era plausível, e
+//      quem auditasse procurando o schema não o acharia e concluiria que a
+//      validação sumiu. É a classe "documentação que garante o que o
+//      código não faz", que já reprovou task neste projeto (FIX_6).
 //   2. Evento de outra clínica / evento genuinamente inexistente (ver
 //      SIMPLIFICAÇÃO DECLARADA acima) -- este mock não tem como saber.
 //      Qualquer idEventoClinico positivo na rota é aceito.
 //
-// 🔴 AS DUAS DIREÇÕES DE DIVERGÊNCIA (mesma lição da FM-02/FM-04/FM-05):
+// 🔴 AS TRÊS DIREÇÕES DE DIVERGÊNCIA (a 3ª acrescentada pela G2, achado M-2):
 //   backend fica MAIS restritivo  -> o mock aceita, o real recusa (item 1
 //        acima): falha VISÍVEL, mas só fora da demo.
 //   backend fica MENOS restritivo -> o mock recusa uma operação que o real
-//        permite. Não identificado nesta task -- este mock é estritamente
-//        MAIS PERMISSIVO que o real em toda regra que não replica.
+//        permite: a ação some da demo sem erro nenhum. 🔴 É a difícil de
+//        notar. NÃO identificada nesta task.
+//   🆕 MESMA permissividade, VOCABULÁRIO diferente -> o mock aceita e recusa
+//        exatamente o que o real aceita e recusa, mas o `code` da recusa é
+//        OUTRO. É o caso desta task, e a frase que estava aqui ("este mock é
+//        estritamente MAIS PERMISSIVO em toda regra que não replica")
+//        afirmava uma exaustividade que ele não tem.
+//
+//        Medido: `git grep "SERVICO_DESATIVADO\|SERVICO_INDISPONIVEL"
+//        94f558d` -> 0 linhas. O backend monta `type = ex.GetType().Name`
+//        (ExceptionHandlerMiddleware.cs) e `normalizeError` (errors.ts:30)
+//        faz `code: data?.code ?? data?.type` ⇒ em modo REAL o `code` dos
+//        dois 422 é `RegraDeNegocioException`, e o do 404 é
+//        `EntidadeNaoEncontradaException`.
+//
+//        ✅ Sem impacto hoje: LancarCobrancaCard ramifica por
+//        `e?.status === 422`, NUNCA por `code` -- conferido pela G2.
+//        ⚠️ Onde morderia: uma UI futura que ramifique por `code` funciona
+//        em mock e falha em real, sem erro nenhum.
+//        📌 Os `code` NÃO foram trocados de propósito: são convenção do repo
+//        inteiro (`NOT_FOUND` 8x, `SEM_GESTOR_ATIVO`, `EMAIL_EM_USO`,
+//        `USUARIO_DESATIVADO`, `NOME_EM_USO`, …). Mudá-los só aqui criaria
+//        inconsistência nova -- o que estava errado era a FRASE, não o código.
 //
 // ⚠️ A mensagem de MensagemServicoIndisponivel/MensagemServicoDesativado
 // abaixo é o LITERAL do backend (const string, copiado byte a byte, não

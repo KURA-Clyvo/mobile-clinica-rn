@@ -307,7 +307,8 @@ export interface ServicoPrecoUpdateRequest {
 // clínica do JWT, dentro de CobrancaService -- mesmo padrão da FD-09/FM-02.
 // TODOS os 4 campos são opcionais; a única regra de combinação (pelo menos
 // um entre vlCobrado/idServicoPreco) é do backend (CobrancaCreateValidator,
-// 400) e replicada só no CLIENTE (LancarCobrancaCard.tsx, zod) -- ver
+// 400) e replicada só no CLIENTE (LancarCobrancaCard.tsx, validação
+// escrita à mão -- NÃO zod; ver M-1 na ancoragem de cobrancas.mock.ts) -- ver
 // cobrancas.mock.ts para a decisão de NÃO replicar as regras de 400 no mock.
 export interface CobrancaCreateRequest {
   idServicoPreco?: number | null;

@@ -98,11 +98,44 @@ describe('LancarCobrancaCard — baixo atrito (brief §1)', () => {
     expect(getByTestId('btn-lancar-cobranca').props.accessibilityState?.disabled).toBe(true);
   });
 
+  // ⚠️ A entrada deste teste mudou de `10.999` para `10,999` na fix wave da
+  // G2 (M-4), e a razão é um achado do próprio maestro CONTRA o próprio fix:
+  // `10.999` é AMBÍGUO — casa exatamente a forma "milhar pt-BR"
+  // (`\d+` ponto 3 dígitos), e nenhuma heurística consegue distinguir
+  // "dez mil novecentos e noventa e nove" de "10.999 com 3 decimais".
+  // `10,999` (vírgula) é inequivocamente 3 casas decimais, então é a entrada
+  // certa para vigiar a mensagem GENÉRICA.
+  //
+  // 🔴 O erro não foi o fix, foi o teste ter sido escrito com a única
+  // entrada que os dois ramos disputam — e ele só apareceu porque o fix
+  // quebrou um teste que já existia. Um teste com entrada ambígua passa
+  // enquanto só um dos ramos existe, e vira armadilha quando o segundo
+  // chega.
   it('valor avulso com mais de 2 casas decimais mostra erro e desabilita', async () => {
     const { getByTestId, findByText } = wrap(<LancarCobrancaCard idEventoClinico={42} />);
-    fireEvent.changeText(getByTestId('input-valor-cobranca'), '10.999');
+    fireEvent.changeText(getByTestId('input-valor-cobranca'), '10,999');
     expect(await findByText('Valor deve ter no máximo 2 casas decimais')).toBeTruthy();
     expect(getByTestId('btn-lancar-cobranca').props.accessibilityState?.disabled).toBe(true);
+  });
+
+  // M-4 da G2. O par com o teste acima é o ponto: a vírgula com 3 dígitos
+  // recebe a mensagem genérica, e só a forma "milhar pt-BR" (ponto seguido
+  // de exatamente 3 dígitos) ganha a instrução. Sem este par, uma
+  // "simplificação" futura que devolvesse a mensagem nova para todo caso
+  // passaria despercebida.
+  it('valor com separador de MILHAR (2.500) é barrado com instrução, não com a mensagem genérica', async () => {
+    const { getByTestId, findByText } = wrap(<LancarCobrancaCard idEventoClinico={42} />);
+    fireEvent.changeText(getByTestId('input-valor-cobranca'), '2.500');
+    expect(await findByText('Use vírgula para os centavos (ex.: 2500,00)')).toBeTruthy();
+    // Continua BARRADO: a instrução melhor não afrouxa a regra. O valor
+    // nunca sai errado — é a direção segura da falha.
+    expect(getByTestId('btn-lancar-cobranca').props.accessibilityState?.disabled).toBe(true);
+  });
+
+  it('valor com vírgula decimal (45,90) é ACEITO e habilita — controle positivo da regra acima', async () => {
+    const { getByTestId } = wrap(<LancarCobrancaCard idEventoClinico={42} />);
+    fireEvent.changeText(getByTestId('input-valor-cobranca'), '45,90');
+    expect(getByTestId('btn-lancar-cobranca').props.accessibilityState?.disabled).toBeFalsy();
   });
 });
 
@@ -141,6 +174,40 @@ describe('LancarCobrancaCard — envio', () => {
       }),
       expect.anything(),
     );
+  });
+
+  // ─── I-1 da revisão G2 — o lado COMPONENTE da mordida do zero ───────────
+  //
+  // O par desta mordida vive em `tests/mock-contract-audit.test.ts` (o lado
+  // MOCK). Os dois são necessários e não se substituem: a G2 mutou `??`→`||`
+  // em `LancarCobrancaCard.tsx:184` e em `cobrancas.mock.ts:171`
+  // SEPARADAMENTE, e as DUAS mutações sobreviveram verdes. Um teste só
+  // deixaria metade da cadeia sem rede.
+  //
+  // 🔴 Aqui o que se protege é o CORPO ENVIADO: com `|| undefined`, o `0`
+  // digitado vira `vlCobrado: undefined`, e o backend copia o preço cheio da
+  // tabela (ResolverValor). Cortesia registrada, tutor cobrado — sem erro
+  // nenhum. Por isso a asserção é `vlCobrado: 0` explícito, e não
+  // `objectContaining` de um valor positivo qualquer.
+  it('serviço selecionado com valor ZERO (cortesia): envia vlCobrado 0, NÃO undefined -- mordida I-1', async () => {
+    const { getByTestId } = wrap(<LancarCobrancaCard idEventoClinico={42} />);
+    fireEvent.press(getByTestId('chip-servico-1'));
+    fireEvent.changeText(getByTestId('input-valor-cobranca'), '0');
+
+    // Controle positivo: o zero tem que HABILITAR o envio. Se o gate
+    // tratasse `0` como "sem origem de valor", o botão ficaria desabilitado
+    // e o `expect` seguinte falharia por um motivo diferente do que este
+    // teste existe para vigiar.
+    expect(getByTestId('btn-lancar-cobranca').props.accessibilityState?.disabled).toBeFalsy();
+
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-lancar-cobranca'));
+    });
+
+    const [[chamada]] = mockMutateLancar.mock.calls;
+    expect(chamada.req.vlCobrado).toBe(0);
+    expect(chamada.req.vlCobrado).not.toBeUndefined();
+    expect(chamada.req.idServicoPreco).toBe(1);
   });
 
   it('chip de forma de pagamento preenche o campo de texto livre, e é enviado', async () => {
