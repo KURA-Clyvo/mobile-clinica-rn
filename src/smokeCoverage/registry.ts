@@ -176,4 +176,49 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       '(não SomenteGestor). Mesma razão de listUsuariosClinica: sem check hoje em ' +
       'smoke-contratos.sh, extensão de DevOps-Cloud fora do escopo desta task.',
   },
+
+  // servicos-preco.service.ts (FM-05, ciclo FIN) — as 6 entradas abaixo são
+  // `naoCoberto`, mesma classe das entradas de usuarios-clinica.service.ts
+  // acima: `smoke-contratos.sh` (DevOps-Cloud) não tem check para NENHUMA
+  // delas hoje (endpoint novo deste ciclo, FD-09) e estender aquele script
+  // é mudança em outro repo, fora do escopo desta task (que só toca
+  // mobile-clinica-rn).
+  'servicos-preco.service.ts::listServicosPreco': {
+    naoCoberto:
+      'GET /api/v1/servicos-preco — idempotente, sem side effect, candidato natural a ' +
+      'smoke-contratos.sh (mesmo perfil de listUsuariosClinica/pets/listar), mas o script ' +
+      'real não tem check para ele hoje. Estender smoke-contratos.sh é mudança em ' +
+      'DevOps-Cloud, fora do escopo desta task.',
+  },
+  'servicos-preco.service.ts::getServicoPreco': {
+    naoCoberto:
+      'GET /api/v1/servicos-preco/{id} — idempotente, sem side effect. Mesma razão de ' +
+      'listServicosPreco acima: sem check hoje, extensão de DevOps-Cloud fora do escopo ' +
+      'desta task.',
+  },
+  'servicos-preco.service.ts::criarServicoPreco': {
+    naoCoberto:
+      'POST /api/v1/servicos-preco — side-effecting (grava SERVICO_PRECO no Oracle real, ' +
+      'com regra de negócio de nome único entre ATIVOS por clínica). Sem check hoje em ' +
+      'smoke-contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo desta task.',
+  },
+  'servicos-preco.service.ts::atualizarServicoPreco': {
+    naoCoberto:
+      'PUT /api/v1/servicos-preco/{id} — side-effecting, e a regra de negócio mais sensível ' +
+      'deste endpoint (recusar com 422 tanto nome duplicado quanto serviço desativado, ver ' +
+      'tests/mock-contract-audit.test.ts) exigiria um smoke test com SETUP de dado específico ' +
+      'para ser útil — mais complexo que os checks request/response simples que o script hoje ' +
+      'contém. Sem check hoje; extensão fora do escopo desta task.',
+  },
+  'servicos-preco.service.ts::reativarServicoPreco': {
+    naoCoberto:
+      'POST /api/v1/servicos-preco/{id}/reativacao — side-effecting, idempotente por ' +
+      'contrato (reativar já-ativo também dá 200) mas ainda assim sem check hoje em ' +
+      'smoke-contratos.sh — extensão fora do escopo desta task.',
+  },
+  'servicos-preco.service.ts::desativarServicoPreco': {
+    naoCoberto:
+      'DELETE /api/v1/servicos-preco/{id} — side-effecting (soft delete real). Sem check ' +
+      'hoje; extensão de DevOps-Cloud fora do escopo desta task.',
+  },
 };
