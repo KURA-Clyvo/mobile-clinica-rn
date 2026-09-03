@@ -13,8 +13,19 @@ import type {
 // DTO real (mesmo padrão de pets.service.ts) — DIFERENTE de
 // dashboard.service.ts, que combina/renomeia campos de vários DTOs.
 
-export async function listUsuariosClinica(): Promise<UsuarioClinicaResponse[]> {
-  const { data } = await apiClient.get<UsuarioClinicaResponse[]>('/api/v1/usuarios-clinica');
+// FM-05 (brief §4, ruling D-14 do Felipe: "corrige a FM-05 e a FM-02 de uma
+// vez") — FD-16 acrescentou `incluirInativos` (default `false`) também em
+// UsuariosClinicaController.cs:66 (mesmo padrão de ServicosPrecoController,
+// ver servicos-preco.service.ts). Mesma decisão declarada sobre `params`:
+// OMITIDO quando `false` (mais perto do default real do backend); o mock
+// trata ausência e `false` explícito como equivalentes.
+export async function listUsuariosClinica(
+  incluirInativos = false,
+): Promise<UsuarioClinicaResponse[]> {
+  const { data } = await apiClient.get<UsuarioClinicaResponse[]>(
+    '/api/v1/usuarios-clinica',
+    incluirInativos ? { params: { incluirInativos: true } } : undefined,
+  );
   return data;
 }
 

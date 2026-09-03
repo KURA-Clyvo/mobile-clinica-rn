@@ -19,10 +19,17 @@ import type {
 // resultado — mesmo raciocínio das mutações de agenda/eventos clínicos já
 // existentes neste app.
 
-export function useUsuariosClinica() {
+// FM-05 (brief §4) — `incluirInativos` (FD-16) precisa entrar na `queryKey`,
+// senão o React Query devolve o cache da OUTRA variante e o toggle "Mostrar
+// desativados" não faz nada (2 chamadas com parâmetros diferentes, mesma
+// chave, mesmo cache — clássico bug de cache do React Query). As mutações
+// abaixo continuam invalidando só `['usuarios-clinica']` (sem o segundo
+// elemento): invalidateQueries casa por PREFIXO por padrão, então isso
+// invalida as DUAS variantes (`[..., false]` e `[..., true]`) de uma vez.
+export function useUsuariosClinica(incluirInativos = false) {
   return useQuery({
-    queryKey: ['usuarios-clinica'],
-    queryFn: listUsuariosClinica,
+    queryKey: ['usuarios-clinica', incluirInativos],
+    queryFn: () => listUsuariosClinica(incluirInativos),
     staleTime: 30_000,
   });
 }

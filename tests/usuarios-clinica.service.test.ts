@@ -36,11 +36,22 @@ const usuario: UsuarioClinicaResponse = {
 };
 
 describe('usuarios-clinica.service', () => {
-  it('listUsuariosClinica chama GET /api/v1/usuarios-clinica', async () => {
+  // FM-05 (brief §4) — `incluirInativos` (FD-16) OMITE `params` quando
+  // `false`/ausente (decisão declarada em usuarios-clinica.service.ts,
+  // mesma de servicos-preco.service.ts).
+  it('listUsuariosClinica SEM argumento chama GET sem params (default backend: só ativos)', async () => {
     mockGet.mockResolvedValue({ data: [usuario] });
     const result = await listUsuariosClinica();
-    expect(mockGet).toHaveBeenCalledWith('/api/v1/usuarios-clinica');
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/usuarios-clinica', undefined);
     expect(result).toEqual([usuario]);
+  });
+
+  it('listUsuariosClinica(true) chama GET com params incluirInativos:true (booleano)', async () => {
+    mockGet.mockResolvedValue({ data: [usuario] });
+    await listUsuariosClinica(true);
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/usuarios-clinica', {
+      params: { incluirInativos: true },
+    });
   });
 
   it('getUsuarioClinica chama GET /api/v1/usuarios-clinica/{id}', async () => {

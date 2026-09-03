@@ -57,11 +57,43 @@ beforeEach(() => {
 });
 
 describe('useUsuariosClinica', () => {
-  it('carrega a lista de usuários da clínica', async () => {
+  it('carrega a lista de usuários da clínica (default: sem incluirInativos)', async () => {
     mockList.mockResolvedValue([usuario]);
     const { result } = renderHook(() => useUsuariosClinica(), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.data).toEqual([usuario]);
+    expect(mockList).toHaveBeenCalledWith(false);
+  });
+
+  it('passa incluirInativos:true ao service quando pedido', async () => {
+    mockList.mockResolvedValue([usuario]);
+    const { result } = renderHook(() => useUsuariosClinica(true), { wrapper: makeWrapper() });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(mockList).toHaveBeenCalledWith(true);
+  });
+
+  // FM-05 (brief §4) — mordida do bug de cache que a queryKey sem o flag
+  // produziria: SEM `incluirInativos` na queryKey, o segundo `renderHook`
+  // devolveria o cache do primeiro (mesma chave, resultado da chamada
+  // ANTERIOR) em vez de disparar uma nova busca.
+  it('incluirInativos:false e :true usam CACHES SEPARADOS (queryKey inclui o flag)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      React.createElement(QueryClientProvider, { client: qc }, children);
+
+    mockList.mockResolvedValueOnce([usuario]); // resposta para incluirInativos=false
+    const somenteAtivos = renderHook(() => useUsuariosClinica(false), { wrapper });
+    await waitFor(() => expect(somenteAtivos.result.current.isLoading).toBe(false));
+    expect(somenteAtivos.result.current.data).toEqual([usuario]);
+
+    const inativo = { ...usuario, id: 4, stAtiva: false };
+    mockList.mockResolvedValueOnce([usuario, inativo]); // resposta para incluirInativos=true
+    const comInativos = renderHook(() => useUsuariosClinica(true), { wrapper });
+    await waitFor(() => expect(comInativos.result.current.isLoading).toBe(false));
+    // Se as duas variantes compartilhassem cache, este `data` seria igual ao
+    // da primeira renderização ([usuario]) em vez de refletir a 2ª chamada.
+    expect(comInativos.result.current.data).toEqual([usuario, inativo]);
+    expect(mockList).toHaveBeenCalledTimes(2);
   });
 });
 
