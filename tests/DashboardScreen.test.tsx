@@ -1,11 +1,17 @@
 import React from 'react';
 import { render, waitFor, within, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import RNRefreshControl from 'react-native/Libraries/Components/RefreshControl/RefreshControl';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
+import { formatarMoeda } from '../src/utils/moeda';
+// I-2 da G2: `resumoVazio()` existia sem consumidor nenhum enquanto um comentário
+// afirmava que os testes a usavam. Passou a ser usada de verdade na mordida do
+// estado vazio, abaixo.
+import { resumoVazio } from '../src/mocks/financeiro.mock';
 
 jest.mock('@hooks/useDashboard', () => ({
   useDashboardHoje: jest.fn(),
@@ -13,11 +19,23 @@ jest.mock('@hooks/useDashboard', () => ({
   useRecentes: jest.fn(),
 }));
 
+// FM-07 — mockado aqui pela MESMA razão dos 3 hooks acima: este arquivo testa o COMPONENTE
+// (renderização condicional dado um resultado de hook), não a integração hook->rede->mock,
+// que é o que tests/fm07-veterinario-sem-chamada-financeiro.test.tsx prova com a cadeia REAL
+// (sem mock deste módulo). Sem este jest.mock, useResumoFinanceiro chamaria useQuery sem
+// QueryClientProvider (este arquivo não envolve a árvore num, ver `wrap()`) e QUEBRARIA os
+// 39 testes pré-existentes que nunca ouviram falar de financeiro.
+jest.mock('@hooks/useFinanceiro', () => ({
+  useResumoFinanceiro: jest.fn(),
+}));
+
 import { useDashboardHoje, useAlertas, useRecentes } from '../src/hooks/useDashboard';
+import { useResumoFinanceiro } from '../src/hooks/useFinanceiro';
 
 const mockUseDashboardHoje = useDashboardHoje as jest.Mock;
 const mockUseAlertas = useAlertas as jest.Mock;
 const mockUseRecentes = useRecentes as jest.Mock;
+const mockUseResumoFinanceiro = useResumoFinanceiro as jest.Mock;
 
 // useWindowDimensions é o que useBreakpoint() consome (nunca Dimensions.get(),
 // que não re-renderiza em resize de janela na web). Mesmo padrão de
@@ -95,6 +113,18 @@ beforeEach(() => {
   jest.clearAllMocks();
   REFETCH.mockResolvedValue(undefined);
   setViewport(400, 800);
+  // FM-07 — default para os 39 testes pré-existentes, que nunca ouviram falar de financeiro
+  // e o `tpPerfil: 'VETERINARIO'` do beforeEach acima já garante que o card nem renderiza
+  // (isGestor && ...) — o valor aqui só existe para a destructuring de useResumoFinanceiro()
+  // não quebrar. Describes que testam o card financeiro de verdade (GESTOR) sobrescrevem via
+  // mockUseResumoFinanceiro.mockReturnValue(...) no próprio teste.
+  mockUseResumoFinanceiro.mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    refetch: REFETCH,
+    isGestor: false,
+  });
 });
 
 describe('DashboardScreen — loading state', () => {
@@ -606,4 +636,261 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
   //   coluna em vez de 2. Mesma lacuna antes desta fix wave. Com
   //   LIST_VIEWPORTS acima, os testes `groups 3 items into 2 column(s) per
   //   row at 1024×768.../1280×800...` passam a FALHAR sob a mutação.
+});
+
+// FM-07 (ciclo FIN) — cards financeiros do dashboard.
+//
+// Este describe testa o COMPONENTE (useResumoFinanceiro MOCKADO, ver jest.mock no topo do
+// arquivo) — a MORDIDA OBRIGATORIA do brief secao 1 ("o veterinario NAO DISPARA a chamada")
+// e provada a parte, com a cadeia REAL (sem mock deste hook), em
+// tests/fm07-veterinario-sem-chamada-financeiro.test.tsx -- aqui so se prova o que o
+// COMPONENTE faz dado um resultado de hook, nao se o hook de fato evita a chamada de rede.
+
+describe('DashboardScreen - financeiro (FM-07)', () => {
+  const MOCK_RESUMO = {
+    periodo: {
+      de: '2026-09-01',
+      ate: '2026-09-30',
+      inicioUtc: '2026-09-01T00:00:00.000Z',
+      fimExclusivoUtc: '2026-10-01T00:00:00.000Z',
+    },
+    periodoAnterior: {
+      de: '2026-08-01',
+      ate: '2026-08-31',
+      inicioUtc: '2026-08-01T00:00:00.000Z',
+      fimExclusivoUtc: '2026-09-01T00:00:00.000Z',
+    },
+    receitaBruta: 4820.5,
+    nrCobrancas: 12,
+    nrAtendimentosCobrados: 9,
+    ticketMedio: 535.61,
+    receitaBrutaPeriodoAnterior: 3980,
+    nrAtendimentosCobradosPeriodoAnterior: 7,
+    variacaoPercentual: 21.12,
+    mixPorServico: [],
+  };
+
+  function logarComoGestor() {
+    useAuthStore.setState({
+      token: 'tok-gestor',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: MOCK_VET,
+    });
+  }
+
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+  });
+
+  // Secao 1 do brief, metade "render" da mordida (a metade "nao dispara a chamada" e a suite
+  // separada citada no cabecalho). VETERINARIO e o default do beforeEach TOP-LEVEL do
+  // arquivo -- nao precisa logarComoGestor() aqui.
+  it('VETERINARIO: a secao financeira inteira NAO entra na arvore -- nem card, nem skeleton, nem estado vazio', () => {
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: false,
+    });
+
+    const { queryByTestId, queryByText } = wrap(<DashboardScreen />);
+
+    expect(queryByTestId('financeiro-row')).toBeNull();
+    expect(queryByTestId('financeiro-skeleton')).toBeNull();
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    expect(queryByText('Financeiro')).toBeNull();
+  });
+
+  it('GESTOR: mostra skeleton de 2 cards enquanto o resumo carrega', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('financeiro-skeleton')).toBeTruthy();
+    // 2 cards -- receita bruta + ticket medio (secao 3 do brief).
+    expect(getAllByTestId('skeleton').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('GESTOR: renderiza "Receita bruta" e "Ticket medio" ja formatados em BRL', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('financeiro-row')).toBeTruthy();
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    // formatarMoeda(), não literal de string: Intl.NumberFormat('pt-BR', ...) usa espaço
+    // NÃO-QUEBRÁVEL (U+00A0) entre "R$" e o número, não o espaço comum -- medido ao vivo
+    // (achado do PAR DE INSTRUMENTOS §11: um literal escrito à mão passaria no `grep`
+    // visual e falharia em `toContain`, silenciosamente, se não fosse por esta medição).
+    expect(values).toContain(formatarMoeda(4820.5));
+    expect(values).toContain(formatarMoeda(535.61));
+    const labels = getAllByTestId('metric-label').map((el) => el.props.children);
+    // Ruling D-6 -- o rotulo e "Receita bruta", com essas palavras.
+    expect(labels).toContain('Receita bruta');
+    expect(labels).toContain('Ticket médio');
+  });
+
+  // Secao 2.3 do brief -- a mordida obrigatoria do NULL: ticketMedio null vira o traco,
+  // NUNCA "R$ 0,00" (mentiria "o atendimento medio valeu zero").
+  it('GESTOR: ticketMedio null renderiza o traco, NUNCA "R$ 0,00"', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: { ...MOCK_RESUMO, nrAtendimentosCobrados: 0, ticketMedio: null, variacaoPercentual: null },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getAllByTestId } = wrap(<DashboardScreen />);
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    expect(values).toContain('—');
+    expect(values).not.toContain(formatarMoeda(0));
+  });
+
+  // ─── I-1 da revisão G2 (BLOQUEANTE): "não sei" NÃO é "não houve" ──────────
+  //
+  // `data` é `undefined` tanto quando o período não teve cobrança quanto
+  // quando a chamada FALHOU, e o gate original (`data == null ||
+  // nrCobrancas === 0`, os dois no MESMO ramo) exibia "Nenhuma cobrança
+  // registrada neste período" para um erro de rede.
+  //
+  // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se recusa a
+  // devolver `0` para o que não sabe medir (`ticketMedio` e
+  // `variacaoPercentual` são `null` de propósito, e o controller escreve
+  // "Zero para 'não medimos' seria mentira") — e o app pegava a ausência de
+  // resposta e a transformava numa AFIRMAÇÃO SOBRE O NEGÓCIO.
+  //
+  // 🔴 Por que é pior que um estado vazio feio: o gestor que abre o painel com
+  // a rede caída lê "não faturou nada este mês" e acredita. Silencioso,
+  // plausível e sobre dinheiro — as três coisas juntas.
+  it('GESTOR: isError mostra o estado de ERRO, nunca "Nenhuma cobranca registrada" -- mordida I-1', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      // `data: undefined` é exatamente o que o React Query entrega numa falha —
+      // é o que torna este caso indistinguível do vazio sem ler `isError`.
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('erro-financeiro')).toBeTruthy();
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    expect(queryByTestId('financeiro-row')).toBeNull();
+  });
+
+  // Secao 2.4 do brief -- os DOIS estados que produzem receitaBruta:0, e por que so um deles
+  // e o estado vazio. Estado 1: NADA foi lancado (nrCobrancas:0) -> estado vazio instrutivo.
+  //
+  // ⚠️ A fixture vem de `financeiro.mock.ts::resumoVazio()` DE PROPÓSITO (I-2 da G2): aquela
+  // função tinha ZERO consumidores e um comentário afirmando que "os testes a usam". Ou ela
+  // ganhava consumidor real, ou a frase era falsa — aqui ela ganhou.
+  it('GESTOR: nrCobrancas === 0 (nada lancado) mostra o estado vazio, NUNCA um card com "R$ 0,00"', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: resumoVazio('2026-09-01', '2026-09-30'),
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('empty-financeiro')).toBeTruthy();
+    expect(queryByTestId('financeiro-row')).toBeNull();
+    // E não é o ramo de erro: vazio e falha são estados DIFERENTES (I-1).
+    expect(queryByTestId('erro-financeiro')).toBeNull();
+  });
+
+  // Estado 2: TUDO foi cortesia (nrCobrancas > 0, receitaBruta 0 de verdade) -> "R$ 0,00" e a
+  // VERDADE, e mostrar o estado vazio aqui seria o bug que o brief pede para evitar
+  // (indistinguivel de "nada foi lancado" quando na verdade houve atendimento cobrado a R$0).
+  it('GESTOR: nrCobrancas > 0 com receitaBruta 0 (cortesia total) mostra "R$ 0,00" -- NAO e o estado vazio', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        receitaBruta: 0,
+        nrCobrancas: 3,
+        nrAtendimentosCobrados: 3,
+        ticketMedio: 0,
+        variacaoPercentual: null,
+        mixPorServico: [{ idServicoPreco: 1, nmServico: 'Castracao social', receita: 0, nrCobrancas: 3 }],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { queryByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    // receitaBruta:0 E ticketMedio:0 (0 lucro / 3 atendimentos = 0) -- as DUAS sao R$0,00
+    // verdadeiro aqui, diferente do teste anterior (ticketMedio null).
+    expect(values.filter((v) => v === formatarMoeda(0)).length).toBe(2);
+  });
+
+  // Achado MEDIDO (nao previsto no brief) -- refetch() do React Query bypassa "enabled" (ver
+  // comentario em dashboard.tsx::onRefresh e o probe empirico citado no relatorio desta
+  // task). Pull-to-refresh so pode incluir refetchFinanceiro() no Promise.all quando
+  // isGestor -- senao o "atalho" do refresh reabriria a chamada que "enabled: isGestor"
+  // fecha no mount.
+  it('pull-to-refresh: GESTOR chama refetchFinanceiro; VETERINARIO NAO chama (refetch() bypassa enabled)', async () => {
+    const refetchFinanceiroGestor = jest.fn().mockResolvedValue(undefined);
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: refetchFinanceiroGestor,
+      isGestor: true,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
+    });
+    expect(refetchFinanceiroGestor).toHaveBeenCalledTimes(1);
+  });
+
+  it('pull-to-refresh: VETERINARIO NAO chama refetchFinanceiro (mesmo ele existindo no hook)', async () => {
+    const refetchFinanceiroVet = jest.fn().mockResolvedValue(undefined);
+    // VETERINARIO e o default do beforeEach top-level do arquivo -- sem logarComoGestor().
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: refetchFinanceiroVet,
+      isGestor: false,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
+    });
+    expect(refetchFinanceiroVet).not.toHaveBeenCalled();
+  });
 });

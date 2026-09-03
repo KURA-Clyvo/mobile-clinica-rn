@@ -26,6 +26,38 @@ export const STRINGS = {
     semAlertasDesc: 'Alertas de vacina e de temperatura aparecem aqui assim que forem gerados.',
     semAtendimentos: 'Nenhum atendimento programado',
     semAtendimentosDesc: 'Quando um agendamento for confirmado, ele aparece aqui.',
+    // FM-07 (ciclo FIN) — seção financeira, visível só para GESTOR (useIsGestor).
+    // 🔴 `receitaBruta` é "Receita bruta", com essas palavras (ruling D-6) — "Receita" sozinho
+    // é impreciso, e imprecisão financeira numa tela de gestor é erro fatal. O rótulo do KPI
+    // não muda por causa do gap de captura abaixo; a honestidade sobre o gap vai no subtítulo.
+    financeiro: 'Financeiro',
+    // §3.4 do brief — GAP DE CAPTURA declarado: um atendimento que gera só receituário não
+    // tem hoje onde lançar cobrança (achado M-5, G2 da FM-06); o card em consulta/[idPet].tsx
+    // existe, receituario/[idPet].tsx não foi ligado. Decisão tomada: rotular honestamente em
+    // vez de apresentar como "receita bruta da clínica" um número que só enxerga um dos
+    // caminhos de atendimento.
+    financeiroSubtitulo:
+      'Receita das consultas lançadas — atendimentos fechados só no receituário ainda não têm onde lançar cobrança.',
+    receitaBruta: 'Receita bruta',
+    ticketMedio: 'Ticket médio',
+    // §2.4 do brief — usar SEMPRE nrCobrancas === 0 para decidir este estado, NUNCA
+    // receitaBruta === 0 (cobrança de cortesia com vlCobrado:0 também zera a receita e é
+    // lançamento legítimo — ver cobrancas.mock.ts/FM-06).
+    semFaturamento: 'Nenhuma cobrança registrada neste período',
+    semFaturamentoDesc: 'Quando uma cobrança for lançada no atendimento, o resumo aparece aqui.',
+    // 🔴 I-1 da G2 — "não sei" NÃO é "não houve". Antes desta fix wave, uma
+    // falha de rede caía no mesmo ramo do estado vazio (`data` é `undefined`
+    // nos dois casos) e o gestor lia "Nenhuma cobrança registrada" para um mês
+    // que podia ter faturado.
+    //
+    // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se recusa a
+    // devolver `0` para "não medimos" (`ticketMedio`/`variacaoPercentual` são
+    // `null` de propósito, e o controller escreve "Zero para 'não medimos'
+    // seria mentira") — e o app transformava a ausência de resposta em
+    // afirmação sobre o negócio. Errar para "não faturou" num painel de gestor
+    // é pior que não mostrar nada.
+    erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
+    erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
   },
   pacientes: {
     titulo: 'Pacientes',

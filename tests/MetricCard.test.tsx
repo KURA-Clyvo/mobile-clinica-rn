@@ -45,4 +45,22 @@ describe('MetricCard', () => {
     );
     expect(getByTestId('metric-value').props.children).toBe(999);
   });
+
+  // FM-07 — `value` ampliado para `number | string` (ver MetricCardProps). Os cards
+  // financeiros passam string PRÉ-FORMATADA (formatarMoeda()) ou "—" (ticketMedio: null) —
+  // nenhum dos dois é number. Mudança aditiva: os 4 testes acima (todos numéricos) continuam
+  // passando sem alteração.
+  it('renders a pre-formatted string value (financeiro, FM-07)', () => {
+    const { getByTestId } = wrap(
+      <MetricCard label="Receita bruta" value="R$ 4.820,50" icon="dashboard" tone="sage" />,
+    );
+    expect(getByTestId('metric-value').props.children).toBe('R$ 4.820,50');
+  });
+
+  it('renders the dash placeholder for a null-backed metric (ticketMedio: null)', () => {
+    const { getByTestId } = wrap(
+      <MetricCard label="Ticket médio" value="—" icon="check" tone="ocean" />,
+    );
+    expect(getByTestId('metric-value').props.children).toBe('—');
+  });
 });

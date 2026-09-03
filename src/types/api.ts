@@ -335,6 +335,55 @@ export interface CobrancaResponse {
   dtAtualizacao: string | null;
 }
 
+// ─── Resumo financeiro (FM-07, ciclo FIN) ──────────────────────────────────
+// Espelha ResumoFinanceiroResponseDto/PeriodoResumoDto/MixPorServicoDto
+// (backend-clinica-dotnet @ 94f558d, FinanceiroController) 1:1 -- já camelCase
+// no wire (ASP.NET Core default), mesmo padrão de ServicoPrecoResponse/
+// CobrancaResponse acima: sem tradução de shape.
+//
+// 🔴 `de`/`ate` são `DateOnly` no C# -> chegam como "YYYY-MM-DD" (sem hora).
+// `inicioUtc`/`fimExclusivoUtc` são `DateTime` -> ISO com hora, em UTC, SEM
+// conversão de fuso (limitação declarada no backend, não corrigida aqui --
+// ver financeiro.service.ts).
+export interface PeriodoResumo {
+  de: string;
+  ate: string;
+  inicioUtc: string;
+  fimExclusivoUtc: string;
+}
+
+// `idServicoPreco: null` é o balde de lançamento avulso (D-2) -- balde
+// PRÓPRIO, nunca descartado. Serviço desativado continua no mix com o nome
+// dele (ResumoFinanceiroResponseDto.cs:116, backend @ 94f558d).
+export interface MixPorServico {
+  idServicoPreco: number | null;
+  nmServico: string;
+  receita: number;
+  nrCobrancas: number;
+}
+
+// 🔴 `ticketMedio`/`variacaoPercentual` são `null`, NUNCA `0`, quando não há
+// base para calcular (ResumoFinanceiroResponseDto.cs:80,106) -- zero para
+// "não medimos" seria mentira. NÃO renderizar `R$ 0,00`/`0%` no lugar de
+// `null` neste app -- ver dashboard.tsx.
+//
+// `receitaBruta` e `mixPorServico[].receita` são somas EXATAS (cada parcela
+// já é NUMBER(10,2)); `ticketMedio`/`variacaoPercentual` saem arredondados a
+// 2 casas com `MidpointRounding.AwayFromZero` -- exibir sem re-arredondar
+// (usar src/utils/moeda.ts, não reimplementar).
+export interface ResumoFinanceiroResponse {
+  periodo: PeriodoResumo;
+  periodoAnterior: PeriodoResumo;
+  receitaBruta: number;
+  nrCobrancas: number;
+  nrAtendimentosCobrados: number;
+  ticketMedio: number | null;
+  receitaBrutaPeriodoAnterior: number;
+  nrAtendimentosCobradosPeriodoAnterior: number;
+  variacaoPercentual: number | null;
+  mixPorServico: MixPorServico[];
+}
+
 // ─── Luna (.NET — relatório agregado) ────────────────────────
 export interface TriagensRelatorioQuery {
   dataInicio: string;

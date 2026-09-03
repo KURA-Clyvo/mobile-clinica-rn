@@ -6,6 +6,8 @@ import { lightColors, type BreakpointKey } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useBreakpoint } from '@hooks/useBreakpoint';
 import { useDashboardHoje, useAlertas, useRecentes } from '@hooks/useDashboard';
+import { useResumoFinanceiro } from '@hooks/useFinanceiro';
+import { useIsGestor } from '@hooks/useIsGestor';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { MetricCard } from '@components/domain/MetricCard';
 import { AlertCard } from '@components/domain/AlertCard';
@@ -20,6 +22,8 @@ import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api'
 import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import type { MetricTone } from '@components/domain/MetricCard';
+import { formatarMoeda } from '@utils/moeda';
+import { mesCorrente, formatarPeriodoCurto } from '@utils/periodoFinanceiro';
 
 // Agrupa uma lista em sub-listas ("linhas") de até `size` itens, mantendo a
 // ordem — usado tanto para o grid de métricas quanto para as listas de
@@ -155,6 +159,15 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.text,
       marginBottom: 10,
     },
+    // FM-07 — legenda de honestidade do gap de captura (§3.4 do brief: o rótulo do KPI fica
+    // literal "Receita bruta", D-6; a ressalva sobre sub-captura vai aqui).
+    sectionSubtitle: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 12,
+      color: colors.textMute,
+      marginTop: -4,
+      marginBottom: 10,
+    },
     sectionBlock: { marginBottom: 24 },
     appointmentCard: { flex: 1 },
     // CQ-06 G2 fix wave, achado H — `AppointmentRow` ganha altura igual entre
@@ -227,13 +240,42 @@ export default function DashboardScreen() {
   const { data: alertas, isLoading: loadingAlertas, refetch: refetchAlertas } = useAlertas();
   const { data: recentes, isLoading: loadingRecentes, refetch: refetchRecentes } = useRecentes();
 
+  // FM-07 — `isGestor` decide DUAS coisas independentes, e as duas importam (ver §1 do
+  // brief): (1) se o CARD renderiza (abaixo, no JSX) e (2) se o `enabled` do hook chega a
+  // disparar a chamada (dentro de useResumoFinanceiro). O período é "mês corrente", decisão
+  // DECLARADA (mesCorrente(), ver utils/periodoFinanceiro.ts) — não corrige o fuso UTC do
+  // backend, que é limitação declarada e não desta task.
+  const isGestor = useIsGestor();
+  const { de: deFinanceiro, ate: ateFinanceiro } = mesCorrente();
+  const {
+    data: resumoFinanceiro,
+    isLoading: loadingFinanceiro,
+    // I-1 da G2: o hook SEMPRE expôs `isError` e esta tela não o lia — por isso
+    // falha de rede e período vazio caíam no mesmo ramo. Ver o comentário no
+    // bloco de render abaixo.
+    isError: erroFinanceiro,
+    refetch: refetchFinanceiro,
+  } = useResumoFinanceiro(deFinanceiro, ateFinanceiro);
+
   const [refreshing, setRefreshing] = React.useState(false);
 
+  // 🔴 ACHADO MEDIDO, NÃO PREVISTO NO BRIEF: `refetch()` do React Query BYPASSA `enabled` --
+  // chamar `refetchFinanceiro()` incondicionalmente aqui dispararia a chamada de financeiro
+  // TAMBÉM para um VETERINARIO que desse pull-to-refresh, mesmo com `enabled: isGestor` no
+  // hook (confirmado por sonda: `useQuery({ enabled: false }).refetch()` invoca `queryFn`
+  // mesmo assim -- `executeFetch_fn`/`Query.fetch()` em @tanstack/query-core não consultam
+  // `enabled`, só o `fetch()` automático de montagem/mudança de dependência consulta). Por
+  // isso o refetch de financeiro só entra no Promise.all quando `isGestor` for verdadeiro.
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchHoje(), refetchAlertas(), refetchRecentes()]);
+    await Promise.all([
+      refetchHoje(),
+      refetchAlertas(),
+      refetchRecentes(),
+      ...(isGestor ? [refetchFinanceiro()] : []),
+    ]);
     setRefreshing(false);
-  }, [refetchHoje, refetchAlertas, refetchRecentes]);
+  }, [refetchHoje, refetchAlertas, refetchRecentes, refetchFinanceiro, isGestor]);
 
   const metrics = hoje?.metrics;
   // FM-01 + E26 — duas correções que caem na MESMA linha, e é por isso que o
@@ -446,6 +488,90 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
+
+      {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
+          isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
+          `SomenteGestor` no controller -- um VETERINARIO puro recebe 403), e o `isGestor &&`
+          aqui impede o CARD de entrar na árvore. Ver comentário no topo do componente sobre
+          por que as duas guardas são necessárias (renderizar condicionalmente sozinho NÃO
+          basta -- o React Query dispara `queryFn` no mount independente do JSX). */}
+      {isGestor && (
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
+          <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
+          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
+              topo do dashboard mostra a data de HOJE: o gestor via um valor
+              mensal ao lado de uma data diária, sem nada ligando os dois.
+              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
+              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
+              palavras, "para que o app confira em vez de acreditar". Exibir o
+              período que o app PEDIU esconderia justamente a divergência que o
+              campo existe para revelar (a junta entre o mês local e a agregação
+              em dia UTC). */}
+          {resumoFinanceiro != null && (
+            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
+              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
+            </Text>
+          )}
+          {loadingFinanceiro ? (
+            <View style={styles.metricsRow} testID="financeiro-skeleton">
+              <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
+              <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
+            </View>
+          ) : erroFinanceiro || resumoFinanceiro == null ? (
+            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
+            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
+            // cobrança quanto quando a chamada FALHOU, então o gate anterior
+            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
+            // exibia "Nenhuma cobrança registrada neste período" para um erro
+            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
+            //
+            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
+            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
+            // `variacaoPercentual` são `null` de propósito, e o controller
+            // escreve "Zero para 'não medimos' seria mentira") — e o app
+            // transformava ausência de resposta em afirmação sobre o negócio.
+            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
+            <KCEmptyState
+              icon="alert"
+              title={STRINGS.dashboard.erroFinanceiro}
+              description={STRINGS.dashboard.erroFinanceiroDesc}
+              testID="erro-financeiro"
+            />
+          ) : resumoFinanceiro.nrCobrancas === 0 ? (
+            // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
+            // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
+            // "nenhuma cobrança registrada" seria FALSO nesse caso.
+            <KCEmptyState
+              icon="dashboard"
+              title={STRINGS.dashboard.semFaturamento}
+              description={STRINGS.dashboard.semFaturamentoDesc}
+              testID="empty-financeiro"
+            />
+          ) : (
+            <View style={styles.metricsRow} testID="financeiro-row">
+              <MetricCard
+                label={STRINGS.dashboard.receitaBruta}
+                value={formatarMoeda(resumoFinanceiro.receitaBruta)}
+                icon="dashboard"
+                tone="sage"
+              />
+              <MetricCard
+                label={STRINGS.dashboard.ticketMedio}
+                // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
+                // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
+                value={
+                  resumoFinanceiro.ticketMedio == null
+                    ? '—'
+                    : formatarMoeda(resumoFinanceiro.ticketMedio)
+                }
+                icon="check"
+                tone="ocean"
+              />
+            </View>
+          )}
+        </View>
+      )}
     </ScreenContainer>
   );
 }
