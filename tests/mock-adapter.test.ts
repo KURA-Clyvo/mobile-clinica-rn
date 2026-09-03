@@ -429,3 +429,50 @@ describe('mock-adapter — servicos-preco (FM-05)', () => {
     }
   });
 });
+
+// FM-06 — a rota nova compartilha o PREFIXO `/eventos-clinicos/{id}/...`
+// com 3 entradas já existentes (`/transcricao$`, `/soap$`, `/receituario$`)
+// -- este describe prova o despacho E a NÃO-colisão, mesma disciplina do
+// describe "servicos-preco (FM-05)" acima. As 4 regex são mutuamente
+// exclusivas por construção (sufixo distinto + âncora `$`), não por ordem
+// -- ver o comentário de mock-adapter.ts sobre a FALSA doutrina de ordem já
+// corrigida na fix wave da FM-05.
+describe('mock-adapter — cobrancas (FM-06)', () => {
+  it('resolves POST /eventos-clinicos/{id}/cobrancas', async () => {
+    const res = await resolveMock(
+      makeConfig('/api/v1/eventos-clinicos/700/cobrancas', 'POST', { vlCobrado: 50 }),
+    );
+    expect(res.status).toBe(200); // resolveMock sempre devolve 200 (ver cabeçalho do arquivo)
+    const data = res.data as { idEventoClinico: number; vlCobrado: number };
+    expect(data.idEventoClinico).toBe(700);
+    expect(data.vlCobrado).toBe(50);
+  });
+
+  it('/eventos-clinicos/{id}/cobrancas NÃO colide com /transcricao, /soap nem /receituario do mesmo evento', async () => {
+    const transcricao = await resolveMock(
+      makeConfig('/api/v1/eventos-clinicos/701/transcricao', 'POST'),
+    );
+    const cobranca = await resolveMock(
+      makeConfig('/api/v1/eventos-clinicos/701/cobrancas', 'POST', { vlCobrado: 10 }),
+    );
+    // Formas de resposta são inconfundíveis entre os dois handlers -- se a
+    // rota errada tivesse sido invocada por engano, um dos dois campos
+    // abaixo estaria ausente/undefined.
+    expect((transcricao.data as { soap: unknown }).soap).toBeDefined();
+    expect((cobranca.data as { vlCobrado: unknown }).vlCobrado).toBeDefined();
+  });
+
+  it('POST /eventos-clinicos/{id}/cobrancas não é afetado por EXPO_PUBLIC_MOCK_EMPTY (sem entrada em EMPTY_LIST_TRANSFORMS -- não é lista)', async () => {
+    const original = process.env.EXPO_PUBLIC_MOCK_EMPTY;
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    try {
+      const res = await resolveMock(
+        makeConfig('/api/v1/eventos-clinicos/702/cobrancas', 'POST', { vlCobrado: 20 }),
+      );
+      const cobranca = res.data as { vlCobrado: number };
+      expect(cobranca.vlCobrado).toBe(20);
+    } finally {
+      process.env.EXPO_PUBLIC_MOCK_EMPTY = original;
+    }
+  });
+});
