@@ -10,6 +10,7 @@ import * as veterinariosMock from '../../mocks/veterinarios.mock';
 import * as usuariosClinicaMock from '../../mocks/usuarios-clinica.mock';
 import * as servicosPrecoMock from '../../mocks/servicos-preco.mock';
 import * as cobrancasMock from '../../mocks/cobrancas.mock';
+import * as financeiroMock from '../../mocks/financeiro.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
@@ -94,6 +95,11 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/servicos-preco\/\d+\/reativacao$/, servicosPrecoMock.reativacao],
   [/\/servicos-preco\/\d+$/, servicosPrecoMock.byId], // GET | PUT | DELETE
   [/\/servicos-preco$/, servicosPrecoMock.colecao], // GET | POST
+  // FM-07 — único endpoint de FinanceiroController (GET /resumo). Ancorada em `$`, sem
+  // nenhum prefixo `/financeiro` em outra entrada deste array — mutuamente exclusiva por
+  // construção (não compartilha sufixo com nenhuma outra rota). Ver ancoragem completa em
+  // financeiro.mock.ts.
+  [/\/financeiro\/resumo$/, financeiroMock.resumo],
 ];
 
 const MOCK_LATENCY_MS = 300;
@@ -147,6 +153,19 @@ export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
   // classe de defeito por engano. Se um dia isto precisar de um estado
   // vazio demonstrável, a correção é `applyMockEmptyOverride` também
   // enxergar `method`, não uma entrada nova nesta lista.
+  //
+  // FM-07 — DECISÃO DELIBERADA, razão DIFERENTE das acima: `/financeiro/resumo$/` também
+  // NÃO tem entrada aqui, mas não por colisão de método (é `GET` puro, sem POST na mesma
+  // URL) — é porque a resposta é um OBJETO único (`ResumoFinanceiroResponseDto`), não uma
+  // lista, e o mesmo padrão já vale para `/dashboard/hoje$/` (objeto, sem entrada) logo
+  // acima: as duas entradas que ESVAZIAM objeto (`/agenda$/`, `/medicamentos$/`) reescrevem
+  // um CAMPO conhecido do objeto (`agendamentos`/`items`) para `[]`, não o objeto inteiro.
+  // `applyMockEmptyOverride` faria `() => ({})` virar um objeto sem os campos `required` do
+  // DTO -- pior que não interceptar, porque quebraria a tela sob a flag em vez de demonstrar
+  // um estado vazio real. O estado "nenhuma cobrança no período" (nrCobrancas:0) é
+  // demonstrável DIRETO na fixture normal do mock, mudando `de`/`ate` para um período sem
+  // movimento simulado -- não precisa de `EXPO_PUBLIC_MOCK_EMPTY` (ver financeiro.mock.ts,
+  // `resumoVazio()`, usada pelos testes de componente/hook, não por esta flag).
 ];
 
 function applyMockEmptyOverride(url: string, data: unknown): unknown {
