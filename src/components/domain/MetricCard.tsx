@@ -10,7 +10,14 @@ export type MetricTone = 'ocean' | 'sage' | 'amber' | 'clay';
 
 export interface MetricCardProps {
   label: string;
-  value: number;
+  // FM-07 — ampliado de `number` para `number | string` (decisão declarada: estender o
+  // componente COMPARTILHADO em vez de duplicá-lo num irmão, ver dashboard.tsx). Mudança
+  // ADITIVA: os 4 consumidores existentes (dashboard.tsx, todos numéricos) continuam
+  // passando `number` sem alteração nenhuma — `<Text>` renderiza `number` e `string` de
+  // forma idêntica. Necessário porque os cards financeiros (FM-07) precisam de valor JÁ
+  // FORMATADO (`formatarMoeda()`, ex.: "R$ 1.234,56") ou do traço "—" para `ticketMedio:
+  // null` — nenhum dos dois é `number`.
+  value: number | string;
   icon: KCIconName;
   tone: MetricTone;
 }
