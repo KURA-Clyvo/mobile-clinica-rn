@@ -221,4 +221,15 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'DELETE /api/v1/servicos-preco/{id} — side-effecting (soft delete real). Sem check ' +
       'hoje; extensão de DevOps-Cloud fora do escopo desta task.',
   },
+
+  // cobrancas.service.ts (FM-06, ciclo FIN)
+  'cobrancas.service.ts::lancarCobranca': {
+    naoCoberto:
+      'POST /api/v1/eventos-clinicos/{id}/cobrancas — side-effecting (grava COBRANCA no ' +
+      'Oracle real, com a regra de negócio mais sensível deste endpoint: 422 para serviço ' +
+      'de preço inexistente/de outra clínica OU DESATIVADO — ver CobrancaService.cs:190-211, ' +
+      'backend-clinica-dotnet @ 94f558d). grep confirmado (`grep -n "cobranca" scripts/' +
+      'smoke-contratos.sh` -> 0 linhas). Estender smoke-contratos.sh é mudança em ' +
+      'DevOps-Cloud, fora do escopo desta task (que só toca mobile-clinica-rn).',
+  },
 };

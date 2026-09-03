@@ -33,6 +33,7 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { LunaSuggestionBadge } from '@components/domain/LunaSuggestionBadge';
+import { LancarCobrancaCard } from '@components/domain/LancarCobrancaCard';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateFull } from '@utils/date';
 import { ROUTES } from '@constants/routes';
@@ -462,6 +463,14 @@ export default function ConsultaScreen() {
                 </View>
               ))}
             </View>
+          )}
+
+          {/* FM-06 (ciclo FIN) — cabe no mesmo gesto de fechar o
+              atendimento, mesma fase da transcrição acima (idEventoClinico
+              já existe). Opcional e de baixo atrito: concluir sem lançar
+              nada continua um caminho de um toque, ver botões do rodapé. */}
+          {idEventoClinico !== null && (
+            <LancarCobrancaCard idEventoClinico={idEventoClinico} />
           )}
         </View>
       </ScrollView>

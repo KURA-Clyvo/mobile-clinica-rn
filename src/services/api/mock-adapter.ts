@@ -9,6 +9,7 @@ import * as teleconsultaMock from '../../mocks/teleconsulta.mock';
 import * as veterinariosMock from '../../mocks/veterinarios.mock';
 import * as usuariosClinicaMock from '../../mocks/usuarios-clinica.mock';
 import * as servicosPrecoMock from '../../mocks/servicos-preco.mock';
+import * as cobrancasMock from '../../mocks/cobrancas.mock';
 
 type MockHandler = (config: InternalAxiosRequestConfig) => Promise<unknown>;
 
@@ -33,6 +34,12 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/eventos-clinicos\/\d+\/transcricao$/, eventosMock.enviarTranscricao],
   [/\/eventos-clinicos\/\d+\/soap$/, eventosMock.confirmarSoap],
   [/\/eventos-clinicos\/\d+\/receituario$/, eventosMock.gerarReceituario],
+  // FM-06 -- subrecurso do evento clínico (CobrancasController.cs, ver
+  // ancoragem em cobrancas.mock.ts). Mutuamente exclusiva das 3 entradas
+  // `/eventos-clinicos/\d+/...$` acima pela MESMA razão estrutural do
+  // bloco de ordem da FM-02 (comentário mais abaixo neste arquivo): sufixo
+  // distinto ancorado em `$`, sem overlap possível.
+  [/\/eventos-clinicos\/\d+\/cobrancas$/, cobrancasMock.lancar],
   [/\/medicamentos$/, eventosMock.medicamentos],
   [/\/whatsapp\/enviar$/, lunaMock.enviarWhatsApp],
   [/\/ready$/, lunaMock.ready],
