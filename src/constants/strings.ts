@@ -45,6 +45,19 @@ export const STRINGS = {
     // lançamento legítimo — ver cobrancas.mock.ts/FM-06).
     semFaturamento: 'Nenhuma cobrança registrada neste período',
     semFaturamentoDesc: 'Quando uma cobrança for lançada no atendimento, o resumo aparece aqui.',
+    // 🔴 I-1 da G2 — "não sei" NÃO é "não houve". Antes desta fix wave, uma
+    // falha de rede caía no mesmo ramo do estado vazio (`data` é `undefined`
+    // nos dois casos) e o gestor lia "Nenhuma cobrança registrada" para um mês
+    // que podia ter faturado.
+    //
+    // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se recusa a
+    // devolver `0` para "não medimos" (`ticketMedio`/`variacaoPercentual` são
+    // `null` de propósito, e o controller escreve "Zero para 'não medimos'
+    // seria mentira") — e o app transformava a ausência de resposta em
+    // afirmação sobre o negócio. Errar para "não faturou" num painel de gestor
+    // é pior que não mostrar nada.
+    erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
+    erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
   },
   pacientes: {
     titulo: 'Pacientes',

@@ -162,10 +162,25 @@ export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
   // um CAMPO conhecido do objeto (`agendamentos`/`items`) para `[]`, não o objeto inteiro.
   // `applyMockEmptyOverride` faria `() => ({})` virar um objeto sem os campos `required` do
   // DTO -- pior que não interceptar, porque quebraria a tela sob a flag em vez de demonstrar
-  // um estado vazio real. O estado "nenhuma cobrança no período" (nrCobrancas:0) é
-  // demonstrável DIRETO na fixture normal do mock, mudando `de`/`ate` para um período sem
-  // movimento simulado -- não precisa de `EXPO_PUBLIC_MOCK_EMPTY` (ver financeiro.mock.ts,
-  // `resumoVazio()`, usada pelos testes de componente/hook, não por esta flag).
+  // um estado vazio real.
+  //
+  // 🔴 CORRIGIDO na fix wave da G2 (achado I-2). Estas linhas afirmavam que o estado
+  // "nenhuma cobrança no período" era "demonstrável DIRETO na fixture normal, mudando
+  // `de`/`ate`". **É FALSO, e foi medido:** `financeiro.mock.ts::resumo()` devolve
+  // `receitaBruta = 4820.5` e `nrCobrancas = 12` como LITERAIS, independentemente de
+  // `de`/`ate` — só o bloco `periodo`/`periodoAnterior` varia. Nenhum período produz
+  // `nrCobrancas: 0`. E `resumoVazio()` NÃO é "usada pelos testes": tinha ZERO
+  // consumidores quando esta frase foi escrita.
+  //
+  // ⇒ **O estado vazio do financeiro NÃO é demonstrável em runtime sob NENHUMA flag hoje.**
+  // Ele só existe no nível de teste. **É dívida declarada do FM-09**, que cobra estado vazio
+  // verificável — e a correção certa é a mesma que aquele gate já herdou da FM-05 (achado
+  // A-6): tornar `applyMockEmptyOverride` sensível ao MÉTODO e ao shape, não acrescentar uma
+  // entrada que zere o objeto inteiro.
+  //
+  // ⚠️ Este comentário era a classe "documentação que garante o que o código não faz" — a
+  // mesma que já reprovou task neste projeto — escrita NO MESMO ARQUIVO cujo bloco vizinho
+  // (fix wave da FM-05) existe justamente para avisar contra ela.
 ];
 
 function applyMockEmptyOverride(url: string, data: unknown): unknown {

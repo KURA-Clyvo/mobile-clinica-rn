@@ -8,6 +8,10 @@ import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
 import { formatarMoeda } from '../src/utils/moeda';
+// I-2 da G2: `resumoVazio()` existia sem consumidor nenhum enquanto um comentário
+// afirmava que os testes a usavam. Passou a ser usada de verdade na mordida do
+// estado vazio, abaixo.
+import { resumoVazio } from '../src/mocks/financeiro.mock';
 
 jest.mock('@hooks/useDashboard', () => ({
   useDashboardHoje: jest.fn(),
@@ -761,20 +765,50 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(values).not.toContain(formatarMoeda(0));
   });
 
+  // ─── I-1 da revisão G2 (BLOQUEANTE): "não sei" NÃO é "não houve" ──────────
+  //
+  // `data` é `undefined` tanto quando o período não teve cobrança quanto
+  // quando a chamada FALHOU, e o gate original (`data == null ||
+  // nrCobrancas === 0`, os dois no MESMO ramo) exibia "Nenhuma cobrança
+  // registrada neste período" para um erro de rede.
+  //
+  // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se recusa a
+  // devolver `0` para o que não sabe medir (`ticketMedio` e
+  // `variacaoPercentual` são `null` de propósito, e o controller escreve
+  // "Zero para 'não medimos' seria mentira") — e o app pegava a ausência de
+  // resposta e a transformava numa AFIRMAÇÃO SOBRE O NEGÓCIO.
+  //
+  // 🔴 Por que é pior que um estado vazio feio: o gestor que abre o painel com
+  // a rede caída lê "não faturou nada este mês" e acredita. Silencioso,
+  // plausível e sobre dinheiro — as três coisas juntas.
+  it('GESTOR: isError mostra o estado de ERRO, nunca "Nenhuma cobranca registrada" -- mordida I-1', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      // `data: undefined` é exatamente o que o React Query entrega numa falha —
+      // é o que torna este caso indistinguível do vazio sem ler `isError`.
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('erro-financeiro')).toBeTruthy();
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    expect(queryByTestId('financeiro-row')).toBeNull();
+  });
+
   // Secao 2.4 do brief -- os DOIS estados que produzem receitaBruta:0, e por que so um deles
   // e o estado vazio. Estado 1: NADA foi lancado (nrCobrancas:0) -> estado vazio instrutivo.
+  //
+  // ⚠️ A fixture vem de `financeiro.mock.ts::resumoVazio()` DE PROPÓSITO (I-2 da G2): aquela
+  // função tinha ZERO consumidores e um comentário afirmando que "os testes a usam". Ou ela
+  // ganhava consumidor real, ou a frase era falsa — aqui ela ganhou.
   it('GESTOR: nrCobrancas === 0 (nada lancado) mostra o estado vazio, NUNCA um card com "R$ 0,00"', () => {
     logarComoGestor();
     mockUseResumoFinanceiro.mockReturnValue({
-      data: {
-        ...MOCK_RESUMO,
-        receitaBruta: 0,
-        nrCobrancas: 0,
-        nrAtendimentosCobrados: 0,
-        ticketMedio: null,
-        variacaoPercentual: null,
-        mixPorServico: [],
-      },
+      data: resumoVazio('2026-09-01', '2026-09-30'),
       isLoading: false,
       isError: false,
       refetch: REFETCH,
@@ -784,6 +818,8 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
     expect(getByTestId('empty-financeiro')).toBeTruthy();
     expect(queryByTestId('financeiro-row')).toBeNull();
+    // E não é o ramo de erro: vazio e falha são estados DIFERENTES (I-1).
+    expect(queryByTestId('erro-financeiro')).toBeNull();
   });
 
   // Estado 2: TUDO foi cortesia (nrCobrancas > 0, receitaBruta 0 de verdade) -> "R$ 0,00" e a

@@ -32,3 +32,32 @@ export function mesCorrente(referencia: Date = new Date()): { de: string; ate: s
     ate: formatarDataOnly(ano, mes + 1, 0), // dia 0 do mês seguinte = último dia deste mês
   };
 }
+
+const MESES_CURTOS_PT = [
+  'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+  'jul', 'ago', 'set', 'out', 'nov', 'dez',
+];
+
+/**
+ * Formata para exibição um par `DateOnly` (`YYYY-MM-DD`) vindo do backend.
+ *
+ * 🔴 NÃO usa `new Date(str)` de propósito, e isso não é preferência de estilo.
+ * `new Date('2026-09-01')` é parseado como **UTC meia-noite**, e `getDate()`
+ * num fuso negativo (BRT é UTC-3) devolve o **dia anterior**. Medido nesta
+ * máquina: `new Date('2026-09-01').getDate()` === 31 e `.getMonth()` === 7
+ * (agosto). Ou seja, formatar com `formatDateShort()` mostraria
+ * "31 Ago 2026" como início de um período que começa em **1º de setembro**.
+ *
+ * ⚠️ É a mesma família do defeito que esta seção existe para evitar: um número
+ * (aqui, uma data) plausível, sem erro nenhum, descrevendo outro período. Por
+ * isso a string é fatiada, nunca parseada.
+ */
+export function formatarPeriodoCurto(de: string, ate: string): string {
+  const rotulo = (dateOnly: string): string => {
+    const [ano, mes, dia] = dateOnly.split('-');
+    const mesIndex = Number(mes) - 1;
+    const nome = MESES_CURTOS_PT[mesIndex] ?? mes;
+    return `${dia} ${nome} ${ano}`;
+  };
+  return `${rotulo(de)} – ${rotulo(ate)}`;
+}

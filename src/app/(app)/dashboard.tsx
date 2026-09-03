@@ -23,7 +23,7 @@ import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLa
 import type { KCIconName } from '@components/primitives/KCIcon';
 import type { MetricTone } from '@components/domain/MetricCard';
 import { formatarMoeda } from '@utils/moeda';
-import { mesCorrente } from '@utils/periodoFinanceiro';
+import { mesCorrente, formatarPeriodoCurto } from '@utils/periodoFinanceiro';
 
 // Agrupa uma lista em sub-listas ("linhas") de até `size` itens, mantendo a
 // ordem — usado tanto para o grid de métricas quanto para as listas de
@@ -250,6 +250,10 @@ export default function DashboardScreen() {
   const {
     data: resumoFinanceiro,
     isLoading: loadingFinanceiro,
+    // I-1 da G2: o hook SEMPRE expôs `isError` e esta tela não o lia — por isso
+    // falha de rede e período vazio caíam no mesmo ramo. Ver o comentário no
+    // bloco de render abaixo.
+    isError: erroFinanceiro,
     refetch: refetchFinanceiro,
   } = useResumoFinanceiro(deFinanceiro, ateFinanceiro);
 
@@ -495,12 +499,46 @@ export default function DashboardScreen() {
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
           <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
+          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
+              topo do dashboard mostra a data de HOJE: o gestor via um valor
+              mensal ao lado de uma data diária, sem nada ligando os dois.
+              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
+              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
+              palavras, "para que o app confira em vez de acreditar". Exibir o
+              período que o app PEDIU esconderia justamente a divergência que o
+              campo existe para revelar (a junta entre o mês local e a agregação
+              em dia UTC). */}
+          {resumoFinanceiro != null && (
+            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
+              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
+            </Text>
+          )}
           {loadingFinanceiro ? (
             <View style={styles.metricsRow} testID="financeiro-skeleton">
               <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
               <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
             </View>
-          ) : resumoFinanceiro == null || resumoFinanceiro.nrCobrancas === 0 ? (
+          ) : erroFinanceiro || resumoFinanceiro == null ? (
+            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
+            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
+            // cobrança quanto quando a chamada FALHOU, então o gate anterior
+            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
+            // exibia "Nenhuma cobrança registrada neste período" para um erro
+            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
+            //
+            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
+            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
+            // `variacaoPercentual` são `null` de propósito, e o controller
+            // escreve "Zero para 'não medimos' seria mentira") — e o app
+            // transformava ausência de resposta em afirmação sobre o negócio.
+            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
+            <KCEmptyState
+              icon="alert"
+              title={STRINGS.dashboard.erroFinanceiro}
+              description={STRINGS.dashboard.erroFinanceiroDesc}
+              testID="erro-financeiro"
+            />
+          ) : resumoFinanceiro.nrCobrancas === 0 ? (
             // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
             // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
             // "nenhuma cobrança registrada" seria FALSO nesse caso.
