@@ -1,11 +1,13 @@
 import React from 'react';
 import { render, waitFor, within, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import RNRefreshControl from 'react-native/Libraries/Components/RefreshControl/RefreshControl';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
+import { formatarMoeda } from '../src/utils/moeda';
 
 jest.mock('@hooks/useDashboard', () => ({
   useDashboardHoje: jest.fn(),
@@ -630,4 +632,229 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
   //   coluna em vez de 2. Mesma lacuna antes desta fix wave. Com
   //   LIST_VIEWPORTS acima, os testes `groups 3 items into 2 column(s) per
   //   row at 1024×768.../1280×800...` passam a FALHAR sob a mutação.
+});
+
+// FM-07 (ciclo FIN) — cards financeiros do dashboard.
+//
+// Este describe testa o COMPONENTE (useResumoFinanceiro MOCKADO, ver jest.mock no topo do
+// arquivo) — a MORDIDA OBRIGATORIA do brief secao 1 ("o veterinario NAO DISPARA a chamada")
+// e provada a parte, com a cadeia REAL (sem mock deste hook), em
+// tests/fm07-veterinario-sem-chamada-financeiro.test.tsx -- aqui so se prova o que o
+// COMPONENTE faz dado um resultado de hook, nao se o hook de fato evita a chamada de rede.
+
+describe('DashboardScreen - financeiro (FM-07)', () => {
+  const MOCK_RESUMO = {
+    periodo: {
+      de: '2026-09-01',
+      ate: '2026-09-30',
+      inicioUtc: '2026-09-01T00:00:00.000Z',
+      fimExclusivoUtc: '2026-10-01T00:00:00.000Z',
+    },
+    periodoAnterior: {
+      de: '2026-08-01',
+      ate: '2026-08-31',
+      inicioUtc: '2026-08-01T00:00:00.000Z',
+      fimExclusivoUtc: '2026-09-01T00:00:00.000Z',
+    },
+    receitaBruta: 4820.5,
+    nrCobrancas: 12,
+    nrAtendimentosCobrados: 9,
+    ticketMedio: 535.61,
+    receitaBrutaPeriodoAnterior: 3980,
+    nrAtendimentosCobradosPeriodoAnterior: 7,
+    variacaoPercentual: 21.12,
+    mixPorServico: [],
+  };
+
+  function logarComoGestor() {
+    useAuthStore.setState({
+      token: 'tok-gestor',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestor@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: MOCK_VET,
+    });
+  }
+
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+  });
+
+  // Secao 1 do brief, metade "render" da mordida (a metade "nao dispara a chamada" e a suite
+  // separada citada no cabecalho). VETERINARIO e o default do beforeEach TOP-LEVEL do
+  // arquivo -- nao precisa logarComoGestor() aqui.
+  it('VETERINARIO: a secao financeira inteira NAO entra na arvore -- nem card, nem skeleton, nem estado vazio', () => {
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: false,
+    });
+
+    const { queryByTestId, queryByText } = wrap(<DashboardScreen />);
+
+    expect(queryByTestId('financeiro-row')).toBeNull();
+    expect(queryByTestId('financeiro-skeleton')).toBeNull();
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    expect(queryByText('Financeiro')).toBeNull();
+  });
+
+  it('GESTOR: mostra skeleton de 2 cards enquanto o resumo carrega', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('financeiro-skeleton')).toBeTruthy();
+    // 2 cards -- receita bruta + ticket medio (secao 3 do brief).
+    expect(getAllByTestId('skeleton').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('GESTOR: renderiza "Receita bruta" e "Ticket medio" ja formatados em BRL', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('financeiro-row')).toBeTruthy();
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    // formatarMoeda(), não literal de string: Intl.NumberFormat('pt-BR', ...) usa espaço
+    // NÃO-QUEBRÁVEL (U+00A0) entre "R$" e o número, não o espaço comum -- medido ao vivo
+    // (achado do PAR DE INSTRUMENTOS §11: um literal escrito à mão passaria no `grep`
+    // visual e falharia em `toContain`, silenciosamente, se não fosse por esta medição).
+    expect(values).toContain(formatarMoeda(4820.5));
+    expect(values).toContain(formatarMoeda(535.61));
+    const labels = getAllByTestId('metric-label').map((el) => el.props.children);
+    // Ruling D-6 -- o rotulo e "Receita bruta", com essas palavras.
+    expect(labels).toContain('Receita bruta');
+    expect(labels).toContain('Ticket médio');
+  });
+
+  // Secao 2.3 do brief -- a mordida obrigatoria do NULL: ticketMedio null vira o traco,
+  // NUNCA "R$ 0,00" (mentiria "o atendimento medio valeu zero").
+  it('GESTOR: ticketMedio null renderiza o traco, NUNCA "R$ 0,00"', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: { ...MOCK_RESUMO, nrAtendimentosCobrados: 0, ticketMedio: null, variacaoPercentual: null },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getAllByTestId } = wrap(<DashboardScreen />);
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    expect(values).toContain('—');
+    expect(values).not.toContain(formatarMoeda(0));
+  });
+
+  // Secao 2.4 do brief -- os DOIS estados que produzem receitaBruta:0, e por que so um deles
+  // e o estado vazio. Estado 1: NADA foi lancado (nrCobrancas:0) -> estado vazio instrutivo.
+  it('GESTOR: nrCobrancas === 0 (nada lancado) mostra o estado vazio, NUNCA um card com "R$ 0,00"', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        receitaBruta: 0,
+        nrCobrancas: 0,
+        nrAtendimentosCobrados: 0,
+        ticketMedio: null,
+        variacaoPercentual: null,
+        mixPorServico: [],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('empty-financeiro')).toBeTruthy();
+    expect(queryByTestId('financeiro-row')).toBeNull();
+  });
+
+  // Estado 2: TUDO foi cortesia (nrCobrancas > 0, receitaBruta 0 de verdade) -> "R$ 0,00" e a
+  // VERDADE, e mostrar o estado vazio aqui seria o bug que o brief pede para evitar
+  // (indistinguivel de "nada foi lancado" quando na verdade houve atendimento cobrado a R$0).
+  it('GESTOR: nrCobrancas > 0 com receitaBruta 0 (cortesia total) mostra "R$ 0,00" -- NAO e o estado vazio', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        receitaBruta: 0,
+        nrCobrancas: 3,
+        nrAtendimentosCobrados: 3,
+        ticketMedio: 0,
+        variacaoPercentual: null,
+        mixPorServico: [{ idServicoPreco: 1, nmServico: 'Castracao social', receita: 0, nrCobrancas: 3 }],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { queryByTestId, getAllByTestId } = wrap(<DashboardScreen />);
+    expect(queryByTestId('empty-financeiro')).toBeNull();
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    // receitaBruta:0 E ticketMedio:0 (0 lucro / 3 atendimentos = 0) -- as DUAS sao R$0,00
+    // verdadeiro aqui, diferente do teste anterior (ticketMedio null).
+    expect(values.filter((v) => v === formatarMoeda(0)).length).toBe(2);
+  });
+
+  // Achado MEDIDO (nao previsto no brief) -- refetch() do React Query bypassa "enabled" (ver
+  // comentario em dashboard.tsx::onRefresh e o probe empirico citado no relatorio desta
+  // task). Pull-to-refresh so pode incluir refetchFinanceiro() no Promise.all quando
+  // isGestor -- senao o "atalho" do refresh reabriria a chamada que "enabled: isGestor"
+  // fecha no mount.
+  it('pull-to-refresh: GESTOR chama refetchFinanceiro; VETERINARIO NAO chama (refetch() bypassa enabled)', async () => {
+    const refetchFinanceiroGestor = jest.fn().mockResolvedValue(undefined);
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: refetchFinanceiroGestor,
+      isGestor: true,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
+    });
+    expect(refetchFinanceiroGestor).toHaveBeenCalledTimes(1);
+  });
+
+  it('pull-to-refresh: VETERINARIO NAO chama refetchFinanceiro (mesmo ele existindo no hook)', async () => {
+    const refetchFinanceiroVet = jest.fn().mockResolvedValue(undefined);
+    // VETERINARIO e o default do beforeEach top-level do arquivo -- sem logarComoGestor().
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: false,
+      refetch: refetchFinanceiroVet,
+      isGestor: false,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
+    });
+    expect(refetchFinanceiroVet).not.toHaveBeenCalled();
+  });
 });
