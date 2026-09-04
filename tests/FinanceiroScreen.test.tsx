@@ -215,6 +215,27 @@ describe('FinanceiroScreen — KPI e comparação com o período anterior', () =
     expect(texto).toContain(formatarMoeda(4820.5));
     expect(texto).not.toContain('0,00%');
   });
+
+  // I-2 da G2 da FM-08 -- mesma mordida do NULL que tests/DashboardScreen.test.tsx já vigia
+  // para o card do dashboard (`ticketMedio null renderiza o traco, NUNCA "R$ 0,00"`): o
+  // painel copiou o `ticketMedio == null ? '—' : ...` do dashboard e não copiou o teste
+  // junto. `ticketMedio: null` ocorre quando `nrAtendimentosCobrados === 0` (contrato do
+  // backend -- `CalcularTicketMedio` recusa devolver 0 para "não medimos") -- alcançável
+  // com cobrança avulsa e nenhum atendimento cobrado, ou o primeiro mês de qualquer clínica.
+  it('GESTOR: ticketMedio null renderiza o traço, NUNCA "R$ 0,00"', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: { ...MOCK_RESUMO, nrAtendimentosCobrados: 0, ticketMedio: null },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    expect(values).toContain('—');
+    expect(values).not.toContain(formatarMoeda(0));
+    expect(values).not.toContain('R$ 0,00');
+  });
 });
 
 describe('FinanceiroScreen — mix por serviço', () => {
