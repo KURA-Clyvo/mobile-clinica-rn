@@ -29,6 +29,15 @@ export async function hoje(_config: InternalAxiosRequestConfig): Promise<Dashboa
       { id: 6, nmPet: 'Perola', ultimoAtendimento: new Date(Date.now() - 8 * 3600_000).toISOString() },
     ],
     proximosAgendamentos: [],
+    // FM-08 — campos NOVOS (backend @ 81ac01c, task FD-17). Valores DELIBERADAMENTE
+    // diferentes de `ultimosPetsAtendidos.length` (6, acima): enquanto o contador vinha
+    // de `.length`, essa lista de 6 itens produzia um "6" que o backend real nunca
+    // produziria (`.Take(5)` do repositório); agora que o contador tem campo próprio,
+    // usar 6 aqui esconderia se alguém revertesse `mapHoje()` para a fórmula antiga —
+    // o teste ficaria "verde" tanto com o fix quanto sem ele. 9 e 2 tornam os dois
+    // ramos distinguíveis.
+    totalPacientesAtendidosHoje: 9,
+    totalTeleorientacoesHoje: 2,
   };
 }
 
