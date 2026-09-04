@@ -5,6 +5,7 @@ import { useAuthStore } from '../src/store/authStore';
 import FinanceiroScreen from '../src/app/(app)/financeiro/index';
 import { ROUTES } from '../src/constants/routes';
 import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
+import { formatarPeriodoCurto } from '../src/utils/periodoFinanceiro';
 import type { ResumoFinanceiroResponse } from '../src/types/api';
 
 // FM-08 (ciclo FIN) — testes do painel de gestão. Mesmo padrão de
@@ -247,6 +248,23 @@ describe('FinanceiroScreen — mix por serviço', () => {
     expect(nomes).toEqual(['Consulta de rotina', 'Vacina V10', '(avulso)']);
   });
 
+  // M-3 da G2 da FM-08 -- `mix-cobrancas` sem vigia: nada nesta suíte lia o testID
+  // `mix-cobrancas` antes desta fix wave (`grep -rc mix-cobrancas tests/` = 0). A legenda
+  // do mix (`mixCaption`, strings.ts) promete "a soma dos itens abaixo fecha com a receita
+  // bruta do período" -- o mesmo vale, por invariante do backend, para a CONTAGEM: a soma
+  // de `nrCobrancas` de cada balde do mix fecha com `resumo.nrCobrancas` (o KPI já vigiado
+  // acima nos testes de "renderiza receita bruta..."). Este teste lê o NÚMERO REALMENTE
+  // RENDERIZADO em cada `mix-cobrancas` (não o valor da fixture) e soma -- pegaria tanto um
+  // valor trocado quanto um literal hardcoded.
+  it('a soma das cobranças exibidas em mix-cobrancas reconcilia com resumo.nrCobrancas', () => {
+    const somaFixture = MOCK_RESUMO.mixPorServico.reduce((acc, item) => acc + item.nrCobrancas, 0);
+    expect(somaFixture).toBe(MOCK_RESUMO.nrCobrancas); // controle: a FIXTURE já reconcilia (12)
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const textos = getAllByTestId('mix-cobrancas').map((el) => String(el.props.children).replace(/,/g, ''));
+    const somaRenderizada = textos.reduce((acc, t) => acc + parseInt(t, 10), 0);
+    expect(somaRenderizada).toBe(MOCK_RESUMO.nrCobrancas);
+  });
+
   // 🔴 O invariante que a task pede para não quebrar: soma das receitas dos baldes ==
   // receitaBruta, exato. Este teste PROVA que a tela lê os 3 baldes da fixture (que já soma
   // 4820.5 -- 3000 + 1500.5 + 320) e não descarta nenhum.
@@ -330,5 +348,37 @@ describe('FinanceiroScreen — pull-to-refresh', () => {
     const refreshControl = UNSAFE_getByType(RNRefreshControl);
     await refreshControl.props.onRefresh();
     expect(REFETCH).toHaveBeenCalledTimes(1);
+  });
+});
+
+// M-4/E6 da G2 da FM-08 -- os 2 rótulos de período do painel sem vigia. A G2 mediu que
+// trocar `resumo.periodoAnterior` por `resumo.periodo` no card de comparação exibe
+// "01/09–30/09 → 01/09–30/09" (comparação de um período consigo mesmo) com a suíte VERDE, e
+// que o header mostrando o período ANTERIOR também passava verde. `MOCK_RESUMO` tem
+// `periodo` (set/2026) e `periodoAnterior` (ago/2026) DIFERENTES de propósito -- um mock com
+// os dois períodos iguais não pegaria nenhuma das duas trocas.
+describe('FinanceiroScreen — rótulos de período (M-4/E6 da G2 da FM-08)', () => {
+  beforeEach(() => seedGestor());
+
+  it('o header mostra o período ATUAL, nunca o anterior', () => {
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    const texto = getByTestId('financeiro-painel-periodo').props.children;
+    expect(texto).toBe(formatarPeriodoCurto(MOCK_RESUMO.periodo.de, MOCK_RESUMO.periodo.ate));
+    expect(texto).not.toBe(
+      formatarPeriodoCurto(MOCK_RESUMO.periodoAnterior.de, MOCK_RESUMO.periodoAnterior.ate),
+    );
+  });
+
+  it('o card de comparação mostra ANTERIOR → ATUAL, nunca o mesmo período nos dois lados', () => {
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    const partes = getByTestId('financeiro-painel-periodos').props.children as unknown[];
+    const texto = partes.join('');
+    const rotuloAnterior = formatarPeriodoCurto(
+      MOCK_RESUMO.periodoAnterior.de,
+      MOCK_RESUMO.periodoAnterior.ate,
+    );
+    const rotuloAtual = formatarPeriodoCurto(MOCK_RESUMO.periodo.de, MOCK_RESUMO.periodo.ate);
+    expect(rotuloAnterior).not.toBe(rotuloAtual); // controle: a fixture tem períodos DIFERENTES
+    expect(texto).toBe(`${rotuloAnterior} → ${rotuloAtual}`);
   });
 });
