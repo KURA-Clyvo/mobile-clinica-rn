@@ -1,0 +1,313 @@
+import React from 'react';
+import { render, fireEvent } from '@testing-library/react-native';
+import { ThemeProvider } from '../src/theme';
+import { useAuthStore } from '../src/store/authStore';
+import FinanceiroScreen from '../src/app/(app)/financeiro/index';
+import { ROUTES } from '../src/constants/routes';
+import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
+import type { ResumoFinanceiroResponse } from '../src/types/api';
+
+// FM-08 (ciclo FIN) — testes do painel de gestão. Mesmo padrão de
+// ServicosPrecoScreen.test.tsx (mocka `expo-router` e o hook do domínio, não o service).
+
+const mockBack = jest.fn();
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
+}));
+
+jest.mock('react-native-safe-area-context', () => {
+  const ReactForMock = require('react');
+  const { View } = require('react-native');
+  return {
+    SafeAreaView: ({ children, style }: { children: React.ReactNode; style?: unknown }) =>
+      ReactForMock.createElement(View, { style }, children),
+    useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  };
+});
+
+const mockUseResumoFinanceiroReturn = jest.fn();
+jest.mock('@hooks/useFinanceiro', () => ({
+  useResumoFinanceiro: (de: string, ate: string) => mockUseResumoFinanceiroReturn(de, ate),
+}));
+
+const REFETCH = jest.fn();
+
+const MOCK_RESUMO: ResumoFinanceiroResponse = {
+  periodo: {
+    de: '2026-09-01',
+    ate: '2026-09-30',
+    inicioUtc: '2026-09-01T00:00:00.000Z',
+    fimExclusivoUtc: '2026-10-01T00:00:00.000Z',
+  },
+  periodoAnterior: {
+    de: '2026-08-01',
+    ate: '2026-08-31',
+    inicioUtc: '2026-08-01T00:00:00.000Z',
+    fimExclusivoUtc: '2026-09-01T00:00:00.000Z',
+  },
+  receitaBruta: 4820.5,
+  nrCobrancas: 12,
+  nrAtendimentosCobrados: 9,
+  ticketMedio: 535.61,
+  receitaBrutaPeriodoAnterior: 3980,
+  nrAtendimentosCobradosPeriodoAnterior: 7,
+  variacaoPercentual: 21.12,
+  mixPorServico: [
+    { idServicoPreco: 1, nmServico: 'Consulta de rotina', receita: 3000, nrCobrancas: 5 },
+    { idServicoPreco: 2, nmServico: 'Vacina V10', receita: 1500.5, nrCobrancas: 6 },
+    { idServicoPreco: null, nmServico: '(avulso)', receita: 320, nrCobrancas: 1 },
+  ],
+};
+
+function seedGestor() {
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'felipe.ferrete@kura.vet',
+    tpPerfil: 'GESTOR',
+    usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'felipe.ferrete@kura.vet' },
+    _hasHydrated: true,
+  });
+}
+
+function seedVeterinarioPuro() {
+  useAuthStore.setState({
+    token: 'tok',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    email: 'vet@kura.vet',
+    tpPerfil: 'VETERINARIO',
+    usuario: { id: 2, nmVeterinario: 'Dr. Vet', nrCRMV: 'SP-1', dsEmail: 'vet@kura.vet' },
+    _hasHydrated: true,
+  });
+}
+
+function wrap(ui: React.ReactElement) {
+  return render(<ThemeProvider>{ui}</ThemeProvider>);
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockUseResumoFinanceiroReturn.mockReturnValue({
+    data: MOCK_RESUMO,
+    isLoading: false,
+    isError: false,
+    refetch: REFETCH,
+    isGestor: true,
+  });
+});
+
+describe('FinanceiroScreen — guarda de GESTOR (papel-only, sem guarda de ficha)', () => {
+  it('um VETERINARIO puro é redirecionado e não vê o conteúdo (useRequireGestor)', () => {
+    seedVeterinarioPuro();
+    const { queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.app.dashboard);
+    expect(queryByTestId('financeiro-painel-row')).toBeNull();
+  });
+
+  it('um GESTOR vê o painel normalmente, sem redirecionar', () => {
+    seedGestor();
+    const { queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(queryByTestId('financeiro-painel-row')).toBeTruthy();
+  });
+
+  it('botão voltar chama router.back()', () => {
+    seedGestor();
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    fireEvent.press(getByTestId('btn-voltar-financeiro'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('FinanceiroScreen — estados de carregamento/erro/vazio (mesma doutrina do dashboard)', () => {
+  beforeEach(() => seedGestor());
+
+  it('mostra skeleton enquanto carrega', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId, queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(getByTestId('financeiro-painel-skeleton')).toBeTruthy();
+    expect(queryByTestId('financeiro-painel-row')).toBeNull();
+  });
+
+  // Mesma mordida I-1 da G2 da FM-07: "não sei" NÃO é "não houve".
+  it('isError mostra o estado de ERRO, nunca o vazio', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId, queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(getByTestId('erro-financeiro-painel')).toBeTruthy();
+    expect(queryByTestId('empty-financeiro-painel')).toBeNull();
+    expect(queryByTestId('financeiro-painel-row')).toBeNull();
+  });
+
+  it('nrCobrancas === 0 mostra o estado vazio, NUNCA receitaBruta === 0 como gate', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: { ...MOCK_RESUMO, nrCobrancas: 0, receitaBruta: 0, mixPorServico: [] },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId, queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(getByTestId('empty-financeiro-painel')).toBeTruthy();
+    expect(queryByTestId('financeiro-painel-row')).toBeNull();
+  });
+
+  it('nrCobrancas > 0 com receitaBruta 0 (cortesia total) NÃO é o estado vazio', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        receitaBruta: 0,
+        nrCobrancas: 3,
+        mixPorServico: [{ idServicoPreco: 1, nmServico: 'Castração social', receita: 0, nrCobrancas: 3 }],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(queryByTestId('empty-financeiro-painel')).toBeNull();
+  });
+});
+
+describe('FinanceiroScreen — KPI e comparação com o período anterior', () => {
+  beforeEach(() => seedGestor());
+
+  it('renderiza receita bruta e ticket médio formatados em BRL', () => {
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const values = getAllByTestId('metric-value').map((el) => el.props.children);
+    expect(values).toContain(formatarMoeda(4820.5));
+    expect(values).toContain(formatarMoeda(535.61));
+  });
+
+  it('mostra a comparação com o período anterior quando variacaoPercentual existe', () => {
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    const texto = getByTestId('financeiro-painel-comparacao-valor').props.children;
+    expect(texto).toContain(formatarPercentual(21.12));
+    expect(texto).not.toContain('Sem base de comparação');
+  });
+
+  it('variacaoPercentual null mostra a frase honesta com os números crus, nunca 0%', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: { ...MOCK_RESUMO, variacaoPercentual: null, receitaBrutaPeriodoAnterior: 0 },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    const texto = getByTestId('financeiro-painel-comparacao-valor').props.children;
+    expect(texto).toContain('Sem base de comparação');
+    expect(texto).toContain(formatarMoeda(0));
+    expect(texto).toContain(formatarMoeda(4820.5));
+    expect(texto).not.toContain('0,00%');
+  });
+});
+
+describe('FinanceiroScreen — mix por serviço', () => {
+  beforeEach(() => seedGestor());
+
+  it('renderiza um item por balde, incluindo o avulso (idServicoPreco null)', () => {
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const nomes = getAllByTestId('mix-nome').map((el) => el.props.children);
+    expect(nomes).toEqual(['Consulta de rotina', 'Vacina V10', '(avulso)']);
+  });
+
+  // 🔴 O invariante que a task pede para não quebrar: soma das receitas dos baldes ==
+  // receitaBruta, exato. Este teste PROVA que a tela lê os 3 baldes da fixture (que já soma
+  // 4820.5 -- 3000 + 1500.5 + 320) e não descarta nenhum.
+  it('a soma das receitas exibidas nos baldes reconcilia com receitaBruta', () => {
+    const soma = MOCK_RESUMO.mixPorServico.reduce((acc, item) => acc + item.receita, 0);
+    expect(soma).toBe(MOCK_RESUMO.receitaBruta);
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const receitas = getAllByTestId('mix-receita').map((el) => el.props.children);
+    expect(receitas).toEqual([formatarMoeda(3000), formatarMoeda(1500.5), formatarMoeda(320)]);
+  });
+
+  it('a barra proporcional usa % calculada em JS só para largura (comentário declara isso), não re-arredonda o valor monetário', () => {
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const barras = getAllByTestId('mix-barra');
+    // Consulta de rotina: 3000 / 4820.5 * 100 -- a LARGURA da barra usa o valor cru (sem
+    // arredondar para exibição, ao contrário do rótulo textual `mix-percentual` abaixo, que
+    // usa 1 casa decimal só para leitura humana).
+    const estiloBarra1 = barras[0].props.style;
+    const larguraBarra1 = Array.isArray(estiloBarra1)
+      ? estiloBarra1.find((s: { width?: unknown }) => s?.width !== undefined)?.width
+      : estiloBarra1.width;
+    expect(typeof larguraBarra1).toBe('string');
+    expect(parseFloat(String(larguraBarra1))).toBeCloseTo((3000 / 4820.5) * 100, 5);
+    // O rótulo textual, sim, é arredondado para leitura (1 casa decimal).
+    const percentuais = getAllByTestId('mix-percentual').map((el) => el.props.children);
+    expect(percentuais[0]).toBe('62,2%');
+    // O valor MONETÁRIO exibido continua exato (3000), não a fração calculada.
+    const receitas = getAllByTestId('mix-receita').map((el) => el.props.children);
+    expect(receitas[0]).toBe(formatarMoeda(3000));
+  });
+
+  // 🔴 §3 do brief -- receitaBruta === 0 é alcançável (FM-06 permite cortesia com
+  // vlCobrado:0). A barra tem que renderizar 0%, nunca NaN%/Infinity%.
+  it('receitaBruta === 0 (cortesia total) não produz NaN/Infinity na barra -- guarda de divisão por zero', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        receitaBruta: 0,
+        nrCobrancas: 3,
+        mixPorServico: [{ idServicoPreco: 1, nmServico: 'Castração social', receita: 0, nrCobrancas: 3 }],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId } = wrap(<FinanceiroScreen />);
+    const estiloBarra = getByTestId('mix-barra').props.style;
+    const largura = Array.isArray(estiloBarra)
+      ? estiloBarra.find((s: { width?: unknown }) => s?.width !== undefined)?.width
+      : estiloBarra.width;
+    expect(largura).toBe('0%');
+    expect(largura).not.toContain('NaN');
+    expect(largura).not.toContain('Infinity');
+  });
+
+  it('serviço desativado (nome preservado pelo backend) aparece no mix como qualquer outro balde', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: {
+        ...MOCK_RESUMO,
+        mixPorServico: [
+          { idServicoPreco: 9, nmServico: 'Banho e tosa (descontinuado)', receita: 4820.5, nrCobrancas: 12 },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getAllByTestId } = wrap(<FinanceiroScreen />);
+    const nomes = getAllByTestId('mix-nome').map((el) => el.props.children);
+    expect(nomes).toEqual(['Banho e tosa (descontinuado)']);
+  });
+});
+
+describe('FinanceiroScreen — pull-to-refresh', () => {
+  it('GESTOR: chama refetch diretamente (tela inteira já é gated por useRequireGestor, sem guarda dupla)', async () => {
+    seedGestor();
+    const { UNSAFE_getByType } = wrap(<FinanceiroScreen />);
+    const RNRefreshControl = require('react-native/Libraries/Components/RefreshControl/RefreshControl').default;
+    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    await refreshControl.props.onRefresh();
+    expect(REFETCH).toHaveBeenCalledTimes(1);
+  });
+});
