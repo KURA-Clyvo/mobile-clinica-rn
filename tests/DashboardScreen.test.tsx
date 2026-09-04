@@ -883,12 +883,18 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(values.filter((v) => v === formatarMoeda(0)).length).toBe(2);
   });
 
-  // Achado MEDIDO (nao previsto no brief) -- refetch() do React Query bypassa "enabled" (ver
-  // comentario em dashboard.tsx::onRefresh e o probe empirico citado no relatorio desta
-  // task). Pull-to-refresh so pode incluir refetchFinanceiro() no Promise.all quando
-  // isGestor -- senao o "atalho" do refresh reabriria a chamada que "enabled: isGestor"
-  // fecha no mount.
-  it('pull-to-refresh: GESTOR chama refetchFinanceiro; VETERINARIO NAO chama (refetch() bypassa enabled)', async () => {
+  // 🔴 FM-09 (item 4) — REESCRITO. Achado MEDIDO original (refetch() do React Query bypassa
+  // "enabled") continua verdadeiro, mas a GUARDA mudou de camada: até a FM-09 vivia AQUI, no
+  // componente (spread condicional `isGestor ? [refetchFinanceiro()] : []`); agora vive
+  // DENTRO de `useResumoFinanceiro` (useFinanceiro.ts::refetchSeGestor), que devolve um
+  // no-op para VETERINARIO. Este arquivo MOCKA o hook inteiro (`jest.mock('@hooks/
+  // useFinanceiro', ...)`, topo do arquivo) — então o `refetch` recebido aqui é só um
+  // `jest.fn()` cru, sem a lógica de guarda real dentro dele. Por isso os 2 testes abaixo
+  // agora esperam `refetchFinanceiro` chamado INCONDICIONALMENTE pelo componente (a
+  // guarda real, que SÓ existe dentro do hook de verdade, é provada por
+  // tests/fm07-veterinario-sem-chamada-financeiro.test.tsx — cadeia REAL, sem mock do
+  // hook, com spy em apiClient.get — não é testável neste arquivo por construção).
+  it('pull-to-refresh: GESTOR chama refetchFinanceiro (dashboard não guarda mais — a guarda é do hook)', async () => {
     const refetchFinanceiroGestor = jest.fn().mockResolvedValue(undefined);
     logarComoGestor();
     mockUseResumoFinanceiro.mockReturnValue({
@@ -907,7 +913,7 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(refetchFinanceiroGestor).toHaveBeenCalledTimes(1);
   });
 
-  it('pull-to-refresh: VETERINARIO NAO chama refetchFinanceiro (mesmo ele existindo no hook)', async () => {
+  it('pull-to-refresh: VETERINARIO (mock) TAMBÉM chama o refetch recebido — dashboard.tsx não guarda mais por isGestor; o no-op real vive dentro do hook, não testável com o hook mockado', async () => {
     const refetchFinanceiroVet = jest.fn().mockResolvedValue(undefined);
     // VETERINARIO e o default do beforeEach top-level do arquivo -- sem logarComoGestor().
     mockUseResumoFinanceiro.mockReturnValue({
@@ -923,7 +929,7 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     await act(async () => {
       await refreshControl.props.onRefresh();
     });
-    expect(refetchFinanceiroVet).not.toHaveBeenCalled();
+    expect(refetchFinanceiroVet).toHaveBeenCalledTimes(1);
   });
 
   // FM-08 (item 2 do brief) — comparação com o período anterior. `variacaoPercentual` (21.12)

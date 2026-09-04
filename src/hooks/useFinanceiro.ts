@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { useQuery, type QueryObserverResult } from '@tanstack/react-query';
 import { getResumoFinanceiro } from '@services/financeiro.service';
+import type { ResumoFinanceiroResponse } from '../types/api';
 import { useIsGestor } from './useIsGestor';
 
 // FM-07 (ciclo FIN) — hook do resumo financeiro. `FinanceiroController` (backend @ 94f558d)
@@ -39,5 +41,22 @@ export function useResumoFinanceiro(de: string, ate: string) {
     enabled: isGestor,
     staleTime: 30_000,
   });
-  return { data, isLoading, isFetching, isError, refetch, isGestor };
+
+  // FM-09 (item 4) — `refetch()` do React Query BYPASSA `enabled`. Medido na fonte do
+  // @tanstack/query-core instalado (5.100.10): `refetch` -> `Query#fetch()` ->
+  // `#executeFetch`, nenhum dos três consulta `enabled` — só o `fetch()` AUTOMÁTICO de
+  // montagem/mudança de dependência do observer olha `enabled`. Até esta task a guarda
+  // vivia em cada CALL SITE: `dashboard.tsx` espalhava `refetch` incondicional no
+  // `Promise.all` de pull-to-refresh e precisava de `...(isGestor ? [refetchFinanceiro()]
+  // : [])` para não disparar a chamada para um VETERINARIO; `financeiro/index.tsx` não
+  // tinha guarda nenhuma (não precisava — `useRequireGestor()` ali renderiza `null` ANTES
+  // de montar o `RefreshControl`, medido: VETERINARIO monta 0 `RefreshControl`, GESTOR
+  // monta 1 — não contradizer essa medição sem remedir). Embrulhar aqui torna o bypass
+  // IMPOSSÍVEL por call site, em vez de depender de cada consumidor lembrar de guardar.
+  const refetchSeGestor = useCallback((): Promise<QueryObserverResult<ResumoFinanceiroResponse, Error> | undefined> => {
+    if (!isGestor) return Promise.resolve(undefined);
+    return refetch();
+  }, [isGestor, refetch]);
+
+  return { data, isLoading, isFetching, isError, refetch: refetchSeGestor, isGestor };
 }
