@@ -30,21 +30,46 @@ function parseBody<T>(data: unknown): T {
   return (data ?? {}) as T;
 }
 
-// Cenário fixo do mock: veterinário com ficha completa (paridade com o
-// comportamento pré-FM-01, quando `usuario` nunca era nulo). Não há troca
-// de papel via payload aqui — o app não decodifica JWT, e simular
-// GESTOR-sem-ficha em modo mock exigiria inspecionar `dsEmail` para
-// decidir a resposta, o que a FM-04 evitou fazer sem necessidade real de
-// demonstração. Os testes que precisam de um GESTOR sem vínculo semeiam o
-// authStore diretamente (ver tests/authStore.test.ts, DashboardScreen.test.tsx,
-// NavDrawer.test.tsx etc.) — não passam por este mock.
-export async function login(_config: InternalAxiosRequestConfig): Promise<LoginResponse> {
+// 🔴 FM-09 (fechamento do gate) — O PAPEL DE QUEM ENTRA PASSOU A DEPENDER DO E-MAIL.
+//
+// Histórico, e ele é a razão desta mudança existir: até aqui este handler devolvia SEMPRE
+// `VETERINARIO` com ficha completa, ignorando o payload. A FM-04 tinha decidido isso de
+// propósito ("simular GESTOR-sem-ficha exigiria inspecionar `dsEmail`... sem necessidade real
+// de demonstração"), e a decisão era defensável NAQUELE momento.
+//
+// O que a tornou insuficiente: o gate FM-09 exige percorrer, EM RUNTIME, o caminho de um
+// VETERINARIO sem ficha (criado pela tela da FM-02) e o de um GESTOR sem ficha. Com o handler
+// antigo esse percurso era IMPOSSÍVEL no modo padrão versionado (`EXPO_PUBLIC_USE_MOCKS=true`):
+// qualquer credencial entrava como a mesma pessoa. ⇒ O critério de aceite exigia um percurso
+// que o ambiente não podia produzir — e um gate que cobra o que o ambiente não permite não é
+// um gate, é uma formalidade.
+//
+// A CONVENÇÃO (demo-only, e deliberadamente por SUBSTRING para não virar uma lista de e-mails
+// que apodrece — regra de ouro v7 deste ecossistema: inventário escrito à mão apodrece em
+// silêncio):
+//   e-mail contém 'gestor'   -> tpPerfil GESTOR
+//   e-mail contém 'semficha' -> usuario: null  (sem vínculo em VETERINARIO)
+//   qualquer outro           -> VETERINARIO com ficha completa   <- DEFAULT INALTERADO
+//
+// ⚠️ O default é o comportamento antigo, byte a byte: quem não usa a convenção não percebe
+// diferença nenhuma, e nenhuma demonstração existente muda.
+//
+// 🔴 `tpPerfil` vem SEMPRE, inclusive quando `usuario` é null — é o que torna "sem ficha"
+// interpretável em vez de indistinguível de erro (ver types/api.ts::LoginResponse:12-17, que
+// documenta exatamente essa garantia do TokenResponseDto real).
+//
+// ⛔ NÃO replica o backend real, e isto é declarado, não escondido: lá o papel vem de
+// USUARIO_CLINICA.TP_PERFIL e a ficha do vínculo com VETERINARIO — nada a ver com o texto do
+// e-mail. Esta convenção existe SÓ para tornar os 4 estados alcançáveis numa demonstração.
+export async function login(config: InternalAxiosRequestConfig): Promise<LoginResponse> {
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const { dsEmail } = parseBody<{ dsEmail?: string }>(config.data);
+  const email = (dsEmail ?? '').toLowerCase();
   return {
     accessToken: 'kura_mock_jwt_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     expiresAt,
-    tpPerfil: 'VETERINARIO',
-    usuario: mockVeterinario,
+    tpPerfil: email.includes('gestor') ? 'GESTOR' : 'VETERINARIO',
+    usuario: email.includes('semficha') ? null : mockVeterinario,
   };
 }
 
