@@ -7,8 +7,34 @@
 // de96c70) — nasce aqui já como union único, em vez de "GESTOR" |
 // "VETERINARIO" redigitado em cada arquivo que precisar dele.
 //
-// Valores reais: `PerfisUsuarioClinica.Gestor` / `PerfisUsuarioClinica.Veterinario`
-// (backend-clinica-dotnet, UsuarioClinica.cs:73-77).
+// Valores reais: `PerfisUsuarioClinica.Gestor` / `PerfisUsuarioClinica.Veterinario`.
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar esta union. FM-09 (item 7):
+// citação sem âncora completa (regra de ouro v7 do CLAUDE.md deste ecossistema —
+// cópia sem arquivo:linha+commit+data não é conferível).
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Domain/Entities/UsuarioClinica.cs:73-77
+//          (`PerfisUsuarioClinica` — 2 constantes, "GESTOR"/"VETERINARIO", que
+//          alimentam `CHK_USUARIO_CLINICA_PERFIL`, ver âncora abaixo.)
+// COMMIT:  81ac01c  (`main`, pós-merge FD-17)
+// CONFERIDO EM: 2026-09-04 — bate linha a linha com a fonte nesse commit; conferido
+//   também contra a CHECK constraint real do banco (não só o enum C#, que poderia
+//   divergir do schema): `CHK_USUARIO_CLINICA_PERFIL` em
+//   backend-tutor-java/src/main/resources/db/migration-oracle/V17__usuario_clinica.sql:125
+//   (commit `2d3ffc5`, `main`) — `CHECK (TP_PERFIL IN ('GESTOR','VETERINARIO'))`,
+//   exatamente 2 valores, sem terceiro papel latente (ex.: RECEPCIONISTA é citado
+//   no comentário da migration só como EXEMPLO FUTURO, não implementado).
+//
+// COMO RECONFERIR:
+//   git -C ../backend-clinica-dotnet show 81ac01c:src/Kura.Domain/Entities/UsuarioClinica.cs \
+//     | sed -n '73,77p'
+//   git -C ../backend-tutor-java show 2d3ffc5:src/main/resources/db/migration-oracle/V17__usuario_clinica.sql \
+//     | sed -n '125p'
+//
+// Deliberadamente REESCRITA aqui, não importada — os dois repos não compartilham
+// código. Cópia à mão, regra de ouro v7: sem esta âncora, "espelha o backend" não é
+// conferível por ninguém.
 export type TipoPerfilUsuario = 'GESTOR' | 'VETERINARIO';
 
 const PERFIL_LABEL: Record<TipoPerfilUsuario, string> = {
