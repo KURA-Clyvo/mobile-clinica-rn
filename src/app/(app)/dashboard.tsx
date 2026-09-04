@@ -252,7 +252,15 @@ export default function DashboardScreen() {
   const email = useAuthStore((s) => s.email);
   const { isAtLeast } = useBreakpoint();
 
-  const { data: hoje, isLoading: loadingHoje, refetch: refetchHoje } = useDashboardHoje();
+  const {
+    data: hoje,
+    isLoading: loadingHoje,
+    // I-3 da G2 da FM-08 -- pré-existente (não introduzido por esta fix wave, ver relatório):
+    // o hook SEMPRE devolveu `isError`, e esta tela nunca leu. Mesma doutrina do card
+    // financeiro (`erroFinanceiro`, ver comentário na seção "FM-07" abaixo) aplicada aqui.
+    isError: erroHoje,
+    refetch: refetchHoje,
+  } = useDashboardHoje();
   const { data: alertas, isLoading: loadingAlertas, refetch: refetchAlertas } = useAlertas();
   const { data: recentes, isLoading: loadingRecentes, refetch: refetchRecentes } = useRecentes();
 
@@ -407,6 +415,18 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+      ) : erroHoje ? (
+        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
+        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
+        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
+        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
+        // esse número.
+        <KCEmptyState
+          icon="alert"
+          title={STRINGS.dashboard.erroMetricas}
+          description={STRINGS.dashboard.erroMetricasDesc}
+          testID="erro-metricas"
+        />
       ) : (
         <View style={styles.metricsGrid} testID="metrics-grid">
           {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
