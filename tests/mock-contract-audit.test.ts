@@ -215,6 +215,46 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       const res = await login({ dsEmail: 'a@b.com', dsSenha: 'x' });
       expect(res.tpPerfil).toBe('VETERINARIO');
     });
+
+    // 🔴 FM-09 (fechamento do gate) — os 4 estados de identidade têm que ser ALCANÇÁVEIS pela
+    // cadeia real. Até esta task o handler ignorava o payload e devolvia sempre o mesmo
+    // VETERINARIO com ficha, o que tornava o item 5 do gate (percorrer o app como VETERINARIO
+    // sem ficha, e como GESTOR sem ficha) IMPOSSÍVEL em modo mock — o critério de aceite
+    // exigia um percurso que o ambiente não podia produzir.
+    //
+    // Convenção demo-only por SUBSTRING (não é uma lista de e-mails, que apodreceria em
+    // silêncio — regra de ouro v7): 'gestor' -> GESTOR, 'semficha' -> usuario null.
+    // ⛔ Não replica o backend real (lá o papel vem de USUARIO_CLINICA.TP_PERFIL e a ficha do
+    // vínculo com VETERINARIO); serve só para tornar os 4 estados demonstráveis.
+    it('login: e-mail com "gestor" devolve GESTOR (o default continua VETERINARIO)', async () => {
+      const gestor = await login({ dsEmail: 'gestor@kura.com', dsSenha: 'x' });
+      expect(gestor.tpPerfil).toBe('GESTOR');
+      const outro = await login({ dsEmail: 'qualquer@kura.com', dsSenha: 'x' });
+      expect(outro.tpPerfil).toBe('VETERINARIO');
+    });
+
+    it('login: e-mail com "semficha" devolve usuario NULL, e tpPerfil vem MESMO ASSIM', async () => {
+      const res = await login({ dsEmail: 'vet.semficha@kura.com', dsSenha: 'x' });
+      expect(res.usuario).toBeNull();
+      // types/api.ts:12-17 — `tpPerfil` vem SEMPRE, inclusive com `usuario` nulo: é o que
+      // torna "sem ficha" interpretável em vez de indistinguível de erro.
+      expect(res.tpPerfil).toBe('VETERINARIO');
+    });
+
+    it('login: os dois marcadores combinam — GESTOR sem ficha, o caso do banner CFMV', async () => {
+      const res = await login({ dsEmail: 'gestor.semficha@kura.com', dsSenha: 'x' });
+      expect(res.tpPerfil).toBe('GESTOR');
+      expect(res.usuario).toBeNull();
+    });
+
+    // Contraprova: o DEFAULT não pode ter mudado. Sem este caso, alguém poderia inverter a
+    // convenção (devolver GESTOR por padrão) e os 3 testes acima continuariam passando.
+    it('login: e-mail SEM marcador nenhum devolve VETERINARIO COM ficha — default intacto', async () => {
+      const res = await login({ dsEmail: 'felipe@clinica.com', dsSenha: 'x' });
+      expect(res.tpPerfil).toBe('VETERINARIO');
+      expect(res.usuario).not.toBeNull();
+      expect(res.usuario?.nmVeterinario).toBe('Dr. Felipe Ferrete');
+    });
   });
 
   describe('pass-throughs (baixo risco, executados para confirmar)', () => {
