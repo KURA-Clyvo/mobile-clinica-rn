@@ -23,3 +23,15 @@ const formatadorReal = new Intl.NumberFormat('pt-BR', {
 export function formatarMoeda(valor: number): string {
   return formatadorReal.format(valor);
 }
+
+// FM-08 (ciclo FIN) — `variacaoPercentual` do backend (ResumoFinanceiroResponseDto) já é o
+// NÚMERO da porcentagem (ex.: 21.12 significa "21,12%"), não a fração 0.21 — arredondado a 2
+// casas com `MidpointRounding.AwayFromZero` no servidor (FinanceiroService.cs). Por isso este
+// formatador NÃO usa `Intl.NumberFormat({ style: 'percent' })` (que multiplicaria por 100 de
+// novo, produzindo "2112,00%") — só troca `.` por `,` e adiciona `%`. `toFixed(2)` aqui é
+// FORMATAÇÃO de um valor já arredondado pelo servidor, não um segundo arredondamento
+// independente (o valor já chega com no máximo 2 casas). Puro exibição — não recalcula.
+export function formatarPercentual(valor: number): string {
+  const sinal = valor > 0 ? '+' : '';
+  return `${sinal}${valor.toFixed(2).replace('.', ',')}%`;
+}
