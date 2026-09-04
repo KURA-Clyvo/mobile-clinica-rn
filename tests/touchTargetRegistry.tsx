@@ -446,7 +446,9 @@ export interface TouchTargetRegistryEntry {
    *  Quando declarado, `tests/touch-target-coverage.test.ts` confirma que o touchable que a
    *  AST encontrou nesta posição carrega ESTE `testID` — se não carregar (reordenação,
    *  remoção do testID, refatoração), o gate falha em vez de ficar em silêncio. Deixado
-   *  `undefined` nas ~12 entradas cujo touchable não declara `testID` nenhum no JSX (ver
+   *  `undefined` nas 17 entradas cujo touchable não declara `testID` nenhum no JSX — 49
+   *  entradas no total, 32 ancoradas; o número era "~12" e foi CORRIGIDO pela G2 da FM-09
+   *  (achado M-2), que contou (ver
    *  `discoverInteractiveTouchables.ts::testIdDoElemento` — só reconhece literal de string,
    *  não identificador nem template) — nessas, o risco de rebind silencioso do POSICIONAL
    *  continua aberto (não há um literal estável para ancorar), documentado, não fingido

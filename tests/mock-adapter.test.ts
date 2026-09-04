@@ -323,6 +323,52 @@ describe('mock-adapter — EXPO_PUBLIC_MOCK_EMPTY (CQ-13, item 5)', () => {
   // EMPTY_LIST_TRANSFORMS é const e applyMockEmptyOverride não é exportada). Resultado
   // exato (EXIT, contagem, quais 2 testes falharam) documentado no relatório do
   // implementador, fm-09-report.md, item 2.
+
+  // 🔴 I-1 da G2 da FM-09 — VIGIA DA NORMALIZAÇÃO DE CAIXA. Estes 2 casos existem porque a
+  // G2 mediu que, sem eles, remover o `.toUpperCase()` de mock-adapter.ts:195 deixava a
+  // suíte INTEIRA verde: EXIT=0 com 1070 passed, 1070 total. Reproduzido pelo maestro com
+  // o mesmo número.
+  //
+  // A premissa não é teórica, está na fonte da dependência instalada:
+  //   node_modules/axios/lib/core/Axios.js:145 (axios 1.16.1)
+  //   config.method = (config.method || this.defaults.method || 'get').toLowerCase();
+  // ⇒ em runtime o método chega MINÚSCULO ao interceptor. Todo teste deste arquivo usava
+  // 'GET'/'POST' MAIÚSCULOS (o default de makeConfig), então a única linha que faz a guarda
+  // de método do item 2 funcionar de verdade não era exercitada por ninguém — e, sem ela,
+  // 'get' !== 'GET' para TODAS as entradas: EXPO_PUBLIC_MOCK_EMPTY viraria no-op completo,
+  // inclusive para as 6 entradas anteriores à FM-09, em silêncio.
+  //
+  // ⚠️ Não mude estas 2 strings para maiúsculas "por consistência" com o resto do arquivo:
+  // a minúscula É o objeto do teste. Ver fm-09-revisao.md, Frente 7.3 (sonda original).
+  it('I-1: method MINÚSCULO (a caixa que o axios real envia) dispara o transform de lista', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/usuarios-clinica', 'get'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('I-1: method MINÚSCULO dispara também o transform de OBJETO (financeiro/resumo)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfigComParams('/financeiro/resumo', 'get', { de: '2026-09-01', ate: '2026-09-30' }),
+    );
+    expect((res.data as ResumoFinanceiroResponse).nrCobrancas).toBe(0);
+  });
+
+  // Contraprova do par acima: minúscula NÃO pode vazar para o POST. Sem este caso, alguém
+  // "consertaria" o I-1 removendo a comparação de método (em vez de normalizar a caixa) e os
+  // 2 testes acima passariam — reintroduzindo exatamente o defeito A-6 que o item 2 fechou.
+  it('I-1: method minúsculo em POST continua NÃO afetado (a caixa normaliza, a guarda permanece)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfig('/usuarios-clinica', 'post', {
+        nmUsuario: 'Fulano',
+        dsEmail: 'fulano@exemplo.com',
+        tpPerfil: 'VETERINARIO',
+        dsSenha: 'Senha@123',
+      }),
+    );
+    expect(Array.isArray(res.data)).toBe(false);
+  });
 });
 
 // FM-04: primeiro handler de PATCH deste repo. Prova as duas coisas que o
