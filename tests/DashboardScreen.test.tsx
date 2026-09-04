@@ -906,7 +906,14 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     });
 
     const { UNSAFE_getByType } = wrap(<DashboardScreen />);
-    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    // FM-09: RefreshControl.d.ts (react-native) so declara EXPORT NOMEADO ('export class
+    // RefreshControl...') -- sem export default -- mas o .js runtime TEM 'export default
+    // RefreshControl' (confirmado lendo os dois arquivos). O import default aqui e CORRETO
+    // em runtime; e o .d.ts que diverge do .js. Resultado do import default tipado: TS infere
+    // o NAMESPACE do modulo inteiro ('typeof import(...)'), que nao satisfaz
+    // React.ComponentType<P> para nenhum P -- daqui o cast explicito, sem mudar o import nem
+    // o valor real em runtime.
+    const refreshControl = UNSAFE_getByType(RNRefreshControl as unknown as React.ComponentType<any>);
     await act(async () => {
       await refreshControl.props.onRefresh();
     });
@@ -925,7 +932,14 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     });
 
     const { UNSAFE_getByType } = wrap(<DashboardScreen />);
-    const refreshControl = UNSAFE_getByType(RNRefreshControl);
+    // FM-09: RefreshControl.d.ts (react-native) so declara EXPORT NOMEADO ('export class
+    // RefreshControl...') -- sem export default -- mas o .js runtime TEM 'export default
+    // RefreshControl' (confirmado lendo os dois arquivos). O import default aqui e CORRETO
+    // em runtime; e o .d.ts que diverge do .js. Resultado do import default tipado: TS infere
+    // o NAMESPACE do modulo inteiro ('typeof import(...)'), que nao satisfaz
+    // React.ComponentType<P> para nenhum P -- daqui o cast explicito, sem mudar o import nem
+    // o valor real em runtime.
+    const refreshControl = UNSAFE_getByType(RNRefreshControl as unknown as React.ComponentType<any>);
     await act(async () => {
       await refreshControl.props.onRefresh();
     });

@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -75,7 +76,11 @@ const MOCK_RELATORIO = {
   nrEncaminhadasParaVet: 29,
 };
 
-function mergedStyle(el: { props: { style: unknown } }) {
+function mergedStyle(el: ReactTestInstance) {
+  // FM-09: ReactTestInstance.props e { [propName: string]: any } (index signature) -- nao
+  // satisfaz estruturalmente { style: unknown } (propriedade nomeada exigida). Tipar pelo
+  // tipo real devolvido por getByTestId/getByText/UNSAFE_getByType em vez de uma forma
+  // minima ad-hoc.
   const styleArr = Array.isArray(el.props.style)
     ? el.props.style.filter(Boolean)
     : [el.props.style];

@@ -282,7 +282,7 @@ describe('FinanceiroScreen — mix por serviço', () => {
     // Consulta de rotina: 3000 / 4820.5 * 100 -- a LARGURA da barra usa o valor cru (sem
     // arredondar para exibição, ao contrário do rótulo textual `mix-percentual` abaixo, que
     // usa 1 casa decimal só para leitura humana).
-    const estiloBarra1 = barras[0].props.style;
+    const estiloBarra1 = barras[0]!.props.style; // FM-09: getAllByTestId nao devolve tupla, indice 0 assumido nao-vazio por getAllByTestId ter sido chamado no teste
     const larguraBarra1 = Array.isArray(estiloBarra1)
       ? estiloBarra1.find((s: { width?: unknown }) => s?.width !== undefined)?.width
       : estiloBarra1.width;

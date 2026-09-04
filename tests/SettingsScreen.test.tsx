@@ -40,7 +40,7 @@ import SettingsScreen from '../src/app/(app)/settings';
 // passos" chama `useOnboardingStore((s) => s.reopen)` de verdade.
 import { useOnboardingStore } from '../src/store/onboardingStore';
 
-const mockUseAuthStore = useAuthStore as jest.Mock;
+const mockUseAuthStore = useAuthStore as unknown as jest.Mock; // FM-09: cast direto nao tinha overlap suficiente (mesma classe do RefreshControl)
 const mockUseTheme = useTheme as jest.Mock;
 const mockQueryClientClear = queryClient.clear as jest.Mock;
 
@@ -126,7 +126,7 @@ describe('SettingsScreen', () => {
     });
     const { getByTestId } = wrap(<SettingsScreen />);
     fireEvent.press(getByTestId('btn-sair'));
-    expect(spyAlert.mock.results[0].value.alert).toHaveBeenCalledWith(
+    expect(spyAlert.mock.results[0]!.value.alert).toHaveBeenCalledWith(
       'Sair?',
       'Sua sessão será encerrada.',
       expect.any(Array),
@@ -136,9 +136,15 @@ describe('SettingsScreen', () => {
 
   it('confirms logout: calls clearSession, queryClient.clear() and navigates to /login', async () => {
     let logoutCallback: (() => void) | undefined;
+    // FM-09: mockImplementation exige a assinatura do mock inferido pelo jest.spyOn
+    // ((...args: unknown[]) => any) -- tipar o 3º parâmetro como array concreto não é
+    // atribuível a esse alvo (contravariância). Recebe `unknown` e faz o cast dentro do
+    // corpo, preservando o comportamento (mesmo shape que o app realmente passa para
+    // Alert.alert em settings.tsx).
     jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(
-      (_title: unknown, _msg: unknown, buttons: Array<{ text: string; onPress?: () => void }>) => {
-        const sairBtn = buttons.find((b) => b.text === 'Sair');
+      (_title: unknown, _msg: unknown, buttons: unknown) => {
+        const botoes = buttons as Array<{ text: string; onPress?: () => void }>;
+        const sairBtn = botoes.find((b) => b.text === 'Sair');
         logoutCallback = sairBtn?.onPress;
       },
     );

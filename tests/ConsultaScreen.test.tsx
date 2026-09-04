@@ -59,8 +59,11 @@ jest.mock('expo-audio', () => ({
   })),
   useAudioRecorderState: jest.fn(() => ({ isRecording: mockIsRecording })),
   RecordingPresets: { HIGH_QUALITY: {} },
-  requestRecordingPermissionsAsync: (...args: unknown[]) =>
-    mockRequestRecordingPermissionsAsync(...args),
+  requestRecordingPermissionsAsync: (..._args: unknown[]) =>
+    // FM-09: mockRequestRecordingPermissionsAsync (jest.fn(() => ...)) nao tem parametros --
+    // TS2556 antes desta correcao ("spread argument must have tuple type"). O mock ignora
+    // args de qualquer forma; _args existe so para casar a assinatura real do expo-audio.
+    mockRequestRecordingPermissionsAsync(),
 }));
 
 jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
