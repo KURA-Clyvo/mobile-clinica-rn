@@ -10,7 +10,8 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts,.tsx",
-    "type-check": "tsc --noEmit"
+    "generate-types": "expo customize tsconfig.json",
+    "type-check": "npm run generate-types && tsc --noEmit"
   },
   "dependencies": {
     "@expo-google-fonts/cormorant": "0.2.3",
