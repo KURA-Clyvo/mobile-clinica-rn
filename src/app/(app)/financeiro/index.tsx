@@ -186,7 +186,7 @@ export default function FinanceiroScreen() {
   const podeVer = useRequireGestor();
 
   const { de, ate } = mesCorrente();
-  const { data: resumo, isLoading, isError, refetch } = useResumoFinanceiro(de, ate);
+  const { data: resumo, isLoading, isFetching, isError, refetch } = useResumoFinanceiro(de, ate);
 
   // Regra dos hooks: todos incondicionais, ANTES do guard de render abaixo -- mesmo padrão de
   // servicos-preco/index.tsx e usuarios/index.tsx.
@@ -195,7 +195,11 @@ export default function FinanceiroScreen() {
   return (
     <ScreenContainer
       refreshControl={
-        <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
+        // I-1 da G2 da FM-08: `isLoading` (== isPending && isFetching, ver useFinanceiro.ts)
+        // fica `false` para sempre depois da 1ª carga -- um `RefreshControl` ligado a ele
+        // nunca gira de novo, mesmo com refetch em voo. `isFetching` é o sinal certo: `true`
+        // tanto na carga inicial quanto em qualquer refetch subsequente.
+        <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />
       }
     >
       <View style={styles.headerRow}>
