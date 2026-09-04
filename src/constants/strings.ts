@@ -73,20 +73,28 @@ export const STRINGS = {
     semBaseComparacao: 'Sem base de comparação: o período anterior não teve receita',
   },
   // FM-08 (ciclo FIN) — tela nova `(app)/financeiro/index.tsx` (painel de gestão, GESTOR-only,
-  // ruling D-16). Reusa deliberadamente `dashboard.financeiro`/`financeiroSubtitulo`/
-  // `receitaBruta`/`ticketMedio`/`erroFinanceiro*`/`semFaturamento*`/`verPainelCompleto`/
+  // ruling D-16). Reusa deliberadamente `dashboard.receitaBruta`/`ticketMedio`/
+  // `erroFinanceiro`/`erroFinanceiroDesc`/`semFaturamento`/`semFaturamentoDesc`/
   // `comparacaoPeriodoAnterior`/`semBaseComparacao` acima -- não duplica nenhuma dessas
   // strings (§4 item 5 do brief: "se o painel novo precisar do mesmo aviso, reuse a string,
   // não escreva uma segunda"). Este objeto só carrega o que É novo desta tela.
+  //
+  // 🔴 M-2 da G2 da FM-08: `dashboard.financeiro`/`financeiroSubtitulo`/`verPainelCompleto`
+  // NÃO são reusados por `financeiro/index.tsx` -- conferido linha a linha com
+  // `grep -n "STRINGS\.dashboard\." src/app/(app)/financeiro/index.tsx`. As três são
+  // consumidas por `dashboard.tsx` (título/subtítulo da SEÇÃO do card e o texto do LINK que
+  // leva a esta tela) -- consumidor diferente, não reuso por esta tela.
   financeiroPainel: {
     titulo: 'Painel de gestão',
     mixTitulo: 'Mix por serviço',
     // A soma das receitas dos baldes == receitaBruta, exato (invariante do backend) -- a
     // legenda diz isso para o gestor confiar na soma sem precisar somar ele mesmo.
     mixCaption: 'A soma dos itens abaixo fecha com a receita bruta do período.',
-    // `idServicoPreco: null` -- balde de lançamento avulso (D-2), rótulo já vem do backend
-    // (`nmServico`) como "(avulso)" -- este texto não é usado para rotular o balde em si,
-    // só aparece se algum dia for preciso um rótulo de fallback.
+    // M-1 da G2 da FM-08: o comentário antigo aqui descrevia um "rótulo de fallback do balde
+    // avulso" que nunca existiu neste objeto -- `idServicoPreco: null` usa o `nmServico` que
+    // o backend já devolve ("(avulso)", ver financeiro.mock.ts), sem chave própria de
+    // fallback. `comparacaoTitulo` abaixo é o título de SEÇÃO do card de comparação com o
+    // período anterior -- autoexplicativo, sem comentário necessário.
     comparacaoTitulo: 'Comparação com o período anterior',
   },
   pacientes: {
