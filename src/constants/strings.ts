@@ -58,6 +58,36 @@ export const STRINGS = {
     // é pior que não mostrar nada.
     erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
     erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    // FM-08 (ciclo FIN) — link do card financeiro do dashboard para o painel de gestão
+    // (tela nova, `(app)/financeiro/index.tsx`).
+    verPainelCompleto: 'Ver painel completo',
+    // Sufixo usado junto de `formatarPercentual(variacaoPercentual)` -- ex.:
+    // "+21,12% em relação ao período anterior". Fica em constante própria (em vez de string
+    // única já pronta) porque o número formatado precisa entrar NO MEIO da frase.
+    comparacaoPeriodoAnterior: 'em relação ao período anterior',
+    // 🔴 `variacaoPercentual === null` só ocorre quando a receita do período anterior é ZERO
+    // (contrato do backend, ResumoFinanceiroResponseDto.cs:106 -- "crescer do zero não tem
+    // porcentagem"). NÃO é "0%" nem traço mudo -- é a frase honesta que o backend pede: "de
+    // R$ 0,00 para R$ X". O valor de `receitaBrutaPeriodoAnterior` é lido do contrato (não
+    // hardcoded em 0) e interpolado pelo componente junto com `receitaBruta`.
+    semBaseComparacao: 'Sem base de comparação: o período anterior não teve receita',
+  },
+  // FM-08 (ciclo FIN) — tela nova `(app)/financeiro/index.tsx` (painel de gestão, GESTOR-only,
+  // ruling D-16). Reusa deliberadamente `dashboard.financeiro`/`financeiroSubtitulo`/
+  // `receitaBruta`/`ticketMedio`/`erroFinanceiro*`/`semFaturamento*`/`verPainelCompleto`/
+  // `comparacaoPeriodoAnterior`/`semBaseComparacao` acima -- não duplica nenhuma dessas
+  // strings (§4 item 5 do brief: "se o painel novo precisar do mesmo aviso, reuse a string,
+  // não escreva uma segunda"). Este objeto só carrega o que É novo desta tela.
+  financeiroPainel: {
+    titulo: 'Painel de gestão',
+    mixTitulo: 'Mix por serviço',
+    // A soma das receitas dos baldes == receitaBruta, exato (invariante do backend) -- a
+    // legenda diz isso para o gestor confiar na soma sem precisar somar ele mesmo.
+    mixCaption: 'A soma dos itens abaixo fecha com a receita bruta do período.',
+    // `idServicoPreco: null` -- balde de lançamento avulso (D-2), rótulo já vem do backend
+    // (`nmServico`) como "(avulso)" -- este texto não é usado para rotular o balde em si,
+    // só aparece se algum dia for preciso um rótulo de fallback.
+    comparacaoTitulo: 'Comparação com o período anterior',
   },
   pacientes: {
     titulo: 'Pacientes',
