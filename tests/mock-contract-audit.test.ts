@@ -68,6 +68,19 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       expect(Number.isNaN(res.metrics.nrPacientesAtendidos)).toBe(false);
       expect(typeof res.metrics.nrAlertasAtivos).toBe('number');
       expect(Number.isNaN(res.metrics.nrAlertasAtivos)).toBe(false);
+      // FM-09 item 5 — asserção POR VALOR, pela cadeia real (service -> apiClient
+      // -> mock-adapter -> fixture, sem jest.mock). Antes desta task só typeof/NaN
+      // eram checados aqui; a distinção que dashboard.mock.ts::hoje() cravou de
+      // propósito (totalPacientesAtendidosHoje: 9, totalTeleorientacoesHoje: 2,
+      // deliberadamente diferentes de `ultimosPetsAtendidos.length` === 6 e de 0 —
+      // ver comentário no fixture) não era exercitada por NENHUM teste desta
+      // cadeia real: dashboard.service.test.ts cobre os valores, mas com
+      // jest.mock (fixture escrito à mão ali, não o fixture real do mock-adapter).
+      // Reverter mapHoje() para a fórmula antiga (nrPacientesAtendidos:
+      // dto.ultimosPetsAtendidos.length, nrTeleorientacoes: 0) passava por AQUI
+      // sem detecção antes desta correção.
+      expect(res.metrics.nrPacientesAtendidos).toBe(9);
+      expect(res.metrics.nrTeleorientacoes).toBe(2);
     });
 
     it('getAlertas executa sem lançar e traduz o tipo real do alerta (não genérico fixo)', async () => {
