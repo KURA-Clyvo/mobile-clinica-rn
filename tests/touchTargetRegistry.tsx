@@ -139,6 +139,11 @@ import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import SettingsScreen from '../src/app/(app)/settings';
 import UsuariosClinicaScreen from '../src/app/(app)/usuarios/index';
 import ServicosPrecoScreen from '../src/app/(app)/servicos-preco/index';
+// FM-08 — 1 tela nova (`(app)/financeiro/index.tsx`, painel de gestão) + 1 tocável novo em
+// `settings.tsx` (SettingsScreen#6, "Ver painel de gestão", posicionado DEPOIS de
+// SettingsScreen#5 -- ver comentário em settings.tsx). Mesmo dever dos blocos FM-02/FM-05
+// acima: entrada própria no registry abaixo, ou o gate de cobertura falha.
+import FinanceiroScreen from '../src/app/(app)/financeiro/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
 
@@ -313,6 +318,21 @@ jest.mock('@hooks/useServicosPreco', () => ({
   useAtualizarServicoPreco: () => ({ mutate: mockMutateAtualizarServicoPreco, isPending: false }),
   useDesativarServicoPreco: () => ({ mutate: mockMutateDesativarServicoPreco, isPending: false }),
   useReativarServicoPreco: () => ({ mutate: mockMutateReativarServicoPreco, isPending: false }),
+}));
+
+// FM-08 — mesmo padrão do bloco FM-05 acima: mocka-se o HOOK, não o service.
+// `(app)/financeiro/index.tsx` só precisa do bastante para renderizar (o back button, único
+// touchable desta tela, existe independente do estado de dados) -- `data: undefined` cai no
+// ramo de "loading"/erro da tela, que já basta para o header (com o botão voltar) montar.
+const mockUseResumoFinanceiroReturn = jest.fn(() => ({
+  data: undefined,
+  isLoading: false,
+  isError: false,
+  refetch: jest.fn(),
+  isGestor: true,
+}));
+jest.mock('@hooks/useFinanceiro', () => ({
+  useResumoFinanceiro: () => mockUseResumoFinanceiroReturn(),
 }));
 
 // `login.tsx`/`register.tsx` usam os hooks REAIS `useLoginMutation`/
@@ -1392,6 +1412,49 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         <ServicoPrecoFormModal visible onClose={() => {}} servico={null} />,
       );
       return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-form-servico').props.style));
+    },
+  },
+
+  // --- FM-08 — 1 tocável novo em `(app)/financeiro/index.tsx` (o back button, MESMO estilo
+  // de `btn-voltar-servicos`, `styles.backButton` explícito com minHeight/minWidth:44) + 1 em
+  // `settings.tsx` (SettingsScreen#6, "Ver painel de gestão", reusa `styles.inviteRow`, MESMO
+  // caso de `SettingsScreen#5`/`btn-tabela-precos` acima). ---
+
+  '(app)/financeiro/index.tsx::FinanceiroScreen#1': {
+    category: 'meets-min',
+    verify: () => {
+      seedSessaoGestor();
+      mockUseResumoFinanceiroReturn.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        isGestor: true,
+      });
+      const { getByTestId } = wrap(<FinanceiroScreen />);
+      const estilo = flat(getByTestId('btn-voltar-financeiro').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  '(app)/settings.tsx::SettingsScreen#6': {
+    category: 'no-explicit-geometry',
+    reason:
+      'Botão "Ver painel de gestão" (`btn-painel-financeiro`) reusa o MESMO estilo ' +
+      '`inviteRow` de SettingsScreen#3/#5 (`btn-convidar`/`btn-tabela-precos`) -- sem ' +
+      'height/minHeight/width/minWidth. Mesmo padrão, não corrigido nesta task pela mesma ' +
+      'razão de #5.',
+    verify: () => {
+      useAuthStore.setState({
+        token: 'tok',
+        expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+        email: 'f@k.com',
+        tpPerfil: 'GESTOR',
+        usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
+      });
+      const { getByTestId } = wrap(<SettingsScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-painel-financeiro').props.style));
     },
   },
 };
