@@ -126,14 +126,23 @@ const MOCK_LATENCY_MS = 300;
 // (mock devolvendo shape que o service não espera). Preserva a envelope e só
 // esvazia `items`, zerando as contagens de forma coerente com o array vazio —
 // mesmo padrão já usado pra `/agenda` (spread + esvazia só o campo aninhado).
-export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
-  [/\/agenda$/, (data) => ({ ...(data as Record<string, unknown>), agendamentos: [] })],
-  [/\/dashboard\/alertas$/, () => []],
-  [/\/dashboard\/recentes$/, () => []],
-  [/\/pets\/\d+\/timeline$/, () => []],
-  [/\/pets$/, () => []],
+// FM-09 (item 2, achado A-6): cada entrada agora carrega o MÉTODO que ela intercepta —
+// `applyMockEmptyOverride` só aplica a transformação quando `config.method` bate com o
+// método declarado aqui, não só a URL. Todas as entradas pré-existentes já eram GET-only
+// na prática (nenhuma delas serve POST/PUT/PATCH/DELETE na mesma URL) — declarar 'GET'
+// explicitamente não muda comportamento nenhum para elas, só fecha a lacuna estrutural que
+// deixava `/usuarios-clinica$/`/`/servicos-preco$/` de fora (ver bloco removido abaixo).
+type MockHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+export const EMPTY_LIST_TRANSFORMS: [RegExp, MockHttpMethod, (data: unknown) => unknown][] = [
+  [/\/agenda$/, 'GET', (data) => ({ ...(data as Record<string, unknown>), agendamentos: [] })],
+  [/\/dashboard\/alertas$/, 'GET', () => []],
+  [/\/dashboard\/recentes$/, 'GET', () => []],
+  [/\/pets\/\d+\/timeline$/, 'GET', () => []],
+  [/\/pets$/, 'GET', () => []],
   [
     /\/medicamentos$/,
+    'GET',
     (data) => ({
       ...(data as Record<string, unknown>),
       items: [],
@@ -141,52 +150,38 @@ export const EMPTY_LIST_TRANSFORMS: [RegExp, (data: unknown) => unknown][] = [
       totalPages: 0,
     }),
   ],
-  // FM-05 (brief §5.4) — DECISÃO DELIBERADA: NÃO existe entrada aqui para
-  // `/usuarios-clinica$/` nem para `/servicos-preco$/`, e as duas pela
-  // MESMA razão. `applyMockEmptyOverride` casa por URL, CEGO A MÉTODO — a
-  // mesma URL serve GET (lista) e POST (criar) para os dois recursos.
-  // Adicionar uma entrada esvaziaria também a resposta de CRIAÇÃO sob
-  // `EXPO_PUBLIC_MOCK_EMPTY=true` (o objeto recém-criado viraria `[]`),
-  // quebrando "+ Novo" sob a flag — sem nenhum aviso, porque
-  // `applyMockEmptyOverride` não sabe que o handler despachou por POST.
-  // Replicar o padrão de `/agenda`/`/medicamentos` aqui reintroduziria essa
-  // classe de defeito por engano. Se um dia isto precisar de um estado
-  // vazio demonstrável, a correção é `applyMockEmptyOverride` também
-  // enxergar `method`, não uma entrada nova nesta lista.
-  //
-  // FM-07 — DECISÃO DELIBERADA, razão DIFERENTE das acima: `/financeiro/resumo$/` também
-  // NÃO tem entrada aqui, mas não por colisão de método (é `GET` puro, sem POST na mesma
-  // URL) — é porque a resposta é um OBJETO único (`ResumoFinanceiroResponseDto`), não uma
-  // lista, e o mesmo padrão já vale para `/dashboard/hoje$/` (objeto, sem entrada) logo
-  // acima: as duas entradas que ESVAZIAM objeto (`/agenda$/`, `/medicamentos$/`) reescrevem
-  // um CAMPO conhecido do objeto (`agendamentos`/`items`) para `[]`, não o objeto inteiro.
-  // `applyMockEmptyOverride` faria `() => ({})` virar um objeto sem os campos `required` do
-  // DTO -- pior que não interceptar, porque quebraria a tela sob a flag em vez de demonstrar
-  // um estado vazio real.
-  //
-  // 🔴 CORRIGIDO na fix wave da G2 (achado I-2). Estas linhas afirmavam que o estado
-  // "nenhuma cobrança no período" era "demonstrável DIRETO na fixture normal, mudando
-  // `de`/`ate`". **É FALSO, e foi medido:** `financeiro.mock.ts::resumo()` devolve
-  // `receitaBruta = 4820.5` e `nrCobrancas = 12` como LITERAIS, independentemente de
-  // `de`/`ate` — só o bloco `periodo`/`periodoAnterior` varia. Nenhum período produz
-  // `nrCobrancas: 0`. E `resumoVazio()` NÃO é "usada pelos testes": tinha ZERO
-  // consumidores quando esta frase foi escrita.
-  //
-  // ⇒ **O estado vazio do financeiro NÃO é demonstrável em runtime sob NENHUMA flag hoje.**
-  // Ele só existe no nível de teste. **É dívida declarada do FM-09**, que cobra estado vazio
-  // verificável — e a correção certa é a mesma que aquele gate já herdou da FM-05 (achado
-  // A-6): tornar `applyMockEmptyOverride` sensível ao MÉTODO e ao shape, não acrescentar uma
-  // entrada que zere o objeto inteiro.
-  //
-  // ⚠️ Este comentário era a classe "documentação que garante o que o código não faz" — a
-  // mesma que já reprovou task neste projeto — escrita NO MESMO ARQUIVO cujo bloco vizinho
-  // (fix wave da FM-05) existe justamente para avisar contra ela.
+  // FM-09 (item 2, achado A-6) — FECHADO. Histórico: a FM-05 (brief §5.4) tinha deixado
+  // `/usuarios-clinica$/`/`/servicos-preco$/` de fora de propósito, porque a mesma URL serve
+  // GET (lista) e POST (criar), e `applyMockEmptyOverride` era CEGO A MÉTODO — uma entrada
+  // aqui teria esvaziado também a resposta de criação sob a flag. A correção que aquele
+  // comentário já apontava («a correção certa é `applyMockEmptyOverride` também enxergar
+  // `method`») é exatamente o que este arquivo faz agora (ver `MockHttpMethod` acima) — as 2
+  // entradas abaixo só disparam em `GET`, então `POST` continua devolvendo o registro criado
+  // intacto sob a flag.
+  [/\/usuarios-clinica$/, 'GET', () => []],
+  [/\/servicos-preco$/, 'GET', () => []],
+  // FM-07/FM-09 — `/financeiro/resumo$/` é objeto único (`ResumoFinanceiroResponseDto`), não
+  // lista: `() => ({})` quebraria a tela sob a flag (campos `required` do DTO ausentes) em
+  // vez de demonstrar um estado vazio real. `financeiro.mock.ts::resumoVazio(de, ate)` já
+  // existe e produz o shape "nenhuma cobrança no período" correto — `ticketMedio`/
+  // `variacaoPercentual` em `null` (NUNCA `0`, ver types/api.ts:363-366 — zero mentiria "não
+  // medimos"), `mixPorServico: []`, contagens em `0`. Reaproveita `data.periodo.de`/`.ate` (já
+  // resolvidos por `resumo()`, mesmo cálculo de `resolverPeriodo`) em vez de reler
+  // `config.params` — este transform só recebe `data`, não `config`.
+  [
+    /\/financeiro\/resumo$/,
+    'GET',
+    (data) => {
+      const periodo = (data as { periodo: { de: string; ate: string } }).periodo;
+      return financeiroMock.resumoVazio(periodo.de, periodo.ate);
+    },
+  ],
 ];
 
-function applyMockEmptyOverride(url: string, data: unknown): unknown {
+function applyMockEmptyOverride(url: string, method: string, data: unknown): unknown {
   if (process.env.EXPO_PUBLIC_MOCK_EMPTY !== 'true') return data;
-  for (const [pattern, transform] of EMPTY_LIST_TRANSFORMS) {
-    if (pattern.test(url)) return transform(data);
+  for (const [pattern, mockMethod, transform] of EMPTY_LIST_TRANSFORMS) {
+    if (pattern.test(url) && method === mockMethod) return transform(data);
   }
   return data;
 }
@@ -203,7 +198,7 @@ export async function resolveMock(config: InternalAxiosRequestConfig): Promise<{
     if (pattern.test(url)) {
       await new Promise<void>((r) => setTimeout(r, MOCK_LATENCY_MS));
       const data = await handler(config);
-      return { data: applyMockEmptyOverride(url, data), status: 200, config };
+      return { data: applyMockEmptyOverride(url, method, data), status: 200, config };
     }
   }
 

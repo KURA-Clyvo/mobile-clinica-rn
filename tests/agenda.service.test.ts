@@ -47,7 +47,7 @@ describe('agenda.service', () => {
 
     expect(mockApiGet).toHaveBeenCalledWith('/api/v1/agenda', { params: query });
     expect(result).toHaveLength(1);
-    const item = result[0];
+    const item = result[0]!; // FM-09: length checada na linha acima (toHaveLength(1))
     expect(item.id).toBe(10);
     expect(item.dtInicio).toBe('2026-07-21T09:00:00Z');
     expect(item.nrDuracaoMinutos).toBe(30);

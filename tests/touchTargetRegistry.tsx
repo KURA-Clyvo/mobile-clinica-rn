@@ -435,6 +435,25 @@ export interface TouchTargetRegistryEntry {
    *  `verify()` falhar, e o gate confronta o retorno contra
    *  `entrada.category` (fix wave 3 — ver "CONTRATO DE RETORNO" acima). */
   verify: () => ResultadoVerify;
+  /** FM-09 (item 3) — o `testID` literal que esta entrada ESPERA que o `#n` descoberto por
+   *  AST tenha, no arquivo fonte (não no que `verify()` renderiza isolado — os dois
+   *  normalmente coincidem, mas é o valor da FONTE que este campo declara). Opcional: a
+   *  chave posicional (`arquivo::Componente#n`, ver `discoverInteractiveTouchables.ts`)
+   *  rebinda EM SILÊNCIO se dois touchables do mesmo componente forem reordenados no JSX —
+   *  a entrada continua existindo, só passa a "descrever" um elemento físico diferente do
+   *  que a `reason`/estrutura da entrada documenta (`verify()` continua honesto: ele
+   *  renderiza e mede de novo, não herda nada da posição — só o TEXTO fica desatualizado).
+   *  Quando declarado, `tests/touch-target-coverage.test.ts` confirma que o touchable que a
+   *  AST encontrou nesta posição carrega ESTE `testID` — se não carregar (reordenação,
+   *  remoção do testID, refatoração), o gate falha em vez de ficar em silêncio. Deixado
+   *  `undefined` nas 17 entradas cujo touchable não declara `testID` nenhum no JSX — 49
+   *  entradas no total, 32 ancoradas; o número era "~12" e foi CORRIGIDO pela G2 da FM-09
+   *  (achado M-2), que contou (ver
+   *  `discoverInteractiveTouchables.ts::testIdDoElemento` — só reconhece literal de string,
+   *  não identificador nem template) — nessas, o risco de rebind silencioso do POSICIONAL
+   *  continua aberto (não há um literal estável para ancorar), documentado, não fingido
+   *  resolvido. */
+  expectedTestId?: string;
 }
 
 const PET_FIXTURE: PetResponse = {
@@ -625,6 +644,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'KCTextField.tsx::KCTextField#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'password-toggle',
     reason:
       'Botão de mostrar/ocultar senha (`eyeButton`) só declara `paddingLeft: 8` — sem height/' +
       'minHeight/width/minWidth. Gap real de acessibilidade (ícone de texto ~16px + 8px de ' +
@@ -640,6 +660,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'AppHeader.tsx::AppHeader#1': {
     category: 'meets-min',
+    expectedTestId: 'app-header-menu',
     verify: () => {
       const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
       const estilo = flat(getByTestId('app-header-menu').props.style);
@@ -650,6 +671,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'AppHeader.tsx::AppHeader#2': {
     category: 'meets-min',
+    expectedTestId: 'app-header-search',
     verify: () => {
       const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} />);
       const estilo = flat(getByTestId('app-header-search').props.style);
@@ -673,6 +695,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'NavDrawer.tsx::NavDrawer#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'nav-drawer-logout',
     reason:
       'Botão de logout (`nav-drawer-logout`) não declara ESTILO NENHUM de geometria — nem ' +
       'padding, nem height/minHeight. É o pior caso descoberto por esta varredura (ícone 20×20 ' +
@@ -712,6 +735,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'TimelineItem.tsx::TimelineItem#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'expand-toggle',
     reason:
       'Botão "Ver mais"/"Ver menos" (`expand-toggle`) não recebe NENHUM `style` — TouchableOpacity ' +
       'sem padding nem geometria, só o texto (fontSize 12) como área de toque. Gap real de ' +
@@ -725,6 +749,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'WhatsAppModal.tsx::WhatsAppModal#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-fechar-whatsapp',
     reason:
       'Botão de fechar (`btn-fechar-whatsapp`) só declara `{ padding: 4 }` inline — sem height/' +
       'minHeight/width/minWidth. Ícone 20px + 4px de padding de cada lado ≈ 28px, abaixo de ' +
@@ -751,6 +776,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // arquivo (ver acima).
   'AgendamentoStatusMenu.tsx::AgendamentoStatusMenu#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-fechar-status-menu',
     reason:
       'Botão de fechar (`btn-fechar-status-menu`) só declara `{ padding: 4 }` inline — sem ' +
       'height/minHeight/width/minWidth. Ícone 20px + 4px de padding de cada lado ≈ 28px, ' +
@@ -778,6 +804,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-fechar-form-usuario',
     reason:
       'Botão de fechar (`btn-fechar-form-usuario`) só declara `{ padding: 4 }` inline — sem ' +
       'height/minHeight/width/minWidth. Mesmo padrão de WhatsAppModal.tsx::WhatsAppModal#1 e ' +
@@ -817,6 +844,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#3': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'option-veterinario-nenhum',
     reason:
       'Opção "Nenhuma ficha vinculada" (`option-veterinario-nenhum`) — `vetOption: { ' +
       'flexDirection:"row", alignItems:"center", justifyContent:"space-between", borderWidth:1.5, ' +
@@ -857,6 +885,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'TrocarSenhaModal.tsx::TrocarSenhaModal#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-fechar-trocar-senha',
     reason:
       'Botão de fechar (`btn-fechar-trocar-senha`) só declara `{ padding: 4 }` inline — sem ' +
       'height/minHeight/width/minWidth. Mesmo padrão dos outros 2 "X" de modal deste registry ' +
@@ -876,6 +905,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/agenda.tsx::AgendaAppointmentCard#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-iniciar-teleconsulta',
     reason:
       'Botão "Teleconsulta" (`btn-iniciar-teleconsulta`) — `teleBtn` só declara ' +
       'paddingVertical:4/paddingHorizontal:8/borderRadius:8 — sem height/minHeight/width/' +
@@ -921,6 +951,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/agenda.tsx::AgendaScreen#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-prev-week',
     reason:
       'Botão "semana anterior" (`btn-prev-week`) — `navBtn: { padding: 4 }`, sem height/' +
       'minHeight/width/minWidth explícitos. Violação REAL conhecida (ícone 20px + padding 4px ' +
@@ -944,6 +975,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/agenda.tsx::AgendaScreen#2': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-next-week',
     reason:
       'Botão "próxima semana" (`btn-next-week`) — mesmo `navBtn: { padding: 4 }` do botão ' +
       'anterior (mesma violação real, mesma limitação de verificação sem Yoga). Não corrigido ' +
@@ -1088,6 +1120,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/receituario/[idPet].tsx::ReceituarioScreen#2': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'date-picker-trigger',
     reason:
       'Seletor de data (`date-picker-trigger`) — `dateRow: { ..., borderWidth:1, borderRadius:10, ' +
       'padding:12 }`, sem height/minHeight/width/minWidth. Não corrigido — candidato a follow-up.',
@@ -1108,6 +1141,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // o que era `#1` (btn-convidar) virou `#3`.
   '(app)/settings.tsx::SettingsScreen#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'switch-dark-mode',
     reason:
       'Switch "Modo escuro" (`switch-dark-mode`) não recebe `style` nenhum — medido por render ' +
       'real: o estilo achatado do nó nativo é `{alignSelf:"flex-start"}`, sem height/minHeight/' +
@@ -1122,6 +1156,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/settings.tsx::SettingsScreen#2': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'switch-notif',
     reason:
       'Switch "Notificações push" (`switch-notif`) — mesmo caso do `switch-dark-mode` acima ' +
       '(sem `style`, mesmo estilo nativo achatado sem height/width explícitos). Não corrigido ' +
@@ -1134,6 +1169,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/settings.tsx::SettingsScreen#3': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-convidar',
     reason:
       'Botão "Convidar membro" (`btn-convidar`) — `inviteRow: { flexDirection:"row", ' +
       'alignItems:"center", gap:6, paddingVertical:6 }`, sem height/minHeight/width/minWidth. ' +
@@ -1166,6 +1202,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/usuarios/index.tsx::UsuarioRow#1': {
     category: 'meets-min-one-axis',
+    expectedTestId: 'btn-editar-usuario',
     reason:
       'Botão "Editar" (`btn-editar-usuario`) — `actionButton: { ..., minHeight:44, ' +
       'paddingHorizontal:10, borderRadius:8 }`, SEM width/minWidth: a linha tem 3 botões lado a ' +
@@ -1188,6 +1225,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/usuarios/index.tsx::UsuarioRow#2': {
     category: 'meets-min-one-axis',
+    expectedTestId: 'btn-trocar-senha',
     reason:
       'Botão "Trocar senha" (`btn-trocar-senha`) — mesmo `actionButton` do #1 acima, mesma ' +
       'razão para width não ser cravada (3 botões na mesma linha).',
@@ -1207,6 +1245,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/usuarios/index.tsx::UsuarioRow#3': {
     category: 'meets-min-one-axis',
+    expectedTestId: 'btn-desativar-usuario',
     reason:
       'Botão "Desativar" (`btn-desativar-usuario`, só existe na linha de um usuário ATIVO — ' +
       'ver USUARIO_CLINICA_ATIVO_FIXTURE) — mesmo `actionButton` do #1/#2, mesma razão de width.',
@@ -1226,6 +1265,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/usuarios/index.tsx::UsuarioRow#4': {
     category: 'meets-min-one-axis',
+    expectedTestId: 'btn-reativar-usuario',
     reason:
       'Botão "Reativar" (`btn-reativar-usuario`, só existe na linha de um usuário INATIVO — ' +
       'ver USUARIO_CLINICA_INATIVO_FIXTURE) — mesmo `actionButton` do #1/#2/#3, mesma razão de ' +
@@ -1246,6 +1286,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/usuarios/index.tsx::UsuariosClinicaScreen#1': {
     category: 'meets-min',
+    expectedTestId: 'btn-voltar-usuarios',
     verify: () => {
       seedSessaoGestor();
       mockUseUsuariosClinicaReturn.mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() });
@@ -1259,6 +1300,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'login.tsx::LoginScreen#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'login-register-link',
     reason:
       'Link "Cadastrar clínica" (`login-register-link`) — `registerLink: { alignItems:"center", ' +
       'marginTop:16 }`, sem height/minHeight/width/minWidth. Não corrigido — candidato a follow-up.',
@@ -1271,6 +1313,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'register.tsx::RegisterScreen#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'register-back',
     reason:
       'Botão de voltar (`register-back`) não recebe NENHUM `style` — sem height/minHeight/width/' +
       'minWidth, só o ícone (22px) como área de toque. Um dos 2 tocáveis desta wave totalmente ' +
@@ -1284,6 +1327,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'register.tsx::RegisterScreen#2': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'register-go-login',
     reason:
       'Link "Já tenho conta" (`register-go-login`) — `loginLink: { alignItems:"center", ' +
       'marginTop:16, marginBottom:8 }`, sem height/minHeight/width/minWidth. Não corrigido — ' +
@@ -1326,6 +1370,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'OnboardingChecklist.tsx::OnboardingChecklist#1': {
     category: 'meets-min',
+    expectedTestId: 'onboarding-dismiss',
     verify: () => {
       useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
       const { getByTestId } = wrap(<OnboardingChecklist />);
@@ -1351,6 +1396,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/settings.tsx::SettingsScreen#4': {
     category: 'meets-min',
+    expectedTestId: 'btn-rever-onboarding',
     verify: () => {
       useAuthStore.setState({
         token: 'tok',
@@ -1371,6 +1417,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/settings.tsx::SettingsScreen#5': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-tabela-precos',
     reason:
       'Botão "Gerenciar tabela de preços" (`btn-tabela-precos`) reusa o MESMO estilo ' +
       '`inviteRow` de SettingsScreen#3 (`btn-convidar`, seção "Time") — sem height/minHeight/' +
@@ -1390,6 +1437,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/servicos-preco/index.tsx::ServicosPrecoScreen#1': {
     category: 'meets-min',
+    expectedTestId: 'btn-voltar-servicos',
     verify: () => {
       seedSessaoGestor();
       mockUseServicosPrecoReturn.mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() });
@@ -1402,6 +1450,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   'ServicoPrecoFormModal.tsx::ServicoPrecoFormModal#1': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-fechar-form-servico',
     reason:
       'Botão de fechar (`btn-fechar-form-servico`) só declara `{ padding: 4 }` inline -- sem ' +
       'height/minHeight/width/minWidth. Mesmo padrão de UsuarioClinicaFormModal.tsx::' +
@@ -1422,6 +1471,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/financeiro/index.tsx::FinanceiroScreen#1': {
     category: 'meets-min',
+    expectedTestId: 'btn-voltar-financeiro',
     verify: () => {
       seedSessaoGestor();
       mockUseResumoFinanceiroReturn.mockReturnValue({
@@ -1440,6 +1490,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
 
   '(app)/settings.tsx::SettingsScreen#6': {
     category: 'no-explicit-geometry',
+    expectedTestId: 'btn-painel-financeiro',
     reason:
       'Botão "Ver painel de gestão" (`btn-painel-financeiro`) reusa o MESMO estilo ' +
       '`inviteRow` de SettingsScreen#3/#5 (`btn-convidar`/`btn-tabela-precos`) -- sem ' +

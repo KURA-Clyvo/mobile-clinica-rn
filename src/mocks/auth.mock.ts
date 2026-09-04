@@ -56,8 +56,27 @@ export async function register(config: InternalAxiosRequestConfig): Promise<Regi
     idVeterinarioAdmin: 2,
     accessToken: 'kura_mock_jwt_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     expiresAt,
-    // Espelha o contrato real: registro de clínica é sempre GESTOR
-    // (RegisterClinicaResponseDto.TpPerfil, sempre 'GESTOR').
+    // 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar este literal. FM-09 (item 7):
+    // citação sem âncora completa (regra de ouro v7 do CLAUDE.md deste ecossistema).
+    //
+    // FONTE:   backend-clinica-dotnet
+    //          src/Kura.Application/Services/AuthService.cs:336
+    //          (`RegisterClinicaAsync`, o `return new RegisterClinicaResponseDto {...}`
+    //          final do método — `TpPerfil = PerfisUsuarioClinica.Gestor`, hardcoded, sem
+    //          ramo condicional. Confirmado que não é só o doc-comment do DTO
+    //          (`RegisterClinicaResponseDto.cs:16-19`, que já dizia "é sempre GESTOR") --
+    //          o SERVICE que preenche o campo também não tem outro caminho: o mesmo
+    //          literal aparece de novo em :306, na criação do `UsuarioClinica` gravado
+    //          na mesma transação — as duas ocorrências concordam.)
+    // COMMIT:  81ac01c  (`main`, pós-merge FD-17)
+    // CONFERIDO EM: 2026-09-04 — bate linha a linha com a fonte nesse commit.
+    //
+    // COMO RECONFERIR:
+    //   git -C ../backend-clinica-dotnet show 81ac01c:src/Kura.Application/Services/AuthService.cs \
+    //     | sed -n '300,340p'
+    //
+    // Deliberadamente REESCRITA aqui, não importada — os dois repos não compartilham
+    // código. Cópia à mão, regra de ouro v7.
     tpPerfil: 'GESTOR',
     usuario: {
       id: 2,

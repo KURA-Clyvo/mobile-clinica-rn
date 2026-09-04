@@ -2,7 +2,7 @@ import { resolveMock, EMPTY_LIST_TRANSFORMS } from '../src/services/api/mock-ada
 import { __resetStoreParaTeste } from '../src/mocks/agenda.mock';
 import { __resetStoreParaTeste as __resetServicosPrecoParaTeste } from '../src/mocks/servicos-preco.mock';
 import type { InternalAxiosRequestConfig } from 'axios';
-import type { ServicoPrecoResponse } from '../src/types/api';
+import type { ServicoPrecoResponse, UsuarioClinicaResponse, ResumoFinanceiroResponse } from '../src/types/api';
 
 function makeConfig(url: string, method = 'GET', data?: unknown): InternalAxiosRequestConfig {
   return { url, method, headers: {}, data: data !== undefined ? JSON.stringify(data) : undefined } as InternalAxiosRequestConfig;
@@ -260,6 +260,115 @@ describe('mock-adapter — EXPO_PUBLIC_MOCK_EMPTY (CQ-13, item 5)', () => {
     expect(typeof data.page).toBe('number');
     expect(typeof data.pageSize).toBe('number');
   });
+
+  // FM-09 item 2 (achado A-6) — FECHADO. `applyMockEmptyOverride` passou a ser sensível ao
+  // MÉTODO (não só à URL): as 3 telas que ficavam de fora (usuarios-clinica, servicos-preco,
+  // financeiro) agora têm estado vazio demonstrável no GET, sem afetar o POST na mesma URL.
+  it('ligada: GET /usuarios-clinica devolve lista vazia', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/usuarios-clinica'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: POST /usuarios-clinica (criar) NÃO é afetado — devolve o registro criado, não []', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfig('/usuarios-clinica', 'POST', { dsEmail: 'novo@clinica.com', tpPerfil: 'VETERINARIO' }),
+    );
+    const criado = res.data as UsuarioClinicaResponse;
+    expect(Array.isArray(criado)).toBe(false);
+    expect(criado.dsEmail).toBe('novo@clinica.com');
+  });
+
+  it('ligada: GET /servicos-preco devolve lista vazia', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/servicos-preco'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('ligada: POST /servicos-preco (criar) continua NÃO afetado (mesma garantia da FM-05, agora por método explícito)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfig('/servicos-preco', 'POST', { nmServico: 'Exame de sangue', vlPreco: 80 }),
+    );
+    const criado = res.data as ServicoPrecoResponse;
+    expect(Array.isArray(criado)).toBe(false);
+    expect(criado.nmServico).toBe('Exame de sangue');
+  });
+
+  // ticketMedio/variacaoPercentual têm que sair `null`, NUNCA `0` — types/api.ts:363-366
+  // proíbe em letras garrafais trocar um pelo outro (zero mentiria "medimos e deu zero";
+  // null é honesto: "não há base para calcular"). mixPorServico vazio, contagens em 0,
+  // período ECOADO (não zerado) — mesmo shape que financeiro.mock.ts::resumoVazio() já
+  // produzia para teste, agora acionável em runtime pela flag.
+  it('ligada: GET /financeiro/resumo devolve objeto vazio com ticketMedio/variacaoPercentual NULL (nunca 0)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfigComParams('/financeiro/resumo', 'GET', { de: '2026-09-01', ate: '2026-09-30' }),
+    );
+    const data = res.data as ResumoFinanceiroResponse;
+    expect(data.nrCobrancas).toBe(0);
+    expect(data.receitaBruta).toBe(0);
+    expect(data.ticketMedio).toBeNull();
+    expect(data.variacaoPercentual).toBeNull();
+    expect(data.mixPorServico).toEqual([]);
+    // período ecoado de verdade (mesmo cálculo de resolverPeriodo), não um objeto vazio
+    expect(data.periodo.de).toBe('2026-09-01');
+    expect(data.periodo.ate).toBe('2026-09-30');
+  });
+
+  // A mordida obrigatória do item 2c (mutar applyMockEmptyOverride para ignorar o
+  // método e provar que os 2 testes de POST acima passam a falhar) foi executada
+  // editando mock-adapter.ts diretamente (não dá para fazer via monkeypatch aqui —
+  // EMPTY_LIST_TRANSFORMS é const e applyMockEmptyOverride não é exportada). Resultado
+  // exato (EXIT, contagem, quais 2 testes falharam) documentado no relatório do
+  // implementador, fm-09-report.md, item 2.
+
+  // 🔴 I-1 da G2 da FM-09 — VIGIA DA NORMALIZAÇÃO DE CAIXA. Estes 2 casos existem porque a
+  // G2 mediu que, sem eles, remover o `.toUpperCase()` de mock-adapter.ts:195 deixava a
+  // suíte INTEIRA verde: EXIT=0 com 1070 passed, 1070 total. Reproduzido pelo maestro com
+  // o mesmo número.
+  //
+  // A premissa não é teórica, está na fonte da dependência instalada:
+  //   node_modules/axios/lib/core/Axios.js:145 (axios 1.16.1)
+  //   config.method = (config.method || this.defaults.method || 'get').toLowerCase();
+  // ⇒ em runtime o método chega MINÚSCULO ao interceptor. Todo teste deste arquivo usava
+  // 'GET'/'POST' MAIÚSCULOS (o default de makeConfig), então a única linha que faz a guarda
+  // de método do item 2 funcionar de verdade não era exercitada por ninguém — e, sem ela,
+  // 'get' !== 'GET' para TODAS as entradas: EXPO_PUBLIC_MOCK_EMPTY viraria no-op completo,
+  // inclusive para as 6 entradas anteriores à FM-09, em silêncio.
+  //
+  // ⚠️ Não mude estas 2 strings para maiúsculas "por consistência" com o resto do arquivo:
+  // a minúscula É o objeto do teste. Ver fm-09-revisao.md, Frente 7.3 (sonda original).
+  it('I-1: method MINÚSCULO (a caixa que o axios real envia) dispara o transform de lista', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(makeConfig('/usuarios-clinica', 'get'));
+    expect(res.data).toEqual([]);
+  });
+
+  it('I-1: method MINÚSCULO dispara também o transform de OBJETO (financeiro/resumo)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfigComParams('/financeiro/resumo', 'get', { de: '2026-09-01', ate: '2026-09-30' }),
+    );
+    expect((res.data as ResumoFinanceiroResponse).nrCobrancas).toBe(0);
+  });
+
+  // Contraprova do par acima: minúscula NÃO pode vazar para o POST. Sem este caso, alguém
+  // "consertaria" o I-1 removendo a comparação de método (em vez de normalizar a caixa) e os
+  // 2 testes acima passariam — reintroduzindo exatamente o defeito A-6 que o item 2 fechou.
+  it('I-1: method minúsculo em POST continua NÃO afetado (a caixa normaliza, a guarda permanece)', async () => {
+    process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
+    const res = await resolveMock(
+      makeConfig('/usuarios-clinica', 'post', {
+        nmUsuario: 'Fulano',
+        dsEmail: 'fulano@exemplo.com',
+        tpPerfil: 'VETERINARIO',
+        dsSenha: 'Senha@123',
+      }),
+    );
+    expect(Array.isArray(res.data)).toBe(false);
+  });
 });
 
 // FM-04: primeiro handler de PATCH deste repo. Prova as duas coisas que o
@@ -342,8 +451,12 @@ describe('mock-adapter — EMPTY_LIST_TRANSFORMS preserva a FORMA da resposta no
   }
 
   it.each(
+    // FM-09 (item 2): EMPTY_LIST_TRANSFORMS ganhou um 2º elemento (o método) na tupla —
+    // `_method` é descartado aqui de propósito, este bloco testa a FORMA do transform,
+    // não o despacho por método (isso é coberto pelos testes de
+    // "EXPO_PUBLIC_MOCK_EMPTY" acima, com GET vs POST na mesma URL).
     EMPTY_LIST_TRANSFORMS.map(
-      ([pattern, transform]) => [sampleUrlFor(pattern), pattern.source, transform] as const,
+      ([pattern, _method, transform]) => [sampleUrlFor(pattern), pattern.source, transform] as const,
     ),
   )(
     '%s (padrão %s): sob a flag, array continua array e objeto mantém as mesmas chaves de topo',
@@ -410,7 +523,16 @@ describe('mock-adapter — servicos-preco (FM-05)', () => {
     expect((reativado.data as ServicoPrecoResponse).stAtiva).toBe(true);
   });
 
-  it('POST /servicos-preco (criar) não é afetado por EXPO_PUBLIC_MOCK_EMPTY (§5.4: sem entrada em EMPTY_LIST_TRANSFORMS)', async () => {
+  // 🔴 Comentário original (FM-05) dizia "sem entrada em EMPTY_LIST_TRANSFORMS,
+  // decisão que este ciclo REJEITOU" — FICOU DESATUALIZADO pela FM-09 (item 2): HOJE
+  // HÁ uma entrada para `/servicos-preco$/`, só que escopada a `GET` (ver
+  // MockHttpMethod em mock-adapter.ts). Corrigido aqui para não ser a classe de
+  // "documentação que garante o que o código não faz" que este projeto já reprovou.
+  // Teste redundante com o novo (describe EXPO_PUBLIC_MOCK_EMPTY, "POST
+  // /servicos-preco... continua NÃO afetado") — mantido aqui porque este describe
+  // testa especificamente a NÃO-COLISÃO de ordem entre as 3 rotas de
+  // ServicosPrecoController, e vale preservar a cobertura local.
+  it('POST /servicos-preco (criar) não é afetado por EXPO_PUBLIC_MOCK_EMPTY (entrada em EMPTY_LIST_TRANSFORMS é GET-only)', async () => {
     const original = process.env.EXPO_PUBLIC_MOCK_EMPTY;
     process.env.EXPO_PUBLIC_MOCK_EMPTY = 'true';
     try {
@@ -418,10 +540,9 @@ describe('mock-adapter — servicos-preco (FM-05)', () => {
         makeConfig('/servicos-preco', 'POST', { nmServico: 'Exame de sangue', vlPreco: 80 }),
       );
       const criado = res.data as ServicoPrecoResponse;
-      // Se houvesse uma entrada para `/servicos-preco$/` em
-      // EMPTY_LIST_TRANSFORMS (decisão que este ciclo REJEITOU, ver
-      // mock-adapter.ts), esta resposta viraria `[]` -- a mordida que prova
-      // por que a rejeição é a decisão certa.
+      // Se `applyMockEmptyOverride` ignorasse o método (comportamento pré-FM-09),
+      // esta resposta viraria `[]` -- é a mesma mordida documentada no relatório do
+      // implementador (fm-09-report.md, item 2).
       expect(Array.isArray(criado)).toBe(false);
       expect(criado.nmServico).toBe('Exame de sangue');
     } finally {

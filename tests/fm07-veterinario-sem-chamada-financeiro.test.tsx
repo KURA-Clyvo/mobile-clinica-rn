@@ -20,6 +20,7 @@
 import React from 'react';
 import { render, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import RNRefreshControl from 'react-native/Libraries/Components/RefreshControl/RefreshControl';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { apiClient } from '../src/services/api/client';
@@ -113,6 +114,85 @@ describe('FM-07 — mordida obrigatória: VETERINARIO não dispara a chamada de 
     wrap(<DashboardScreen />);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 500));
+    });
+
+    const chamadas = urlsChamadas(getSpy);
+    expect(chamadas.some((url) => url.includes('/financeiro/resumo'))).toBe(true);
+  });
+});
+
+// FM-09 (item 4) — MORDIDA OBRIGATÓRIA do brief: "teste que prova que refetch() chamado como
+// VETERINARIO não produz chamada HTTP". Mesma disciplina do describe acima (cadeia REAL, sem
+// jest.mock de hook/service) — a diferença é que aqui o gatilho é `refetch()` via
+// pull-to-refresh (`RefreshControl.onRefresh`), não a montagem inicial. É exatamente o
+// caminho que `enabled: isGestor` NÃO protege (refetch() bypassa enabled — ver comentário em
+// useFinanceiro.ts) e que motivou embrulhar `refetch` dentro do hook.
+describe('FM-09 (item 4) — mordida obrigatória: refetch() via pull-to-refresh não dispara a chamada de financeiro/resumo para VETERINARIO', () => {
+  it('VETERINARIO: pull-to-refresh NÃO chama apiClient.get com /financeiro/resumo (cadeia real)', async () => {
+    useAuthStore.setState({
+      token: 'tok-vet',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'felipe@kuraclinica.com.br',
+      tpPerfil: 'VETERINARIO',
+      usuario: MOCK_VET,
+      _hasHydrated: true,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+
+    const getSpy = jest.spyOn(apiClient, 'get');
+
+    // FM-09: RefreshControl.d.ts (react-native) so declara EXPORT NOMEADO ('export class
+    // RefreshControl...') -- sem export default -- mas o .js runtime TEM 'export default
+    // RefreshControl' (confirmado lendo os dois arquivos). O import default aqui e CORRETO
+    // em runtime; e o .d.ts que diverge do .js. Resultado do import default tipado: TS infere
+    // o NAMESPACE do modulo inteiro ('typeof import(...)'), que nao satisfaz
+    // React.ComponentType<P> para nenhum P -- daqui o cast explicito, sem mudar o import nem
+    // o valor real em runtime.
+    const refreshControl = UNSAFE_getByType(RNRefreshControl as unknown as React.ComponentType<any>);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
+    });
+
+    const chamadas = urlsChamadas(getSpy);
+    expect(chamadas.some((url) => url.includes('/financeiro/resumo'))).toBe(false);
+
+    // Controle positivo do PRÓPRIO teste: as outras 3 chamadas de refresh (hoje/alertas/
+    // recentes) TÊM que ter disparado -- se elas também não dispararam, onRefresh pode não
+    // ter rodado de verdade, e o `false` acima não provaria nada.
+    expect(chamadas.some((url) => url.includes('/dashboard/hoje'))).toBe(true);
+  });
+
+  it('CONTROLE POSITIVO: GESTOR pull-to-refresh CHAMA /financeiro/resumo -- prova que o spy enxergaria a chamada se ela existisse', async () => {
+    useAuthStore.setState({
+      token: 'tok-gestor',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'gestora@kuraclinica.com.br',
+      tpPerfil: 'GESTOR',
+      usuario: MOCK_VET,
+      _hasHydrated: true,
+    });
+
+    const { UNSAFE_getByType } = wrap(<DashboardScreen />);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+
+    const getSpy = jest.spyOn(apiClient, 'get');
+
+    // FM-09: RefreshControl.d.ts (react-native) so declara EXPORT NOMEADO ('export class
+    // RefreshControl...') -- sem export default -- mas o .js runtime TEM 'export default
+    // RefreshControl' (confirmado lendo os dois arquivos). O import default aqui e CORRETO
+    // em runtime; e o .d.ts que diverge do .js. Resultado do import default tipado: TS infere
+    // o NAMESPACE do modulo inteiro ('typeof import(...)'), que nao satisfaz
+    // React.ComponentType<P> para nenhum P -- daqui o cast explicito, sem mudar o import nem
+    // o valor real em runtime.
+    const refreshControl = UNSAFE_getByType(RNRefreshControl as unknown as React.ComponentType<any>);
+    await act(async () => {
+      await refreshControl.props.onRefresh();
     });
 
     const chamadas = urlsChamadas(getSpy);

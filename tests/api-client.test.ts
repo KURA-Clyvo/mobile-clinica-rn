@@ -50,8 +50,8 @@ describe('api client', () => {
 
   describe('mock mode', () => {
     it('routes to mock-adapter when EXPO_PUBLIC_USE_MOCKS=true', async () => {
-      const originalMocks = process.env['EXPO_PUBLIC_USE_MOCKS'];
-      process.env['EXPO_PUBLIC_USE_MOCKS'] = 'true';
+      const originalMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
+      process.env.EXPO_PUBLIC_USE_MOCKS = 'true';
 
       const { resolveMock } = require('../src/services/api/mock-adapter');
       const mockResolve = resolveMock as jest.Mock;
@@ -64,13 +64,13 @@ describe('api client', () => {
         // intercepted by mock
       }
 
-      process.env['EXPO_PUBLIC_USE_MOCKS'] = originalMocks;
+      process.env.EXPO_PUBLIC_USE_MOCKS = originalMocks;
     });
   });
 
   describe('auth token', () => {
     it('adds Authorization header when token exists', async () => {
-      process.env['EXPO_PUBLIC_USE_MOCKS'] = 'false';
+      process.env.EXPO_PUBLIC_USE_MOCKS = 'false';
       mockAsyncStorage.getItem.mockResolvedValueOnce('my-token-abc');
 
       jest.resetModules();

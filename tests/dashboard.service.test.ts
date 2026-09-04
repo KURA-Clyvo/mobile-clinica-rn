@@ -67,10 +67,10 @@ describe('dashboard.service', () => {
       const result = await getAlertas();
 
       expect(result).toHaveLength(1);
-      expect(result[0].dsTipoAlerta).toBe('IOT_TEMPERATURA');
-      expect(result[0].idPet).toBeUndefined();
-      expect(result[0].nmPet).toBeUndefined();
-      expect(result[0].dsMensagem).toBe('Temp alta');
+      expect(result[0]!.dsTipoAlerta).toBe('IOT_TEMPERATURA');
+      expect(result[0]!.idPet).toBeUndefined();
+      expect(result[0]!.nmPet).toBeUndefined();
+      expect(result[0]!.dsMensagem).toBe('Temp alta');
     });
 
     it('translates VACINA_VENCENDO/PROXIMA_DOSE -> VACINA_VENCIDA', async () => {
@@ -88,7 +88,7 @@ describe('dashboard.service', () => {
 
       const result = await getAlertas();
 
-      expect(result[0].dsTipoAlerta).toBe('VACINA_VENCIDA');
+      expect(result[0]!.dsTipoAlerta).toBe('VACINA_VENCIDA');
     });
   });
 
@@ -110,13 +110,13 @@ describe('dashboard.service', () => {
 
       expect(mockApiGet).toHaveBeenCalledWith('/api/v1/dashboard/recentes');
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe(42);
-      expect(result[0].nmPet).toBe('Rex');
-      expect(result[0].nmTipoConsulta).toBe('Consulta de rotina');
-      expect(result[0].dtAgendamento).toBe('2026-07-19T10:00:00Z');
+      expect(result[0]!.id).toBe(42);
+      expect(result[0]!.nmPet).toBe('Rex');
+      expect(result[0]!.nmTipoConsulta).toBe('Consulta de rotina');
+      expect(result[0]!.dtAgendamento).toBe('2026-07-19T10:00:00Z');
       // sem equivalente no backend — string vazia documentada, nunca fabricada
-      expect(result[0].nmTutor).toBe('');
-      expect(result[0].sgStatus).toBe('CONCLUIDA');
+      expect(result[0]!.nmTutor).toBe('');
+      expect(result[0]!.sgStatus).toBe('CONCLUIDA');
     });
 
     // FM-04 (revisão pós-medição do maestro, 2026-09-02): esta suíte

@@ -283,23 +283,20 @@ export default function DashboardScreen() {
 
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // 🔴 ACHADO MEDIDO, NÃO PREVISTO NO BRIEF: `refetch()` do React Query BYPASSA `enabled` --
-  // chamar `refetchFinanceiro()` incondicionalmente aqui dispararia a chamada de financeiro
-  // TAMBÉM para um VETERINARIO que desse pull-to-refresh, mesmo com `enabled: isGestor` no
-  // hook (confirmado por sonda: `useQuery({ enabled: false }).refetch()` invoca `queryFn`
-  // mesmo assim -- `executeFetch_fn`/`Query.fetch()` em @tanstack/query-core não consultam
-  // `enabled`, só o `fetch()` automático de montagem/mudança de dependência consulta). Por
-  // isso o refetch de financeiro só entra no Promise.all quando `isGestor` for verdadeiro.
+  // 🔴 FM-09 (item 4) — a guarda de `isGestor` que vivia AQUI (spread condicional no
+  // `Promise.all`) foi REMOVIDA de propósito, não esquecida: `refetchFinanceiro` (o valor
+  // devolvido por `useResumoFinanceiro`) agora é a versão embrulhada do hook
+  // (`useFinanceiro.ts::refetchSeGestor`), que já vira um no-op para VETERINARIO. Chamar
+  // incondicionalmente aqui é seguro pela MESMA razão que motivou mover a guarda para
+  // dentro do hook: um call site pode esquecer de guardar, o hook não pode ser
+  // contornado por um call site. Histórico: `refetch()` do React Query bypassa `enabled`
+  // (medido na fonte do query-core — ver comentário em useFinanceiro.ts), então antes
+  // desta correção só o spread condicional abaixo impedia a chamada de rede.
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([
-      refetchHoje(),
-      refetchAlertas(),
-      refetchRecentes(),
-      ...(isGestor ? [refetchFinanceiro()] : []),
-    ]);
+    await Promise.all([refetchHoje(), refetchAlertas(), refetchRecentes(), refetchFinanceiro()]);
     setRefreshing(false);
-  }, [refetchHoje, refetchAlertas, refetchRecentes, refetchFinanceiro, isGestor]);
+  }, [refetchHoje, refetchAlertas, refetchRecentes, refetchFinanceiro]);
 
   const metrics = hoje?.metrics;
   // FM-01 + E26 — duas correções que caem na MESMA linha, e é por isso que o

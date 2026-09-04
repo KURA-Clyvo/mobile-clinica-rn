@@ -32,13 +32,16 @@ import type { MixPorServico } from '../../../types/api';
 // Query serve do CACHE (`queryKey: ['financeiro','resumo',de,ate]`, `staleTime: 30s`) — abrir
 // este painel logo depois do dashboard não dispara uma segunda chamada de rede.
 //
-// 🔴 Pull-to-refresh usa `refetch` DIRETO, sem a guarda condicional que `dashboard.tsx` usa
-// (`...(isGestor ? [refetchFinanceiro()] : [])`). A guarda ali existe porque o dashboard
-// RENDERIZA para todo perfil (a seção financeira só se ESCONDE no JSX para VETERINARIO, mas o
-// componente inteiro monta). Aqui é diferente: `useRequireGestor()` devolve `false` e a tela
-// inteira renderiza `null` (linha "if (!podeVer) return null" abaixo) ANTES de qualquer JSX
-// que chame `refetch` existir na árvore — um VETERINARIO nunca monta o `RefreshControl` desta
-// tela, então não existe caminho para ele disparar `refetch()` bypassando `enabled`.
+// 🔴 Pull-to-refresh usa `refetch` DIRETO, sem guarda LOCAL de `isGestor` (nem esta tela nem
+// mais `dashboard.tsx` guardam por call site desde a FM-09, item 4 — ver useFinanceiro.ts).
+// Razão original, MEDIDA e ainda válida, de por que este call site nunca precisou de guarda
+// própria: `useRequireGestor()` devolve `false` e a tela inteira renderiza `null` (linha "if
+// (!podeVer) return null" abaixo) ANTES de qualquer JSX que chame `refetch` existir na árvore
+// — um VETERINARIO nunca monta o `RefreshControl` desta tela, então não existe caminho para
+// ele chegar a chamar `refetch()`. Desde a FM-09 há uma SEGUNDA camada, redundante para esta
+// tela mas necessária para `dashboard.tsx` (que renderiza para todo perfil): `refetch` em si
+// (o valor devolvido pelo hook) já é a versão embrulhada que vira no-op para VETERINARIO —
+// ver `useFinanceiro.ts::refetchSeGestor`.
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({

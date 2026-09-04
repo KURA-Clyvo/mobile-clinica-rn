@@ -1,11 +1,14 @@
 import React from 'react';
+import type { ReactTestInstance } from 'react-test-renderer';
 import { render, fireEvent } from '@testing-library/react-native';
 import { View, TouchableOpacity } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import { KCChip, ChipTone } from '../src/components/primitives/KCChip';
 import { touchTarget } from '../src/theme/tokens';
 
-function mergedStyle(el: { props: { style: unknown } }) {
+function mergedStyle(el: ReactTestInstance) {
+  // FM-09: ReactTestInstance.props e { [propName: string]: any } (index signature) -- nao
+  // satisfaz estruturalmente { style: unknown } (propriedade nomeada exigida).
   const styleArr = Array.isArray(el.props.style)
     ? el.props.style.filter(Boolean)
     : [el.props.style];

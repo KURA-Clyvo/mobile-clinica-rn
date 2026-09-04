@@ -21,9 +21,8 @@
     "src/**/*.tsx",
     ".expo/types/**/*.d.ts",
     "expo-env.d.ts",
-    ".expo/types/**/*.ts"
-  ],
-  "exclude": [
-    "tests"
+    ".expo/types/**/*.ts",
+    "tests/**/*.ts",
+    "tests/**/*.tsx"
   ]
 }

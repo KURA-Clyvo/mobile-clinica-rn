@@ -48,6 +48,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # FM-09: "npm run type-check" agora depende de "generate-types" (expo customize
+      # tsconfig.json, ~5s, nao-interativo) ANTES do tsc --noEmit -- sem isso o tsc roda contra
+      # .expo/types/ vazio (nao versionado, .gitignore:10) e fica CEGO a nome de rota invalido em
+      # router.push/href. Fix e mordida provados no relatorio do implementador
+      # (fm-09-report.md, item 1): sem o passo, mutar uma rota para algo inexistente dava
+      # TC_EXIT=0; com o passo, TC_EXIT=2 com 3 erros nominais. Nao ha passo de CI separado
+      # porque a correcao mora no proprio script npm (fonte unica) -- este step ja herda o
+      # caminho novo automaticamente.
       - name: Type check
         run: npm run type-check
 
