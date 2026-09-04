@@ -7,7 +7,7 @@ import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
-import { formatarMoeda } from '../src/utils/moeda';
+import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
 // I-2 da G2: `resumoVazio()` existia sem consumidor nenhum enquanto um comentário
 // afirmava que os testes a usavam. Passou a ser usada de verdade na mordida do
 // estado vazio, abaixo.
@@ -144,6 +144,38 @@ describe('DashboardScreen — loading state', () => {
 
     const { getByTestId } = wrap(<DashboardScreen />);
     expect(getByTestId('metrics-skeleton')).toBeTruthy();
+  });
+});
+
+// I-3 da G2 da FM-08 -- mesma mordida do I-1 acima (`isError mostra o estado de ERRO`),
+// aplicada aos 4 KPI do topo do dashboard em vez do card financeiro. Mecanismo
+// PRÉ-EXISTENTE (useDashboardHoje SEMPRE devolveu `isError`) -- este é o vetor novo onde a
+// doutrina não tinha sido aplicada ainda, achado durante a fix wave da FM-08 e corrigido
+// aqui, fora do escopo original da task (declarado no relatório da fix wave).
+describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => {
+  it('hoje em erro mostra o estado de ERRO, NUNCA "0,0,0,0"', () => {
+    // Exatamente o que o React Query entrega numa FALHA: data undefined, isLoading false.
+    mockUseDashboardHoje.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId, queryAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('erro-metricas')).toBeTruthy();
+    expect(queryByTestId('metrics-grid')).toBeNull();
+    expect(queryByTestId('metrics-skeleton')).toBeNull();
+    // O achado da G2 era exatamente isto: os 4 valores viravam "0" -- garantir que nenhum
+    // `metric-value` (do grid normal) chega a existir na árvore em erro.
+    expect(queryAllByTestId('metric-value').length).toBe(0);
+  });
+
+  it('CONTROLE: com dado real, os mesmos 4 KPI mostram os números (não o estado de erro)', () => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('metrics-grid')).toBeTruthy();
+    expect(queryByTestId('erro-metricas')).toBeNull();
   });
 });
 
@@ -892,5 +924,93 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
       await refreshControl.props.onRefresh();
     });
     expect(refetchFinanceiroVet).not.toHaveBeenCalled();
+  });
+
+  // FM-08 (item 2 do brief) — comparação com o período anterior. `variacaoPercentual` (21.12)
+  // vem PRONTO da resposta, o teste não recalcula nada — só confirma que o texto exibido usa
+  // `formatarPercentual()` (nunca um Intl percent style que multiplicaria por 100 de novo).
+  it('GESTOR: mostra a comparação com o período anterior quando variacaoPercentual existe', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId } = wrap(<DashboardScreen />);
+    const texto = getByTestId('financeiro-comparacao').props.children;
+    expect(texto).toContain(formatarPercentual(21.12));
+    expect(texto).toContain(formatarMoeda(3980));
+    // NÃO é a frase da falta-de-base (ver teste seguinte) -- os dois ramos são mutuamente
+    // exclusivos, então isso também prova que o ramo certo do ternário foi escolhido.
+    expect(texto).not.toContain('Sem base de comparação');
+  });
+
+  // 🔴 §1 item 2 do brief -- `variacaoPercentual === null` NÃO é "0%" nem traço mudo: é a
+  // frase honesta "de X para Y", com os dois números CRUS do contrato (nunca hardcoded em
+  // R$ 0,00 -- lê `receitaBrutaPeriodoAnterior`, que o backend garante ser 0 nesse caso, mas
+  // o componente não assume isso, só exibe o campo).
+  it('GESTOR: variacaoPercentual null mostra a frase honesta, NUNCA "0%" nem traço mudo', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: { ...MOCK_RESUMO, variacaoPercentual: null, receitaBrutaPeriodoAnterior: 0 },
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId } = wrap(<DashboardScreen />);
+    const texto = getByTestId('financeiro-comparacao').props.children;
+    expect(texto).toContain('Sem base de comparação');
+    expect(texto).toContain(formatarMoeda(0));
+    expect(texto).toContain(formatarMoeda(4820.5));
+    expect(texto).not.toContain('0,00%');
+    expect(texto).not.toContain('—');
+  });
+
+  // FM-08 (item 3 do brief, decisão #4) -- o link para o painel é navegação pura: fica
+  // visível para GESTOR mesmo quando o card financeiro do dashboard está em erro (é
+  // justamente quando o gestor mais precisaria checar o painel).
+  //
+  // ⚠️ NÃO dispara `fireEvent.press()` aqui: este arquivo, DE PROPÓSITO (ver comentário no
+  // describe do onboarding acima), não mocka `expo-router` -- e `router.push()` REAL lança
+  // `TypeError: Cannot read properties of undefined (reading 'isReady')` fora de um
+  // `NavigationContainer` montado (medido: `expo-router/src/global-state/routing.ts::
+  // assertIsReady`). `router.back()` de `ServicosPrecoScreen.test.tsx` só funciona porque
+  // AQUELE arquivo mocka `expo-router` inteiro -- fazer o mesmo aqui quebraria o teste do
+  // `<Link asChild>` real do `OnboardingChecklist` que este arquivo deliberadamente exercita
+  // sem mock. Este teste prova que o link EXISTE e é alcançável no estado de erro -- a
+  // navegação de fato (`ROUTES.app.financeiro`) é responsabilidade de `router.push`, não
+  // deste componente, e não tem mordida de unidade neste arquivo por essa restrição de
+  // infraestrutura.
+  it('GESTOR: o link "Ver painel completo" aparece mesmo com o card financeiro em erro', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+
+    const { getByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('btn-ver-painel-financeiro')).toBeTruthy();
+  });
+
+  it('VETERINARIO: o link "Ver painel completo" NAO entra na arvore (a secao inteira some)', () => {
+    // VETERINARIO é o default do beforeEach top-level do arquivo -- sem logarComoGestor().
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+      isGestor: false,
+    });
+
+    const { queryByTestId } = wrap(<DashboardScreen />);
+    expect(queryByTestId('btn-ver-painel-financeiro')).toBeNull();
   });
 });

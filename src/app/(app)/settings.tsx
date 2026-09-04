@@ -293,6 +293,27 @@ export default function SettingsScreen() {
             <Text style={styles.noteText}>
               Cadastre, edite, desative e reative os serviços cobrados pela clínica
             </Text>
+            {/* FM-08 (KURA_BACKLOG_FIN, ciclo metade cliente) — 2º ponto de entrada do
+                painel de gestão (o 1º é o link "Ver painel completo" do card financeiro em
+                dashboard.tsx). Posicionado DEPOIS de `btn-tabela-precos` (SettingsScreen#5)
+                pela MESMA razão do comentário acima da seção inteira: inserir entre
+                touchables existentes rebindaria em silêncio as chaves posicionais do
+                registry de alvo de toque. */}
+            <View style={[styles.separator, { marginTop: 12 }]} />
+            <Text style={[styles.prefCaption, { marginTop: 12, marginBottom: 8 }]}>
+              Painel de gestão
+            </Text>
+            <TouchableOpacity
+              style={styles.inviteRow}
+              onPress={() => router.push(ROUTES.app.financeiro)}
+              testID="btn-painel-financeiro"
+            >
+              <KCIcon name="dashboard" size={18} color={colors.primary} />
+              <Text style={styles.inviteText}>Ver painel de gestão</Text>
+            </TouchableOpacity>
+            <Text style={styles.noteText}>
+              Receita bruta, ticket médio, mix por serviço e comparação com o período anterior
+            </Text>
           </KCCard>
         </View>
       )}

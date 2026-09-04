@@ -288,4 +288,25 @@ describe('SettingsScreen — a seção "Financeiro" é só do GESTOR (FM-05)', (
     fireEvent.press(botao);
     expect(mockPush).toHaveBeenCalledWith('/servicos-preco');
   });
+
+  // FM-08 — 2º ponto de entrada do painel de gestão (o 1º é o link "Ver painel completo" do
+  // card financeiro em dashboard.tsx, testado em DashboardScreen.test.tsx -- lá SEM
+  // fireEvent.press real, porque aquele arquivo não mocka expo-router; AQUI o `push` real é
+  // provado porque este arquivo mocka `expo-router` desde o topo).
+  it('VETERINÁRIO puro NÃO vê "Ver painel de gestão"', () => {
+    comSessao({ tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
+    const { queryByTestId } = wrap(<SettingsScreen />);
+
+    expect(queryByTestId('btn-painel-financeiro')).toBeNull();
+  });
+
+  it('GESTOR vê "Ver painel de gestão" e ele navega para /financeiro', () => {
+    comSessao({ tpPerfil: 'GESTOR', usuario: MOCK_VET });
+    const { getByTestId } = wrap(<SettingsScreen />);
+
+    const botao = getByTestId('btn-painel-financeiro');
+    expect(botao).toBeTruthy();
+    fireEvent.press(botao);
+    expect(mockPush).toHaveBeenCalledWith('/financeiro');
+  });
 });

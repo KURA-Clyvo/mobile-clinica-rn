@@ -18,6 +18,12 @@ export const STRINGS = {
     pacientesAtendidos: 'Pacientes atendidos',
     alertasAtivos: 'Alertas ativos',
     teleorientacoes: 'Teleorientações',
+    // I-3 da G2 da FM-08: os 4 KPI acima usavam `metrics?.<campo> ?? 0`, sem ler o `isError`
+    // que `useDashboardHoje` já devolve -- uma falha de rede mostrava "0,0,0,0" (o mesmo
+    // vazamento de "não sei" virar "não houve" que a doutrina de `erroFinanceiro` já corrige
+    // três seções abaixo, no card financeiro). Mesmo padrão de nomenclatura.
+    erroMetricas: 'Não foi possível carregar os números de hoje',
+    erroMetricasDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
     proximosAtendimentos: 'Próximos atendimentos',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
@@ -58,6 +64,44 @@ export const STRINGS = {
     // é pior que não mostrar nada.
     erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
     erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    // FM-08 (ciclo FIN) — link do card financeiro do dashboard para o painel de gestão
+    // (tela nova, `(app)/financeiro/index.tsx`).
+    verPainelCompleto: 'Ver painel completo',
+    // Sufixo usado junto de `formatarPercentual(variacaoPercentual)` -- ex.:
+    // "+21,12% em relação ao período anterior". Fica em constante própria (em vez de string
+    // única já pronta) porque o número formatado precisa entrar NO MEIO da frase.
+    comparacaoPeriodoAnterior: 'em relação ao período anterior',
+    // 🔴 `variacaoPercentual === null` só ocorre quando a receita do período anterior é ZERO
+    // (contrato do backend, ResumoFinanceiroResponseDto.cs:106 -- "crescer do zero não tem
+    // porcentagem"). NÃO é "0%" nem traço mudo -- é a frase honesta que o backend pede: "de
+    // R$ 0,00 para R$ X". O valor de `receitaBrutaPeriodoAnterior` é lido do contrato (não
+    // hardcoded em 0) e interpolado pelo componente junto com `receitaBruta`.
+    semBaseComparacao: 'Sem base de comparação: o período anterior não teve receita',
+  },
+  // FM-08 (ciclo FIN) — tela nova `(app)/financeiro/index.tsx` (painel de gestão, GESTOR-only,
+  // ruling D-16). Reusa deliberadamente `dashboard.receitaBruta`/`ticketMedio`/
+  // `erroFinanceiro`/`erroFinanceiroDesc`/`semFaturamento`/`semFaturamentoDesc`/
+  // `comparacaoPeriodoAnterior`/`semBaseComparacao` acima -- não duplica nenhuma dessas
+  // strings (§4 item 5 do brief: "se o painel novo precisar do mesmo aviso, reuse a string,
+  // não escreva uma segunda"). Este objeto só carrega o que É novo desta tela.
+  //
+  // 🔴 M-2 da G2 da FM-08: `dashboard.financeiro`/`financeiroSubtitulo`/`verPainelCompleto`
+  // NÃO são reusados por `financeiro/index.tsx` -- conferido linha a linha com
+  // `grep -n "STRINGS\.dashboard\." src/app/(app)/financeiro/index.tsx`. As três são
+  // consumidas por `dashboard.tsx` (título/subtítulo da SEÇÃO do card e o texto do LINK que
+  // leva a esta tela) -- consumidor diferente, não reuso por esta tela.
+  financeiroPainel: {
+    titulo: 'Painel de gestão',
+    mixTitulo: 'Mix por serviço',
+    // A soma das receitas dos baldes == receitaBruta, exato (invariante do backend) -- a
+    // legenda diz isso para o gestor confiar na soma sem precisar somar ele mesmo.
+    mixCaption: 'A soma dos itens abaixo fecha com a receita bruta do período.',
+    // M-1 da G2 da FM-08: o comentário antigo aqui descrevia um "rótulo de fallback do balde
+    // avulso" que nunca existiu neste objeto -- `idServicoPreco: null` usa o `nmServico` que
+    // o backend já devolve ("(avulso)", ver financeiro.mock.ts), sem chave própria de
+    // fallback. `comparacaoTitulo` abaixo é o título de SEÇÃO do card de comparação com o
+    // período anterior -- autoexplicativo, sem comentário necessário.
+    comparacaoTitulo: 'Comparação com o período anterior',
   },
   pacientes: {
     titulo: 'Pacientes',

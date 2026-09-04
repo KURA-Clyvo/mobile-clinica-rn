@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors, type BreakpointKey } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
@@ -14,15 +15,17 @@ import { AlertCard } from '@components/domain/AlertCard';
 import { OnboardingChecklist } from '@components/domain/OnboardingChecklist';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { KCButton } from '@components/primitives/KCButton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
 import { primeiroNomeDeEmail } from '@utils/perfilUsuario';
 import { STRINGS } from '@constants/strings';
+import { ROUTES } from '@constants/routes';
 import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api';
 import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import type { MetricTone } from '@components/domain/MetricCard';
-import { formatarMoeda } from '@utils/moeda';
+import { formatarMoeda, formatarPercentual } from '@utils/moeda';
 import { mesCorrente, formatarPeriodoCurto } from '@utils/periodoFinanceiro';
 
 // Agrupa uma lista em sub-listas ("linhas") de até `size` itens, mantendo a
@@ -168,6 +171,18 @@ const makeStyles = (colors: typeof lightColors) =>
       marginTop: -4,
       marginBottom: 10,
     },
+    // FM-08 — texto de comparação com o período anterior, abaixo do metricsRow financeiro.
+    comparacaoText: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 12,
+      color: colors.textMute,
+      marginTop: 8,
+    },
+    // FM-08 — botão "Ver painel completo", alinhado à esquerda, abaixo do conteúdo da seção.
+    linkPainelButton: {
+      alignSelf: 'flex-start',
+      marginTop: 12,
+    },
     sectionBlock: { marginBottom: 24 },
     appointmentCard: { flex: 1 },
     // CQ-06 G2 fix wave, achado H — `AppointmentRow` ganha altura igual entre
@@ -232,11 +247,20 @@ function AppointmentRow({ item }: AppointmentRowProps) {
 export default function DashboardScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const router = useRouter();
   const usuario = useAuthStore((s) => s.usuario);
   const email = useAuthStore((s) => s.email);
   const { isAtLeast } = useBreakpoint();
 
-  const { data: hoje, isLoading: loadingHoje, refetch: refetchHoje } = useDashboardHoje();
+  const {
+    data: hoje,
+    isLoading: loadingHoje,
+    // I-3 da G2 da FM-08 -- pré-existente (não introduzido por esta fix wave, ver relatório):
+    // o hook SEMPRE devolveu `isError`, e esta tela nunca leu. Mesma doutrina do card
+    // financeiro (`erroFinanceiro`, ver comentário na seção "FM-07" abaixo) aplicada aqui.
+    isError: erroHoje,
+    refetch: refetchHoje,
+  } = useDashboardHoje();
   const { data: alertas, isLoading: loadingAlertas, refetch: refetchAlertas } = useAlertas();
   const { data: recentes, isLoading: loadingRecentes, refetch: refetchRecentes } = useRecentes();
 
@@ -391,6 +415,18 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+      ) : erroHoje ? (
+        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
+        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
+        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
+        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
+        // esse número.
+        <KCEmptyState
+          icon="alert"
+          title={STRINGS.dashboard.erroMetricas}
+          description={STRINGS.dashboard.erroMetricasDesc}
+          testID="erro-metricas"
+        />
       ) : (
         <View style={styles.metricsGrid} testID="metrics-grid">
           {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
@@ -549,27 +585,66 @@ export default function DashboardScreen() {
               testID="empty-financeiro"
             />
           ) : (
-            <View style={styles.metricsRow} testID="financeiro-row">
-              <MetricCard
-                label={STRINGS.dashboard.receitaBruta}
-                value={formatarMoeda(resumoFinanceiro.receitaBruta)}
-                icon="dashboard"
-                tone="sage"
-              />
-              <MetricCard
-                label={STRINGS.dashboard.ticketMedio}
-                // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
-                // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
-                value={
-                  resumoFinanceiro.ticketMedio == null
-                    ? '—'
-                    : formatarMoeda(resumoFinanceiro.ticketMedio)
-                }
-                icon="check"
-                tone="ocean"
-              />
-            </View>
+            <>
+              <View style={styles.metricsRow} testID="financeiro-row">
+                <MetricCard
+                  label={STRINGS.dashboard.receitaBruta}
+                  value={formatarMoeda(resumoFinanceiro.receitaBruta)}
+                  icon="dashboard"
+                  tone="sage"
+                />
+                <MetricCard
+                  label={STRINGS.dashboard.ticketMedio}
+                  // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
+                  // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
+                  value={
+                    resumoFinanceiro.ticketMedio == null
+                      ? '—'
+                      : formatarMoeda(resumoFinanceiro.ticketMedio)
+                  }
+                  icon="check"
+                  tone="ocean"
+                />
+              </View>
+              {/* FM-08 (item 2 do brief) — comparação com o período anterior. A resposta JÁ
+                  traz `variacaoPercentual` pronto (arredondado no servidor) -- não recalcula,
+                  não faz segunda chamada.
+                  🔴 `variacaoPercentual === null` NÃO é "0%": só ocorre quando a receita do
+                  período anterior é ZERO (ResumoFinanceiroResponseDto.cs:106, "crescer do
+                  zero não tem porcentagem"). Por isso o ramo `null` mostra a frase honesta
+                  com os dois números crus (`receitaBrutaPeriodoAnterior` -> `receitaBruta`),
+                  nunca "0%" nem um traço mudo -- é exatamente por isso que o contrato manda
+                  `receitaBrutaPeriodoAnterior` cru na resposta. */}
+              <Text style={styles.comparacaoText} testID="financeiro-comparacao">
+                {resumoFinanceiro.variacaoPercentual == null
+                  ? `${STRINGS.dashboard.semBaseComparacao} (${formatarMoeda(
+                      resumoFinanceiro.receitaBrutaPeriodoAnterior,
+                    )} → ${formatarMoeda(resumoFinanceiro.receitaBruta)})`
+                  : `${formatarPercentual(resumoFinanceiro.variacaoPercentual)} ${
+                      STRINGS.dashboard.comparacaoPeriodoAnterior
+                    } (${formatarMoeda(resumoFinanceiro.receitaBrutaPeriodoAnterior)})`}
+              </Text>
+            </>
           )}
+          {/* FM-08 (item 3 do brief, decisão declarada #4) — link para o painel de gestão
+              (`(app)/financeiro/index.tsx`). Fica FORA do ternário acima e SEMPRE visível
+              para GESTOR (não depende de `resumoFinanceiro`/loading/erro): é navegação pura,
+              e o painel tem sua PRÓPRIA chamada/estado de erro -- condicionar este link ao
+              sucesso da chamada do dashboard impediria o gestor de abrir o painel justamente
+              quando o card do dashboard falhou (o cenário em que ele mais precisaria checar).
+              KCButton é componente customizado (não `TouchableOpacity`/`Pressable` crus) --
+              já carrega geometria/alvo de toque própria no registry (`KCButton.tsx`), sem
+              exigir entrada nova aqui (mesmo padrão do `KCChip` documentado em
+              servicos-preco/index.tsx). */}
+          <KCButton
+            variant="ghost"
+            size="sm"
+            onPress={() => router.push(ROUTES.app.financeiro)}
+            testID="btn-ver-painel-financeiro"
+            style={styles.linkPainelButton}
+          >
+            {STRINGS.dashboard.verPainelCompleto}
+          </KCButton>
         </View>
       )}
     </ScreenContainer>

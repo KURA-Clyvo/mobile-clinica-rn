@@ -15,9 +15,22 @@ import { useIsGestor } from './useIsGestor';
 // Prova (mordida obrigatória do brief): tests/fm07-veterinario-sem-chamada-financeiro.test.tsx
 // monta DashboardScreen como VETERINARIO com a cadeia REAL (sem jest.mock deste hook nem do
 // service) e prova que `apiClient.get` nunca é chamado com a URL de financeiro/resumo.
+//
+// 🔴 I-1 da G2 da FM-08: `isFetching` é exposto AO LADO de `isLoading`, não no lugar dele.
+// `@tanstack/react-query` 5.100.10 define `isLoading = isPending && isFetching` (ver
+// `query-core/build/modern/queryObserver.js:310`) -- depois da 1ª carga bem-sucedida,
+// `isPending` fica `false` para sempre, então `isLoading` NUNCA mais volta a `true` num
+// refetch, mesmo com fetch em voo. `isFetching` continua `true` durante QUALQUER busca,
+// inicial ou refetch -- é o sinal certo para pull-to-refresh (`RefreshControl.refreshing`);
+// `isLoading` continua certo para o skeleton de PRIMEIRA carga (não quer "piscar" skeleton
+// a cada refetch). Consumidor único hoje é financeiro/index.tsx -- dashboard.tsx usa
+// `isLoading: loadingFinanceiro` (skeleton do card) e tem seu PRÓPRIO `refreshing` via
+// `useState`+`Promise.all` (não lê nada deste hook para o gesto de refresh), então expor
+// este campo novo não muda o comportamento dele (conferido: `grep -rn
+// "useResumoFinanceiro" src/ tests/` -- só os dois consumidores citados).
 export function useResumoFinanceiro(de: string, ate: string) {
   const isGestor = useIsGestor();
-  const { data, isLoading, isError, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
     // `de`/`ate` na queryKey (regra do repo, ver useServicosPreco.ts::incluirInativos): sem
     // isso, trocar o período devolveria o cache de OUTRO período e o número ficaria errado
     // sem erro nenhum.
@@ -26,5 +39,5 @@ export function useResumoFinanceiro(de: string, ate: string) {
     enabled: isGestor,
     staleTime: 30_000,
   });
-  return { data, isLoading, isError, refetch, isGestor };
+  return { data, isLoading, isFetching, isError, refetch, isGestor };
 }

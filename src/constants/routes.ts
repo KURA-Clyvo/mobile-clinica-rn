@@ -46,5 +46,10 @@ export const ROUTES = {
     // (useRequireGestor, mesmo padrão de `usuarios` acima). Ponto de
     // entrada: settings.tsx, seção "Financeiro".
     servicosPreco: '/servicos-preco',
+    // FM-08: src/app/(app)/financeiro/index.tsx, tela restrita a GESTOR
+    // (useRequireGestor, mesmo padrão de `usuarios`/`servicosPreco` acima). Pontos de
+    // entrada: settings.tsx (seção "Financeiro") e o link "Ver painel completo" da seção
+    // financeira de dashboard.tsx.
+    financeiro: '/financeiro',
   },
 } as const;

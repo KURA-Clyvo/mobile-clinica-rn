@@ -1,4 +1,4 @@
-import { formatarMoeda } from '../src/utils/moeda';
+import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
 
 // FM-05 — o separador entre "R$" e o número é NBSP (` `) na saída real
 // de `Intl.NumberFormat('pt-BR', ...)` desta engine (medido:
@@ -30,5 +30,27 @@ describe('formatarMoeda', () => {
     // do Intl (round-half-to-even/half-up depende da engine) -- o teste só
     // confirma 2 casas, não um algoritmo de arredondamento específico.
     expect(formatarMoeda(10.005)).toMatch(/^R\$\s*10,0[01]$/);
+  });
+});
+
+// FM-08 — `variacaoPercentual` do backend já é o NÚMERO da porcentagem (21.12 = "21,12%"),
+// não a fração 0.21. Estes testes travam que o formatador NÃO multiplica por 100 de novo
+// (o erro óbvio de usar `Intl.NumberFormat({style:'percent'})` direto num valor que já é
+// porcentagem) e que ele só troca o separador decimal, sem re-arredondar.
+describe('formatarPercentual', () => {
+  it('formata positivo com sinal +', () => {
+    expect(formatarPercentual(21.12)).toBe('+21,12%');
+  });
+
+  it('formata negativo com o sinal - já embutido (não duplica sinal)', () => {
+    expect(formatarPercentual(-5.5)).toBe('-5,50%');
+  });
+
+  it('formata zero sem sinal', () => {
+    expect(formatarPercentual(0)).toBe('0,00%');
+  });
+
+  it('NÃO multiplica por 100 -- 21.12 vira "21,12%", nunca "2112,00%"', () => {
+    expect(formatarPercentual(21.12)).not.toContain('2112');
   });
 });

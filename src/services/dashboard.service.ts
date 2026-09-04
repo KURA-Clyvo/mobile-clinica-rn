@@ -33,6 +33,17 @@ export interface DashboardHojeApiDto {
   totalRetornosPendentes: number;
   ultimosPetsAtendidos: PetResumoApiDto[];
   proximosAgendamentos: AgendamentoResumoApiDto[];
+  // FM-08 (ciclo FIN) — 2 campos NOVOS, `backend-clinica-dotnet` `main` @ 81ac01c (task
+  // FD-17, suíte 672/0). Substituem as 2 aproximações erradas de mapHoje() abaixo:
+  //   totalPacientesAtendidosHoje: pets DISTINTOS com evento HOJE, SEM teto (o antigo
+  //     `ultimosPetsAtendidos.length` saturava em 5 porque a lista é `.Take(5)` E não
+  //     filtra por data — "hoje" era mentira dupla).
+  //   totalTeleorientacoesHoje: AGENDAMENTO com StTeleconsulta=true e DtInicioSessao de
+  //     hoje. 🔴 Conta SALAS CRIADAS hoje, NÃO sessões realizadas — DT_INICIO_SESSAO é
+  //     "timestamp de criação da sala" (comentário da coluna, migration V10, medido pela
+  //     G2 da FD-17). Não rotular como "sessões realizadas"/"atendimentos concluídos".
+  totalPacientesAtendidosHoje: number;
+  totalTeleorientacoesHoje: number;
 }
 
 // GET /dashboard/alertas retorna duas formas anônimas distintas (ver
@@ -71,14 +82,16 @@ function mapHoje(dto: DashboardHojeApiDto): DashboardHojeResponse {
   return {
     metrics: {
       nrConsultasHoje: dto.totalConsultasHoje,
-      // nrPacientesAtendidos: backend não expõe essa métrica diretamente;
-      // aproximamos pela quantidade de pets distintos na lista de últimos
-      // atendidos (mesmo critério usado por DashboardService.GetHojeAsync
-      // para montar ultimosPetsAtendidos).
-      nrPacientesAtendidos: dto.ultimosPetsAtendidos.length,
+      // FM-08 — lê o campo próprio do backend (totalPacientesAtendidosHoje), não mais
+      // `ultimosPetsAtendidos.length`. O antigo `.length` saturava em 5 (a lista é
+      // `.Take(5)`, sem filtro de data) — ver comentário do DTO acima.
+      // `ultimosPetsAtendidos` continua existindo e sendo usado só para exibir "últimos
+      // pets atendidos" (lista, não contador) — não remover.
+      nrPacientesAtendidos: dto.totalPacientesAtendidosHoje,
       nrAlertasAtivos: dto.totalAlertasAtivos,
-      // TODO: backend não rastreia contagem de teleorientações ainda.
-      nrTeleorientacoes: 0,
+      // FM-08 — lê o campo próprio do backend, substitui o `0` hardcoded (o TODO antigo
+      // estava desatualizado: o backend passou a rastrear, ver comentário do DTO acima).
+      nrTeleorientacoes: dto.totalTeleorientacoesHoje,
     },
     dailySummary: {
       // TODO: backend não gera um resumo textual do dia; placeholder até existir.

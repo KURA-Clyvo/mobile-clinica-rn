@@ -25,6 +25,12 @@ describe('dashboard.service', () => {
             { id: 2, nmPet: 'Mel', ultimoAtendimento: '2026-07-20T11:00:00Z' },
           ],
           proximosAgendamentos: [],
+          // FM-08 — valores DELIBERADAMENTE diferentes de `ultimosPetsAtendidos.length`
+          // (2) e do `0` hardcoded antigo: se o mapper regredisse para as aproximações
+          // velhas (`.length`/`0`), esta asserção pegaria — o teste não passaria por
+          // acidente com a implementação anterior.
+          totalPacientesAtendidosHoje: 11,
+          totalTeleorientacoesHoje: 4,
         },
       });
 
@@ -33,9 +39,12 @@ describe('dashboard.service', () => {
       expect(mockApiGet).toHaveBeenCalledWith('/api/v1/dashboard/hoje');
       expect(result.metrics.nrConsultasHoje).toBe(8);
       expect(result.metrics.nrAlertasAtivos).toBe(3);
-      expect(result.metrics.nrPacientesAtendidos).toBe(2);
-      // sem equivalente no backend — default documentado, nunca fabricado
-      expect(result.metrics.nrTeleorientacoes).toBe(0);
+      // FM-08 — vem de `totalPacientesAtendidosHoje` (11), NÃO de
+      // `ultimosPetsAtendidos.length` (2, que seria o valor se ainda usasse a versão velha).
+      expect(result.metrics.nrPacientesAtendidos).toBe(11);
+      // FM-08 — vem de `totalTeleorientacoesHoje` (4); backend passou a rastrear (FD-17),
+      // não é mais o `0` hardcoded.
+      expect(result.metrics.nrTeleorientacoes).toBe(4);
       expect(result.dailySummary.dsResumo).toBe('');
       expect(typeof result.dailySummary.dtUltimaAtualizacao).toBe('string');
     });
