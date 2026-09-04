@@ -18,6 +18,12 @@ export const STRINGS = {
     pacientesAtendidos: 'Pacientes atendidos',
     alertasAtivos: 'Alertas ativos',
     teleorientacoes: 'Teleorientações',
+    // I-3 da G2 da FM-08: os 4 KPI acima usavam `metrics?.<campo> ?? 0`, sem ler o `isError`
+    // que `useDashboardHoje` já devolve -- uma falha de rede mostrava "0,0,0,0" (o mesmo
+    // vazamento de "não sei" virar "não houve" que a doutrina de `erroFinanceiro` já corrige
+    // três seções abaixo, no card financeiro). Mesmo padrão de nomenclatura.
+    erroMetricas: 'Não foi possível carregar os números de hoje',
+    erroMetricasDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
     proximosAtendimentos: 'Próximos atendimentos',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
