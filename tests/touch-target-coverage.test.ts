@@ -76,6 +76,44 @@ describe('touch-target-coverage — detector de lacuna de alvo de toque (CQ-08)'
     expect(orfas).toEqual([]);
   });
 
+  // FM-09 (item 3) — a chave `arquivo::Componente#n` é POSICIONAL (ordem de aparição no
+  // JSX, ver discoverInteractiveTouchables.ts). Reordenar dois touchables IRMÃOS no mesmo
+  // componente REBINDA as chaves em silêncio: a entrada `#1` do registry continua existindo
+  // e continua com `verify()` honesto (ele renderiza e mede de novo, não herda nada da
+  // posição) — o que fica desatualizado é a METADADO da entrada (`reason`, e o próprio fato
+  // de que `#1` hoje "significa" um elemento físico diferente do que a entrada foi escrita
+  // para descrever). Provado por mutação em revisão anterior deste ciclo: trocar 2 seções
+  // de lugar em `settings.tsx` deixava a suíte 98/98 verde com `#4`/`#5` rotulando os nós
+  // errados.
+  //
+  // Este teste fecha a lacuna para as 32 entradas (de 49) cujo touchable declara um `testID`
+  // literal no JSX: cada uma que tem `expectedTestId` tem o valor confrontado contra o
+  // `testID` que a MESMA descoberta por AST encontrou na posição `#n` — se a posição virou
+  // OUTRO elemento (reordenação), os dois valores divergem e o teste nomeia a chave errada.
+  // As ~17 entradas sem `testID` no JSX (touchable isolado por tipo/filho em `verify()`, sem
+  // testID próprio — ver comentário de `expectedTestId` em touchTargetRegistry.tsx) ficam de
+  // fora deste teste específico: não têm literal estável para ancorar. O risco de rebind
+  // silencioso nelas continua aberto — não fingido resolvido.
+  const comExpectedTestId = Object.entries(TOUCH_TARGET_REGISTRY).filter(
+    ([, v]) => v.expectedTestId !== undefined,
+  );
+  it.each(comExpectedTestId.map(([k, v]) => [k, v] as const))(
+    "entrada com expectedTestId: o touchable na posição '#n' descoberto por AST carrega ESSE testID: %s",
+    (chave, entrada) => {
+      const consumidor = consumidores.find((c) => c.key === chave);
+      expect(consumidor).toBeDefined();
+      expect(consumidor?.testID).toBe(entrada.expectedTestId);
+    },
+  );
+
+  it('sanidade: pelo menos metade das entradas declara expectedTestId (a proteção não regrediu para zero)', () => {
+    // Trava um piso conhecido (32 na medição desta task) — se cair pra 0, é sinal de que a
+    // extração de testID no walker quebrou silenciosamente (ex.: alguém trocou a forma de
+    // declarar testID no JSX de um jeito que testIdDoElemento não reconhece mais), não que
+    // ninguém usa mais testID no app.
+    expect(comExpectedTestId.length).toBeGreaterThanOrEqual(25);
+  });
+
   // Metade 2: cada entrada 'meets-min' precisa REALMENTE resolver >= 44px
   // NOS DOIS EIXOS por RENDER real — é isto que dá a prova de mordida
   // exigida pelo brief: mutar a fonte (ex.: baixar um `height`) faz o

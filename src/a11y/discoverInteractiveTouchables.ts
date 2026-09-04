@@ -52,6 +52,15 @@ export interface TouchableConsumer {
   file: string;
   component: string;
   occurrence: number;
+  /** FM-09 (item 3) — o literal de `testID` do PRÓPRIO elemento JSX descoberto, quando
+   *  presente (`testID="x"` ou `testID={"x"}`, ambas formas — não resolve identificador nem
+   *  template string). `undefined` quando o touchable não declara `testID` nenhum (comum:
+   *  boa parte dos componentes deste repo isola o elemento por tipo/filho, não por testID —
+   *  ver `TOUCH_TARGET_REGISTRY`, vários `verify()` usam `UNSAFE_getByType` puro). Existe
+   *  para o gate de cobertura confirmar que a entrada do registry para uma chave `#n`
+   *  continua descrevendo o MESMO elemento físico depois de uma reordenação de JSX — ver
+   *  `TouchTargetRegistryEntry.expectedTestId` em `tests/touchTargetRegistry.tsx`. */
+  testID?: string;
 }
 
 /** Tags JSX que, sozinhas, já são o alvo de toque — não precisam de resolução
@@ -207,17 +216,49 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
     return undefined;
   }
 
+  // FM-09 (item 3) — extrai o literal de `testID` do elemento, quando existir. Só reconhece
+  // STRING LITERAL, nas duas formas de sintaxe JSX (`testID="x"` e `testID={"x"}`) — não
+  // resolve identificador (`testID={algumaVar}`) nem template string
+  // (`` testID={`x-${id}`} ``): o propósito é comparar contra um literal ESPERADO escrito à
+  // mão no registry (`expectedTestId`), então um valor dinâmico não teria com o que comparar
+  // de forma estável — fica `undefined` nesses casos, mesmo comportamento de "sem testID".
+  function testIdDoElemento(node: ts.JsxOpeningElement | ts.JsxSelfClosingElement): string | undefined {
+    for (const attr of node.attributes.properties) {
+      if (
+        !ts.isJsxAttribute(attr) ||
+        !ts.isIdentifier(attr.name) ||
+        attr.name.text !== 'testID' ||
+        !attr.initializer
+      )
+        continue;
+      if (ts.isStringLiteral(attr.initializer)) return attr.initializer.text;
+      if (
+        ts.isJsxExpression(attr.initializer) &&
+        attr.initializer.expression &&
+        ts.isStringLiteral(attr.initializer.expression)
+      ) {
+        return attr.initializer.expression.text;
+      }
+    }
+    return undefined;
+  }
+
   function visitar(node: ts.Node) {
     const tagName = tagNameDoElemento(node);
     if (tagName && (INTERACTIVE_TAGS.has(tagName) || aliasesCondicionais.has(tagName))) {
       const componente = acharComponenteDono(node);
       const n = (contadoresPorComponente.get(componente) ?? 0) + 1;
       contadoresPorComponente.set(componente, n);
+      const testID =
+        ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)
+          ? testIdDoElemento(node)
+          : undefined;
       encontrados.push({
         key: `${nomeArquivo}::${componente}#${n}`,
         file: nomeArquivo,
         component: componente,
         occurrence: n,
+        testID,
       });
     }
     ts.forEachChild(node, visitar);
