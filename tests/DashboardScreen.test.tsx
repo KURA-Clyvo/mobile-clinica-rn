@@ -147,6 +147,38 @@ describe('DashboardScreen — loading state', () => {
   });
 });
 
+// I-3 da G2 da FM-08 -- mesma mordida do I-1 acima (`isError mostra o estado de ERRO`),
+// aplicada aos 4 KPI do topo do dashboard em vez do card financeiro. Mecanismo
+// PRÉ-EXISTENTE (useDashboardHoje SEMPRE devolveu `isError`) -- este é o vetor novo onde a
+// doutrina não tinha sido aplicada ainda, achado durante a fix wave da FM-08 e corrigido
+// aqui, fora do escopo original da task (declarado no relatório da fix wave).
+describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => {
+  it('hoje em erro mostra o estado de ERRO, NUNCA "0,0,0,0"', () => {
+    // Exatamente o que o React Query entrega numa FALHA: data undefined, isLoading false.
+    mockUseDashboardHoje.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId, queryAllByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('erro-metricas')).toBeTruthy();
+    expect(queryByTestId('metrics-grid')).toBeNull();
+    expect(queryByTestId('metrics-skeleton')).toBeNull();
+    // O achado da G2 era exatamente isto: os 4 valores viravam "0" -- garantir que nenhum
+    // `metric-value` (do grid normal) chega a existir na árvore em erro.
+    expect(queryAllByTestId('metric-value').length).toBe(0);
+  });
+
+  it('CONTROLE: com dado real, os mesmos 4 KPI mostram os números (não o estado de erro)', () => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('metrics-grid')).toBeTruthy();
+    expect(queryByTestId('erro-metricas')).toBeNull();
+  });
+});
+
 describe('DashboardScreen — loaded state', () => {
   beforeEach(() => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
