@@ -387,7 +387,7 @@ export default function ConsultaScreen() {
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <LunaSuggestionBadge
                     campo={letra}
-                    idPet={petId ?? 0}
+                    draftText={soapDraft[letra.toLowerCase() as keyof SoapDraft]}
                     currentText={watchedValues[fieldKey]}
                     onSugest={(texto) => setValue(fieldKey, texto)}
                   />
