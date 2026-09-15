@@ -8,9 +8,11 @@ import {
   getRelatorioTriagens,
   getLunaHealth,
   enviarWhatsApp,
+  getTriagens,
 } from '../src/services/luna.service';
 import { relatorioTriagens as mockRelatorio, ready as mockReady } from '../src/mocks/luna.mock';
 import type { InternalAxiosRequestConfig } from 'axios';
+import type { TriagensListaApiResponse } from '../src/types/api';
 
 const mockApiGet = apiClient.get as jest.Mock;
 const mockLunaGet = lunaClient.get as jest.Mock;
@@ -145,10 +147,17 @@ describe('luna.service', () => {
     });
   });
 
-  it('enviarWhatsApp uses lunaClient e retorna status enviado + sid, no formato esperado pela Luna', async () => {
-    const req = { telefone: '11999990001', mensagem: 'Olá!', tipo: 'receituario' as const };
+  // E16 (LU-09) — mordida: o corpo real que a Luna aceita é {para, mensagem}
+  // (whatsapp.py:23-25), não {telefone, tipo}. Prova de mordida: revertendo
+  // enviarWhatsApp() para montar {telefone: req.telefone, tipo: req.tipo} este teste
+  // falha nominalmente (o body chamado no post diverge do corpo enviado por `req`).
+  it('enviarWhatsApp uses lunaClient e retorna status enviado + sid, no formato esperado pela Luna (E16: {para, mensagem})', async () => {
+    const req = { para: '11999990001', mensagem: 'Olá!' };
     const result = await enviarWhatsApp(req);
     expect(mockLunaPost).toHaveBeenCalledWith('/whatsapp/enviar', req);
+    const corpoEnviado = mockLunaPost.mock.calls[0][1] as Record<string, unknown>;
+    expect('telefone' in corpoEnviado).toBe(false);
+    expect('tipo' in corpoEnviado).toBe(false);
     expect(result.status).toBe('enviado');
     expect(result.sid).toBe('SMmock1234567890');
   });
@@ -156,7 +165,7 @@ describe('luna.service', () => {
   it('enviarWhatsApp offline — retorna {status:"indisponivel"} sem lançar', async () => {
     mockLunaPost.mockRejectedValue(new Error('Network Error'));
 
-    const result = await enviarWhatsApp({ telefone: '11999990001', mensagem: 'teste', tipo: 'manual' });
+    const result = await enviarWhatsApp({ para: '11999990001', mensagem: 'teste' });
 
     // nunca lança — UI não quebra
     expect(result.status).toBe('indisponivel');
@@ -165,9 +174,105 @@ describe('luna.service', () => {
   it('enviarWhatsApp timeout — retorna {status:"indisponivel"} sem lançar', async () => {
     mockLunaPost.mockRejectedValue({ code: 'ECONNABORTED', message: 'timeout of 15000ms exceeded' });
 
-    const result = await enviarWhatsApp({ telefone: '11999990001', mensagem: 'teste', tipo: 'manual' });
+    const result = await enviarWhatsApp({ para: '11999990001', mensagem: 'teste' });
 
     expect(result.status).toBe('indisponivel');
+  });
+
+  it('enviarWhatsApp com falha real de envio (502) — distingue de rede fora do ar', async () => {
+    mockLunaPost.mockRejectedValue({ status: 502, code: 'HTTP_502', message: 'Bad Gateway' });
+
+    const result = await enviarWhatsApp({ para: '11999990001', mensagem: 'teste' });
+
+    expect(result.status).toBe('indisponivel');
+    expect(result.motivo).toBeDefined();
+  });
+
+  it('enviarWhatsApp sem status conhecido — não inventa motivo', async () => {
+    mockLunaPost.mockRejectedValue(new Error('Network Error'));
+
+    const result = await enviarWhatsApp({ para: '11999990001', mensagem: 'teste' });
+
+    expect(result.motivo).toBeUndefined();
+  });
+
+  describe('getTriagens — LU-09 (fila da Luna)', () => {
+    // Corpo literal medido pela Re-G2 do LU-08 contra Oracle real (frente 3(c),
+    // lu-08-revisao.md) — não escrito à mão a partir do tipo interno. O console da
+    // Re-G2 escapou `trechoMensagem` como "aaaa…(279 'a', sem emoji)"; reconstruído
+    // aqui como 'a'.repeat(279) por instrução literal do brief da LU-09.
+    const FIXTURE_RE_G2: TriagensListaApiResponse = {
+      items: [
+        {
+          idTriagem: 105,
+          dtTriagem: '2026-09-15T01:19:34.830723Z',
+          urgencia: 'ALTA',
+          sintomas: ['vômito', 'letargia'],
+          score: 99999,
+          regrasVersao: 'ããããã',
+          encaminhadoVet: true,
+          tutor: { id: 97100, nome: 'RG2 Tutor' },
+          pets: [{ id: 97100, nome: 'RG2 Rex', especie: 'Cao' }],
+          trechoMensagem: 'a'.repeat(279),
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    };
+
+    beforeEach(() => {
+      mockApiGet.mockResolvedValue({ data: FIXTURE_RE_G2 });
+    });
+
+    it('traduz o corpo real (fixture Re-G2 do LU-08) para o tipo interno', async () => {
+      const result = await getTriagens({ dataInicio: '2026-09-01', dataFim: '2026-09-16' });
+
+      expect(mockApiGet).toHaveBeenCalledWith('/api/v1/luna/triagens', {
+        params: { dataInicio: '2026-09-01', dataFim: '2026-09-16' },
+      });
+      expect(result.total).toBe(1);
+      const item = result.items[0]!;
+      expect(item.idTriagem).toBe(105);
+      expect(item.urgencia).toBe('ALTA');
+      expect(item.sintomas).toEqual(['vômito', 'letargia']);
+      expect(item.score).toBe(99999);
+      expect(item.regrasVersao).toBe('ããããã');
+      expect(item.encaminhadoVet).toBe(true);
+      expect(item.tutor).toEqual({ id: 97100, nome: 'RG2 Tutor' });
+      expect(item.pets).toEqual([{ id: 97100, nome: 'RG2 Rex', especie: 'Cao' }]);
+      expect(item.trechoMensagem).toBe('a'.repeat(279));
+      expect(item.dtTriagem).toBeInstanceOf(Date);
+    });
+
+    // Item 1 do escopo (brief) — prova que "...Z" não é lido como hora local.
+    // O instante do fixture corresponde a 2026-09-15T01:19:34.830 UTC — se o mapper
+    // removesse o 'Z' antes de parsear (ou lesse a string como hora local), o
+    // epoch resultante divergiria do calculado por Date.UTC (a menos que o fuso da
+    // máquina de teste seja UTC+0, o que este projeto não assume).
+    it('interpreta dtTriagem como UTC (o sufixo Z não é lido como hora local)', async () => {
+      const result = await getTriagens({ dataInicio: '2026-09-01', dataFim: '2026-09-16' });
+      const esperadoUtcMs = Date.UTC(2026, 8, 15, 1, 19, 34, 830); // truncado ao ms
+      expect(result.items[0]!.dtTriagem.getTime()).toBe(esperadoUtcMs);
+    });
+
+    // Prova de que o mapper realmente LÊ `pets` (não outra chave): a fixture Re-G2
+    // tem `pets` preenchido e o teste acima já assert `item.pets` igual ao array —
+    // este teste inverte o fixture (pets vazio) para provar que o valor muda de
+    // verdade com o dado, não é uma constante hardcoded no mapper.
+    it('pets/tutor refletem o dado real da fixture, não um valor fixo do mapper', async () => {
+      mockApiGet.mockResolvedValue({
+        data: {
+          items: [{ ...FIXTURE_RE_G2.items[0]!, tutor: null, pets: [] }],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        },
+      });
+      const result = await getTriagens({ dataInicio: '2026-09-01', dataFim: '2026-09-16' });
+      expect(result.items[0]!.tutor).toBeNull();
+      expect(result.items[0]!.pets).toEqual([]);
+    });
   });
 
   it('mock relatorioTriagens (shape de fio): soma de porUrgencia bate com totalTriagens', async () => {

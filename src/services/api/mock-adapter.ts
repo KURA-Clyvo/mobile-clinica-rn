@@ -5,6 +5,7 @@ import * as agendaMock from '../../mocks/agenda.mock';
 import * as petsMock from '../../mocks/pets.mock';
 import * as eventosMock from '../../mocks/eventos-clinicos.mock';
 import * as lunaMock from '../../mocks/luna.mock';
+import * as tutoresMock from '../../mocks/tutores.mock';
 import * as teleconsultaMock from '../../mocks/teleconsulta.mock';
 import * as veterinariosMock from '../../mocks/veterinarios.mock';
 import * as usuariosClinicaMock from '../../mocks/usuarios-clinica.mock';
@@ -44,7 +45,14 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/medicamentos$/, eventosMock.medicamentos],
   [/\/whatsapp\/enviar$/, lunaMock.enviarWhatsApp],
   [/\/ready$/, lunaMock.ready],
+  // LU-09: ordem importa por LEGIBILIDADE, não por obrigação funcional (mesmo
+  // raciocínio do bloco FM-02/FM-05 abaixo) — as duas regex são mutuamente
+  // exclusivas por construção: `/relatorio$/` exige terminar em "relatorio",
+  // `/luna\/triagens$/` exige terminar em "triagens" (sem sufixo). Sem colisão.
   [/\/luna\/triagens\/relatorio$/, lunaMock.relatorioTriagens],
+  [/\/luna\/triagens$/, lunaMock.triagens],
+  // LU-09: GET /api/v1/tutores/{id} — busca de telefone para "Responder no WhatsApp".
+  [/\/tutores\/\d+$/, tutoresMock.byId],
   // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
   // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).
   [/\/teleconsulta\/\d+\/sala$/, teleconsultaMock.sala],

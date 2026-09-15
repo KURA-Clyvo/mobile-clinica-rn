@@ -6,6 +6,11 @@ import type {
   TriagensRelatorioQuery,
   TriagensRelatorioResponse,
   TriagensRelatorioApiResponse,
+  TriagensListaQuery,
+  TriagensListaResponse,
+  TriagensListaApiResponse,
+  TriagemListaItemApi,
+  TriagemListaItem,
 } from '../types/api';
 
 export type LunaStatus = 'enviado' | 'indisponivel' | 'erro';
@@ -38,8 +43,18 @@ export async function enviarWhatsApp(req: WhatsAppEnvioRequest): Promise<EnvioRe
   try {
     const { data } = await lunaClient.post<WhatsAppEnvioResponse>('/whatsapp/enviar', req);
     return { status: 'enviado', sid: data.sid ?? undefined };
-  } catch {
-    return { status: 'indisponivel' };
+  } catch (err) {
+    // LU-09 (precisão do brief): distingue falha REAL de envio (502 — Twilio, ver
+    // whatsapp.py:23-25) de rede/Luna fora do ar (status 0, normalizeError em
+    // errors.ts) — só porque o `status` HTTP real está disponível aqui depois do
+    // interceptor normalizar o erro. Nunca inventa um motivo para status
+    // desconhecido (ex.: Error cru de teste, sem `.status`) — cai no genérico.
+    const apiErr = err as { status?: number };
+    const motivo =
+      apiErr?.status === 502
+        ? 'A Luna não conseguiu enviar a mensagem agora (falha no envio pelo WhatsApp).'
+        : undefined;
+    return { status: 'indisponivel', motivo };
   }
 }
 
@@ -110,4 +125,51 @@ export async function getRelatorioTriagens(
     { params: query },
   );
   return toTriagensRelatorioResponse(data);
+}
+
+/**
+ * LU-09: traduz um item de fio de GET /api/v1/luna/triagens para o tipo interno.
+ * Única tradução real é `dtTriagem`: string ISO com `Z` -> `Date`. `new Date(...)`
+ * interpreta um sufixo `Z` sempre como UTC (comportamento padrão do motor JS,
+ * independente do fuso local do dispositivo) — é isso que faz o instante bater com o
+ * `DT_TRIAGEM` do Oracle (confirmado contra Oracle real na Re-G2 do LU-08, frente
+ * 3(c): mesmo instante até o microssegundo, controle SYS_EXTRACT_UTC). Uma string SEM
+ * `Z` (ou sem offset) seria lida como HORA LOCAL pelo motor JS — é esse o bug que a
+ * mordida deste item prova (ver tests/luna.service.test.ts).
+ */
+function toTriagemListaItem(raw: TriagemListaItemApi): TriagemListaItem {
+  return {
+    idTriagem: raw.idTriagem,
+    dtTriagem: new Date(raw.dtTriagem),
+    urgencia: raw.urgencia,
+    sintomas: raw.sintomas,
+    score: raw.score,
+    regrasVersao: raw.regrasVersao,
+    encaminhadoVet: raw.encaminhadoVet,
+    tutor: raw.tutor,
+    pets: raw.pets,
+    trechoMensagem: raw.trechoMensagem,
+  };
+}
+
+function toTriagensListaResponse(raw: TriagensListaApiResponse): TriagensListaResponse {
+  return {
+    items: raw.items.map(toTriagemListaItem),
+    total: raw.total,
+    page: raw.page,
+    pageSize: raw.pageSize,
+  };
+}
+
+/**
+ * LU-09: fila de triagens da Luna, GET /api/v1/luna/triagens ([Authorize] JWT de
+ * clínica, LunaController.cs:104). Paginado, filtro opcional por urgência e período
+ * (máx. 90 dias, mesmo limite do relatório) — urgência fora do enum ALTA/MEDIA/BAIXA
+ * devolve lista vazia (declarado na G2 do LU-08), não erro.
+ */
+export async function getTriagens(query: TriagensListaQuery): Promise<TriagensListaResponse> {
+  const { data } = await apiClient.get<TriagensListaApiResponse>('/api/v1/luna/triagens', {
+    params: query,
+  });
+  return toTriagensListaResponse(data);
 }

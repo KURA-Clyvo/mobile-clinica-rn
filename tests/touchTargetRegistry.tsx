@@ -765,7 +765,6 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           nmPet="Thor"
           nmTutor="Carlos"
           dsTelefone="11999990001"
-          tipo="receituario"
         />,
       );
       return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-whatsapp').props.style));

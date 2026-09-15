@@ -24,7 +24,6 @@ export interface WhatsAppModalProps {
   nmPet: string;
   nmTutor: string;
   dsTelefone: string;
-  tipo: WhatsAppEnvioRequest['tipo'];
   mensagemDefault?: string;
 }
 
@@ -94,7 +93,6 @@ export function WhatsAppModal({
   nmPet,
   nmTutor,
   dsTelefone,
-  tipo,
   mensagemDefault,
 }: WhatsAppModalProps) {
   const { colors } = useTheme();
@@ -110,14 +108,22 @@ export function WhatsAppModal({
   const { mutate: enviar, isPending } = useEnviarWhatsApp();
 
   const handleSend = () => {
-    const req: WhatsAppEnvioRequest = { telefone: dsTelefone, mensagem, tipo };
+    // E16 (LU-09): a Luna aceita {para, mensagem} — não {telefone, tipo}, que nenhum
+    // endpoint real dela jamais declarou (whatsapp.py:23-25). Ver mordida em
+    // tests/WhatsAppModal.test.tsx e tests/luna.service.test.ts.
+    const req: WhatsAppEnvioRequest = { para: dsTelefone, mensagem };
     enviar(req, {
       onSuccess: (result) => {
         if (result.status === 'enviado') {
           Alert.alert('Mensagem enviada!');
           onClose();
         } else {
-          Alert.alert('Luna indisponível', 'Não foi possível enviar agora. Tente novamente mais tarde.');
+          // LU-09: mensagem de falha real de envio (502) != rede/Luna fora do ar —
+          // só quando o service soube distinguir (result.motivo), nunca inventado.
+          Alert.alert(
+            'Luna indisponível',
+            result.motivo ?? 'Não foi possível enviar agora. Tente novamente mais tarde.',
+          );
         }
       },
     });

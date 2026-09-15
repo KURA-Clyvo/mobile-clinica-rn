@@ -25,7 +25,6 @@ const BASE_PROPS = {
   nmPet: 'Thor',
   nmTutor: 'Carlos Mendes',
   dsTelefone: '11999990001',
-  tipo: 'receituario' as const,
 };
 
 function wrap(ui: React.ReactElement) {
@@ -80,15 +79,23 @@ describe('WhatsAppModal', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it('calls enviarWhatsApp with {telefone, mensagem, tipo} matching the Luna contract', () => {
+  // E16 (LU-09) — mordida: o corpo real da Luna é {para, mensagem}, não
+  // {telefone, tipo} (contrato antigo, nunca declarado por whatsapp.py). Prova de
+  // mordida no relatório da task: revertendo o corpo desta chamada para
+  // {telefone: dsTelefone, mensagem, tipo: undefined} este teste falha nominalmente
+  // (toHaveBeenCalledWith não bate); com {para, mensagem} ele passa.
+  it('calls enviarWhatsApp with {para, mensagem} matching the real Luna contract (E16)', () => {
     const { getByTestId } = wrap(
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem de teste" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
     expect(mockMutate).toHaveBeenCalledWith(
-      { telefone: '11999990001', mensagem: 'Mensagem de teste', tipo: 'receituario' },
+      { para: '11999990001', mensagem: 'Mensagem de teste' },
       expect.any(Object),
     );
+    const corpoEnviado = mockMutate.mock.calls[0][0] as Record<string, unknown>;
+    expect('telefone' in corpoEnviado).toBe(false);
+    expect('tipo' in corpoEnviado).toBe(false);
   });
 
   it('calls onClose after successful send', () => {

@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors, spacing } from '@theme/tokens';
-import { useLunaHealth, useRelatorioTriagens } from '@hooks/useLuna';
+import { useLunaHealth, useRelatorioTriagens, useTriagens } from '@hooks/useLuna';
 import { useAlertas } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
-import { formatDateISO, subDays, addDays } from '@utils/date';
+import { WhatsAppModal } from '@components/domain/WhatsAppModal';
+import { getTutorById } from '@services/tutores.service';
+import { formatDateISO, subDays, addDays, formatRelativeTime } from '@utils/date';
+import { ROUTES } from '@constants/routes';
 import { STRINGS } from '@constants/strings';
 import type { LunaHealthResult } from '@services/luna.service';
 import type { KCIconName } from '@components/primitives/KCIcon';
+import type { TriagemListaItem } from '../../types/api';
 
 type Periodo = 7 | 30 | 90;
 // CQ-09: 'CRITICO' removido — nenhum produtor da cadeia (Luna Python / .NET) emite
@@ -86,6 +92,27 @@ function urgLabel(level: UrgLevel): string {
     case 'BAIXO': return 'Baixo';
     case 'MEDIO': return 'Médio';
     case 'ALTO':  return 'Alto';
+  }
+}
+
+// LU-09 — Fila da Luna: tokens canônicos do app da clínica (KCChip `tone`), não hex
+// inventado. ALTA usa `clay`, MEDIA usa `amber` (brief da task); BAIXA usa `mute`
+// (neutro — a fila não tem token dedicado para o nível mais baixo).
+type UrgenciaFio = 'ALTA' | 'MEDIA' | 'BAIXA';
+
+function filaUrgenciaTone(urgencia: UrgenciaFio): 'clay' | 'amber' | 'mute' {
+  switch (urgencia) {
+    case 'ALTA': return 'clay';
+    case 'MEDIA': return 'amber';
+    case 'BAIXA': return 'mute';
+  }
+}
+
+function filaUrgenciaLabel(urgencia: UrgenciaFio): string {
+  switch (urgencia) {
+    case 'ALTA': return 'Alta';
+    case 'MEDIA': return 'Média';
+    case 'BAIXA': return 'Baixa';
   }
 }
 
@@ -217,14 +244,72 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.text,
       marginBottom: 10,
     },
+    // LU-09 — Fila da Luna
+    filaTitle: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 15,
+      color: colors.text,
+      marginBottom: 10,
+    },
+    filaCard: { marginBottom: 10 },
+    filaCardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    filaTempo: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 12,
+      color: colors.textMute,
+    },
+    filaPet: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 14,
+      color: colors.text,
+      marginTop: 8,
+    },
+    filaChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 6,
+    },
+    filaTrecho: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textSoft,
+      marginTop: 8,
+    },
+    filaErro: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.danger,
+      textAlign: 'center',
+      paddingVertical: 16,
+    },
+    filaActionsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 12,
+    },
   });
 
 export default function LunaScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const qc = useQueryClient();
+  const router = useRouter();
   const [periodo, setPeriodo] = useState<Periodo>(7);
   const [refreshing, setRefreshing] = useState(false);
+  // LU-09: alvo do WhatsAppModal, preenchido depois de GET /tutores/{id} resolver.
+  const [whatsappAlvo, setWhatsappAlvo] = useState<{
+    nmPet: string;
+    nmTutor: string;
+    dsTelefone: string;
+  } | null>(null);
+  // idTriagem em voo (busca de telefone) — desabilita/mostra spinner só no card certo.
+  const [buscandoTelefoneId, setBuscandoTelefoneId] = useState<number | null>(null);
 
   // E14 (CQ-09 ledger, pré-requisito dos itens 1-3 desta task): dataFim = "hoje" sem
   // componente de hora vira 00:00:00 do dia no .NET, que filtra <= — toda triagem
@@ -241,12 +326,44 @@ export default function LunaScreen() {
     dataInicio,
     dataFim,
   });
+  const {
+    data: fila,
+    isLoading: loadingFila,
+    isError: filaComErro,
+  } = useTriagens({ dataInicio, dataFim, pageSize: 20 });
   const { data: alertas } = useAlertas();
 
   const onRefresh = async () => {
     setRefreshing(true);
     await qc.invalidateQueries({ queryKey: ['luna'] });
     setRefreshing(false);
+  };
+
+  // LU-09: "Responder no WhatsApp" — busca o telefone por GET /tutores/{id} (o item
+  // da fila NUNCA carrega telefone, de propósito/LGPD). `item.tutor === null` já
+  // esconde a ação no JSX (ver abaixo) — esta guarda é defesa em profundidade.
+  const handleResponderWhatsApp = async (item: TriagemListaItem) => {
+    if (!item.tutor) return;
+    setBuscandoTelefoneId(item.idTriagem);
+    try {
+      const tutor = await getTutorById(item.tutor.id);
+      setWhatsappAlvo({
+        nmPet: item.pets[0]?.nome ?? '',
+        nmTutor: tutor.nmTutor,
+        dsTelefone: tutor.nrTelefone,
+      });
+    } catch {
+      Alert.alert('Erro', 'Não foi possível buscar o telefone do tutor.');
+    } finally {
+      setBuscandoTelefoneId(null);
+    }
+  };
+
+  // LU-09: "Abrir paciente" só existe em ALTA com exatamente 1 pet — critério de
+  // aceite literal do backlog. Mais de 1 pet (ou nenhum) não sabe para qual navegar.
+  const handleAbrirPaciente = (item: TriagemListaItem) => {
+    if (item.pets.length !== 1) return;
+    router.push(ROUTES.app.pacienteDetalhe(item.pets[0]!.id));
   };
 
   // Luna fora do ar (indisponível — falha de rede/timeout genuína) cai no ramo visual
@@ -330,6 +447,108 @@ export default function LunaScreen() {
             );
           })}
         </View>
+      )}
+
+      {/* FILA DA LUNA (LU-09) */}
+      <View style={styles.section}>
+        <Text style={styles.filaTitle}>{STRINGS.LUNA.FILA_TITLE}</Text>
+      </View>
+      {loadingFila ? (
+        <KCCard style={styles.reportCard}>
+          {[0, 1].map((i) => (
+            <View
+              key={i}
+              testID="skeleton-fila"
+              style={[styles.skeletonRow, { backgroundColor: colors.border }]}
+            />
+          ))}
+        </KCCard>
+      ) : filaComErro ? (
+        // Erro de rede != estado vazio — nunca mostrar "nenhuma mensagem" quando a
+        // chamada falhou de verdade (critério de aceite literal do backlog).
+        <Text style={styles.filaErro} testID="fila-erro">
+          {STRINGS.LUNA.FILA_ERRO}
+        </Text>
+      ) : !fila || fila.items.length === 0 ? (
+        <KCEmptyState
+          icon="luna"
+          title={STRINGS.LUNA.EMPTY_FILA}
+          description={STRINGS.LUNA.EMPTY_FILA_DESC}
+          testID="empty-fila"
+          style={{ paddingHorizontal: 16 }}
+        />
+      ) : (
+        <View style={styles.section} testID="fila-luna-lista">
+          {fila.items.map((item) => (
+            <KCCard
+              key={item.idTriagem}
+              style={styles.filaCard}
+              testID={`fila-card-${item.idTriagem}`}
+            >
+              <View style={styles.filaCardHeader}>
+                <KCChip tone={filaUrgenciaTone(item.urgencia)} testID={`fila-urg-${item.idTriagem}`}>
+                  {filaUrgenciaLabel(item.urgencia)}
+                </KCChip>
+                <Text style={styles.filaTempo} testID={`fila-tempo-${item.idTriagem}`}>
+                  {formatRelativeTime(item.dtTriagem)}
+                </Text>
+              </View>
+              {item.pets[0] && (
+                <Text style={styles.filaPet} testID={`fila-pet-${item.idTriagem}`}>
+                  {item.pets[0].nome}
+                </Text>
+              )}
+              {item.sintomas.length > 0 && (
+                <View style={styles.filaChipsRow}>
+                  {item.sintomas.map((sintoma) => (
+                    <KCChip key={sintoma} tone="mute">
+                      {sintoma}
+                    </KCChip>
+                  ))}
+                </View>
+              )}
+              {item.trechoMensagem && (
+                <Text style={styles.filaTrecho} numberOfLines={2} testID={`fila-trecho-${item.idTriagem}`}>
+                  {item.trechoMensagem}
+                </Text>
+              )}
+              <View style={styles.filaActionsRow}>
+                {item.tutor && (
+                  <KCButton
+                    variant="secondary"
+                    size="sm"
+                    loading={buscandoTelefoneId === item.idTriagem}
+                    disabled={buscandoTelefoneId === item.idTriagem}
+                    onPress={() => handleResponderWhatsApp(item)}
+                    testID={`btn-responder-whatsapp-${item.idTriagem}`}
+                  >
+                    {STRINGS.LUNA.RESPONDER_WHATSAPP}
+                  </KCButton>
+                )}
+                {item.urgencia === 'ALTA' && item.pets.length === 1 && (
+                  <KCButton
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => handleAbrirPaciente(item)}
+                    testID={`btn-abrir-paciente-${item.idTriagem}`}
+                  >
+                    {STRINGS.LUNA.ABRIR_PACIENTE}
+                  </KCButton>
+                )}
+              </View>
+            </KCCard>
+          ))}
+        </View>
+      )}
+
+      {whatsappAlvo && (
+        <WhatsAppModal
+          visible={!!whatsappAlvo}
+          onClose={() => setWhatsappAlvo(null)}
+          nmPet={whatsappAlvo.nmPet}
+          nmTutor={whatsappAlvo.nmTutor}
+          dsTelefone={whatsappAlvo.dsTelefone}
+        />
       )}
 
       {/* RELATÓRIO DE TRIAGENS */}

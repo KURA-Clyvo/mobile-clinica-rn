@@ -24,7 +24,8 @@ import { getAgenda, atualizarStatusAgendamento } from '../src/services/agenda.se
 import { login, registerClinica } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
-import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens } from '../src/services/luna.service';
+import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens, getTriagens } from '../src/services/luna.service';
+import { getTutorById } from '../src/services/tutores.service';
 import { criarOuObterSala, obterSala } from '../src/services/teleconsulta.service';
 import {
   listUsuariosClinica,
@@ -285,7 +286,9 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
     });
 
     it('enviarWhatsApp / getLunaHealth executam sem lançar (nunca propagam exceção — try/catch próprio)', async () => {
-      const envio = await enviarWhatsApp({ telefone: '11999990000', mensagem: 'teste', tipo: 'manual' });
+      // E16 (LU-09): corpo real {para, mensagem} — {telefone, tipo} nunca existiu
+      // no contrato da Luna (whatsapp.py:23-25).
+      const envio = await enviarWhatsApp({ para: '11999990000', mensagem: 'teste' });
       expect(envio.status).toBe('enviado');
 
       // CQ-09: getLunaHealth() agora bate em GET /ready ({status,oracle,kura_api}) —
@@ -315,6 +318,28 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
         relatorio.distribuicaoUrgencia.MEDIO +
         relatorio.distribuicaoUrgencia.ALTO;
       expect(soma).toBe(relatorio.nrTotalTriagens);
+    });
+
+    // LU-09: par novo — mesmo padrão do getRelatorioTriagens acima (tradutor, não
+    // pass-through). Exercita apiClient -> mock-adapter -> lunaMock.triagens ->
+    // toTriagensListaResponse sem jest.mock do client.
+    it('getTriagens (modo mock real) traduz o shape de fio e devolve itens com Date', async () => {
+      const fila = await getTriagens({ dataInicio: '2026-01-01', dataFim: '2026-01-08' });
+      expect(fila.total).toBeGreaterThan(0);
+      expect(fila.items.length).toBe(fila.total);
+      expect(fila.items[0]!.dtTriagem).toBeInstanceOf(Date);
+      expect(['ALTA', 'MEDIA', 'BAIXA']).toContain(fila.items[0]!.urgencia);
+    });
+  });
+
+  // LU-09: par novo, tutores.service.ts — usado pela ação "Responder no WhatsApp".
+  describe('tutores.service (LU-09)', () => {
+    it('getTutorById (modo mock real) executa sem lançar e devolve nrTelefone traduzido', async () => {
+      const tutor = await getTutorById(201);
+      expect(tutor.id).toBe(201);
+      expect(typeof tutor.nrTelefone).toBe('string');
+      expect(tutor.nrTelefone.length).toBeGreaterThan(0);
+      expect(tutor.nmTutor.length).toBeGreaterThan(0);
     });
   });
 

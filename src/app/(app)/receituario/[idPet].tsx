@@ -536,7 +536,6 @@ export default function ReceituarioScreen() {
           nmPet={pet?.nmPet ?? ''}
           nmTutor={tutor.nmTutor}
           dsTelefone={tutor.dsTelefone}
-          tipo="receituario"
           mensagemDefault={
             medSelecionado
               ? `Olá ${tutor.nmTutor}! Segue a prescrição médica do(a) ${pet?.nmPet}.\n\nMedicamento: ${medSelecionado.nmMedicamento}\n\nQualquer dúvida, estamos à disposição.`

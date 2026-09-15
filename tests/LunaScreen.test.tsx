@@ -1,11 +1,31 @@
 import React from 'react';
 import type { ReactTestInstance } from 'react-test-renderer';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import LunaScreen from '../src/app/(app)/luna';
 import { formatDateISO, subDays, addDays } from '../src/utils/date';
+
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
+
+// LU-09 — mockado no nível do SERVIÇO (não do hook, porque a Fila da Luna chama
+// getTutorById() direto, sem hook próprio) para a ação "Responder no WhatsApp".
+const mockGetTutorById = jest.fn();
+jest.mock('@services/tutores.service', () => ({
+  getTutorById: (id: number) => mockGetTutorById(id),
+}));
+
+// WhatsAppModal usa @hooks/useEventosClinicos (useEnviarWhatsApp) — mockado aqui
+// para a Fila da Luna não depender do fluxo de envio real (coberto em
+// tests/WhatsAppModal.test.tsx).
+const mockMutateWhatsApp = jest.fn();
+jest.mock('@hooks/useEventosClinicos', () => ({
+  useEnviarWhatsApp: () => ({ mutate: mockMutateWhatsApp, isPending: false }),
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, style }: { children: unknown; style: unknown }) => {
@@ -35,17 +55,19 @@ function setViewport(width: number, height: number) {
 jest.mock('@hooks/useLuna', () => ({
   useLunaHealth: jest.fn(),
   useRelatorioTriagens: jest.fn(),
+  useTriagens: jest.fn(),
 }));
 
 jest.mock('@hooks/useDashboard', () => ({
   useAlertas: jest.fn(),
 }));
 
-import { useLunaHealth, useRelatorioTriagens } from '../src/hooks/useLuna';
+import { useLunaHealth, useRelatorioTriagens, useTriagens } from '../src/hooks/useLuna';
 import { useAlertas } from '../src/hooks/useDashboard';
 
 const mockUseLunaHealth = useLunaHealth as jest.Mock;
 const mockUseRelatorioTriagens = useRelatorioTriagens as jest.Mock;
+const mockUseTriagens = useTriagens as jest.Mock;
 const mockUseAlertas = useAlertas as jest.Mock;
 const mockInvalidateQueries = jest.fn();
 
@@ -76,6 +98,41 @@ const MOCK_RELATORIO = {
   nrEncaminhadasParaVet: 29,
 };
 
+// LU-09 — tipo INTERNO já traduzido (dtTriagem como Date) — o mesmo shape que
+// luna.service.ts::getTriagens() devolve depois do mapper.
+const MOCK_FILA_ITEM_ALTA_1PET = {
+  idTriagem: 501,
+  dtTriagem: new Date(Date.now() - 40 * 60 * 1000),
+  urgencia: 'ALTA' as const,
+  sintomas: ['vômito', 'letargia'],
+  score: 87,
+  regrasVersao: '1.1',
+  encaminhadoVet: true,
+  tutor: { id: 201, nome: 'Ana Beatriz' },
+  pets: [{ id: 301, nome: 'Rex', especie: 'Cão' }],
+  trechoMensagem: 'Meu cachorro vomitou 3 vezes hoje...',
+};
+
+const MOCK_FILA_ITEM_MEDIA_SEM_TUTOR = {
+  idTriagem: 502,
+  dtTriagem: new Date(Date.now() - 3 * 60 * 60 * 1000),
+  urgencia: 'MEDIA' as const,
+  sintomas: ['coceira'],
+  score: 34,
+  regrasVersao: '1.1',
+  encaminhadoVet: false,
+  tutor: null,
+  pets: [],
+  trechoMensagem: 'Notei que ela está se coçando bastante...',
+};
+
+const MOCK_FILA = {
+  items: [MOCK_FILA_ITEM_ALTA_1PET, MOCK_FILA_ITEM_MEDIA_SEM_TUTOR],
+  total: 2,
+  page: 1,
+  pageSize: 20,
+};
+
 function mergedStyle(el: ReactTestInstance) {
   // FM-09: ReactTestInstance.props e { [propName: string]: any } (index signature) -- nao
   // satisfaz estruturalmente { style: unknown } (propriedade nomeada exigida). Tipar pelo
@@ -102,7 +159,9 @@ beforeEach(() => {
   mockInvalidateQueries.mockResolvedValue(undefined);
   mockUseLunaHealth.mockReturnValue({ data: MOCK_HEALTH_UP });
   mockUseRelatorioTriagens.mockReturnValue({ data: MOCK_RELATORIO, isLoading: false });
+  mockUseTriagens.mockReturnValue({ data: MOCK_FILA, isLoading: false, isError: false });
   mockUseAlertas.mockReturnValue({ data: [] });
+  mockGetTutorById.mockResolvedValue({ id: 201, nmTutor: 'Ana Beatriz', nrTelefone: '11988887777' });
   setViewport(400, 800);
 });
 
@@ -218,6 +277,93 @@ describe('LunaScreen', () => {
       await scrollView.props.refreshControl.props.onRefresh();
     });
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['luna'] });
+  });
+
+  describe('Fila da Luna (LU-09)', () => {
+    it('shows the "Fila da Luna" section above the relatório, with urgency chips (clay=ALTA, amber=MEDIA)', () => {
+      const { getByText, getByTestId } = wrap(<LunaScreen />);
+      expect(getByText('Fila da Luna')).toBeTruthy();
+      expect(getByTestId('fila-card-501')).toBeTruthy();
+      expect(getByTestId('fila-card-502')).toBeTruthy();
+      // Rótulo dentro do KCChip (tone clay=ALTA / amber=MEDIA, ver filaUrgenciaTone).
+      expect(getByText('Alta')).toBeTruthy();
+      expect(getByText('Média')).toBeTruthy();
+      expect(getByTestId('fila-pet-501').props.children).toBe('Rex');
+    });
+
+    it('shows the exact empty-state literal when there is no message in the period', () => {
+      mockUseTriagens.mockReturnValue({
+        data: { items: [], total: 0, page: 1, pageSize: 20 },
+        isLoading: false,
+        isError: false,
+      });
+      const { getByText, getByTestId } = wrap(<LunaScreen />);
+      expect(getByTestId('empty-fila')).toBeTruthy();
+      expect(getByText('Nenhuma mensagem de tutor no período')).toBeTruthy();
+    });
+
+    // Critério de aceite literal (§6 LU-09): erro de rede != estado vazio.
+    it('a network error does NOT show the empty-state message ("nenhuma mensagem")', () => {
+      mockUseTriagens.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+      const { getByTestId, queryByTestId, queryByText } = wrap(<LunaScreen />);
+      expect(getByTestId('fila-erro')).toBeTruthy();
+      expect(queryByTestId('empty-fila')).toBeNull();
+      expect(queryByText('Nenhuma mensagem de tutor no período')).toBeNull();
+    });
+
+    it('shows skeletons while loading, not the empty state', () => {
+      mockUseTriagens.mockReturnValue({ data: undefined, isLoading: true, isError: false });
+      const { getAllByTestId, queryByTestId } = wrap(<LunaScreen />);
+      expect(getAllByTestId('skeleton-fila').length).toBeGreaterThan(0);
+      expect(queryByTestId('empty-fila')).toBeNull();
+    });
+
+    it('"Responder no WhatsApp" fetches the phone by tutor id and opens WhatsAppModal', async () => {
+      const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+      expect(queryByTestId('recipient-tutor')).toBeNull(); // modal ainda não montado
+      fireEvent.press(getByTestId('btn-responder-whatsapp-501'));
+      await waitFor(() => expect(mockGetTutorById).toHaveBeenCalledWith(201));
+      await waitFor(() => expect(getByTestId('recipient-tutor').props.children).toBe('Ana Beatriz'));
+      expect(getByTestId('recipient-pet').props.children).toBe('Rex');
+    });
+
+    it('the action "Responder no WhatsApp" is absent when tutor is null (does not crash)', () => {
+      const { queryByTestId } = wrap(<LunaScreen />);
+      expect(queryByTestId('btn-responder-whatsapp-502')).toBeNull();
+    });
+
+    it('"Abrir paciente" appears for ALTA with exactly 1 pet and navigates to the patient', () => {
+      const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+      expect(getByTestId('btn-abrir-paciente-501')).toBeTruthy();
+      // MEDIA sem pet nenhum -- nunca aparece.
+      expect(queryByTestId('btn-abrir-paciente-502')).toBeNull();
+      fireEvent.press(getByTestId('btn-abrir-paciente-501'));
+      expect(mockPush).toHaveBeenCalledWith('/pacientes/301');
+    });
+
+    it('"Abrir paciente" does not appear for ALTA with more than 1 pet', () => {
+      mockUseTriagens.mockReturnValue({
+        data: {
+          items: [
+            {
+              ...MOCK_FILA_ITEM_ALTA_1PET,
+              idTriagem: 503,
+              pets: [
+                { id: 301, nome: 'Rex', especie: 'Cão' },
+                { id: 302, nome: 'Mia', especie: 'Gato' },
+              ],
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 20,
+        },
+        isLoading: false,
+        isError: false,
+      });
+      const { queryByTestId } = wrap(<LunaScreen />);
+      expect(queryByTestId('btn-abrir-paciente-503')).toBeNull();
+    });
   });
 
   // CQ-07 (Bloco 0 §2, B0.5): G4r exige os 3 viewports por teste automatizado,

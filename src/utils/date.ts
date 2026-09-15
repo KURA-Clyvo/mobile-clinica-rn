@@ -129,6 +129,20 @@ export function calcularIdade(dtNascimento: string): string {
   return `${diffYears} anos`;
 }
 
+// LU-09: tempo relativo para os cards da Fila da Luna ("há 5min", "há 2h", "há 3d").
+// Nunca lança para instante futuro (relógio de servidor à frente do dispositivo) —
+// devolve "agora" em vez de "há -1min".
+export function formatRelativeTime(date: Date, now: Date = new Date()): string {
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 60_000) return 'agora';
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 60) return `há ${diffMin}min`;
+  const diffHoras = Math.floor(diffMin / 60);
+  if (diffHoras < 24) return `há ${diffHoras}h`;
+  const diffDias = Math.floor(diffHoras / 24);
+  return `há ${diffDias}d`;
+}
+
 export function formatWeekRange(start: Date, end: Date): string {
   const startDay = start.getDate();
   const endDay = end.getDate();
