@@ -424,12 +424,96 @@ export interface TriagensRelatorioApiResponse {
   encaminhadasParaVet: number;
 }
 
+// ─── Luna (.NET — fila de triagens, LU-09) ────────────────────
+// Query de GET /api/v1/luna/triagens (LunaController.cs:104, [Authorize] JWT de
+// clínica) — mesmo limite de período de 90 dias do relatório (§4 do backlog).
+export interface TriagensListaQuery {
+  dataInicio: string;
+  dataFim: string;
+  urgencia?: 'ALTA' | 'MEDIA' | 'BAIXA';
+  page?: number;
+  pageSize?: number;
+}
+
+// Shape de FIO — item de PagedResultDto<TriagemListaItemDto>. Fatos medidos pelo
+// maestro no despacho da LU-09 (15/09) e reconfirmados contra Oracle real na Re-G2 do
+// LU-08 (frente 3(c) de lu-08-revisao.md): `dtTriagem` vem em ISO COM `Z` (UTC —
+// SpecifyKind(Utc) no service, confirmado por SYS_EXTRACT_UTC); `tutor`/`score`/
+// `regrasVersao` podem ser nulos; `pets` sempre presente (pode ser array vazio).
+// Telefone do tutor NÃO entra neste item de propósito (LGPD/least-privilege) — a
+// ação "Responder no WhatsApp" busca por GET /api/v1/tutores/{id} (tutores.service.ts).
+export interface TriagemListaItemApi {
+  idTriagem: number;
+  dtTriagem: string;
+  urgencia: 'ALTA' | 'MEDIA' | 'BAIXA';
+  sintomas: string[];
+  score: number | null;
+  regrasVersao: string | null;
+  encaminhadoVet: boolean;
+  tutor: { id: number; nome: string } | null;
+  pets: { id: number; nome: string; especie: string }[];
+  trechoMensagem: string | null;
+}
+export interface TriagensListaApiResponse {
+  items: TriagemListaItemApi[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Tipo INTERNO do app — luna.service.ts::getTriagens() traduz TriagensListaApiResponse
+// para este tipo (camada anti-corrupção, mesmo padrão de TriagensRelatorioResponse
+// acima). Única tradução real: `dtTriagem` (string ISO com `Z`) vira `Date` — o
+// restante do shape é preservado 1:1 porque já chega no vocabulário certo
+// (ALTA/MEDIA/BAIXA, não precisa de tradução de vocabulário como o relatório).
+export interface TriagemListaItem {
+  idTriagem: number;
+  dtTriagem: Date;
+  urgencia: 'ALTA' | 'MEDIA' | 'BAIXA';
+  sintomas: string[];
+  score: number | null;
+  regrasVersao: string | null;
+  encaminhadoVet: boolean;
+  tutor: { id: number; nome: string } | null;
+  pets: { id: number; nome: string; especie: string }[];
+  trechoMensagem: string | null;
+}
+export interface TriagensListaResponse {
+  items: TriagemListaItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// ─── Tutores (.NET — detalhe, LU-09) ───────────────────────────
+// GET /api/v1/tutores/{id} (TutoresController.cs:44, [Authorize] JWT de clínica,
+// escopado por IClinicaContext em TutorService.GetByIdAsync). Shape de fio real:
+// TutorResponseDto (Id/NmTutor/NrCpf/DsEmail/NrTelefone/StAtiva) — só os 3 campos que
+// a ação "Responder no WhatsApp" precisa entram no tipo interno.
+export interface TutorDetalheApiResponse {
+  id: number;
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  stAtiva: boolean;
+}
+export interface TutorDetalheResponse {
+  id: number;
+  nmTutor: string;
+  nrTelefone: string;
+}
+
 // ─── Luna (Python — chamada direta) ───────────────────────────
-// Espelha EnviarWhatsAppRequest/-Response de luna/src/web/routers/whatsapp.py (TASK-06).
+// Espelha EnviarWhatsAppRequest/-Response de luna/src/web/routers/whatsapp.py
+// (whatsapp.py:23-25). E16 (LU-09): o shape real da Luna é {para, mensagem} — o app
+// mandava {telefone, tipo}, que a Luna nunca declarou, e todo envio real dava 422
+// (engolido como 'indisponivel' pelo catch de enviarWhatsApp). `tipo` não existe no
+// contrato da Luna e não tinha uso de UI dentro de WhatsAppModal (só compunha o corpo
+// antigo) — removido também da prop do modal, não só do corpo da requisição.
 export interface WhatsAppEnvioRequest {
-  telefone: string;
+  para: string;
   mensagem: string;
-  tipo: 'resumo_consulta' | 'receituario' | 'lembrete' | 'manual';
 }
 export interface WhatsAppEnvioResponse {
   status: string;

@@ -25,7 +25,6 @@ const BASE_PROPS = {
   nmPet: 'Thor',
   nmTutor: 'Carlos Mendes',
   dsTelefone: '11999990001',
-  tipo: 'receituario' as const,
 };
 
 function wrap(ui: React.ReactElement) {
@@ -80,15 +79,23 @@ describe('WhatsAppModal', () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it('calls enviarWhatsApp with {telefone, mensagem, tipo} matching the Luna contract', () => {
+  // E16 (LU-09) — mordida: o corpo real da Luna é {para, mensagem}, não
+  // {telefone, tipo} (contrato antigo, nunca declarado por whatsapp.py). Prova de
+  // mordida no relatório da task: revertendo o corpo desta chamada para
+  // {telefone: dsTelefone, mensagem, tipo: undefined} este teste falha nominalmente
+  // (toHaveBeenCalledWith não bate); com {para, mensagem} ele passa.
+  it('calls enviarWhatsApp with {para, mensagem} matching the real Luna contract (E16)', () => {
     const { getByTestId } = wrap(
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem de teste" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
     expect(mockMutate).toHaveBeenCalledWith(
-      { telefone: '11999990001', mensagem: 'Mensagem de teste', tipo: 'receituario' },
+      { para: '11999990001', mensagem: 'Mensagem de teste' },
       expect.any(Object),
     );
+    const corpoEnviado = mockMutate.mock.calls[0][0] as Record<string, unknown>;
+    expect('telefone' in corpoEnviado).toBe(false);
+    expect('tipo' in corpoEnviado).toBe(false);
   });
 
   it('calls onClose after successful send', () => {
@@ -114,6 +121,33 @@ describe('WhatsAppModal', () => {
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
     expect(alertSpy).toHaveBeenCalledWith('Luna indisponível', expect.any(String));
+    expect(mockOnClose).not.toHaveBeenCalled();
+  });
+
+  // LU-09 fix wave 1 (item 3, lu-09-revisao.md G2-4): quando o service DISTINGUE a
+  // falha real de envio (502, `result.motivo` presente — a Luna está de pé, o Twilio
+  // rejeitou o envio), o título NÃO pode dizer "Luna indisponível" — mordida: revertendo
+  // o `else if (result.motivo)` para o `else` único antigo, este teste falha nominalmente
+  // (título volta a ser "Luna indisponível" mesmo com motivo presente).
+  it('shows a distinct, honest title for a real send failure (502, motivo present) — does NOT say "Luna indisponível"', () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockMutate.mockImplementation(
+      (_req: unknown, { onSuccess }: { onSuccess: (r: { status: string; motivo?: string }) => void }) =>
+        onSuccess({
+          status: 'indisponivel',
+          motivo: 'A Luna não conseguiu enviar a mensagem agora (falha no envio pelo WhatsApp).',
+        }),
+    );
+    const { getByTestId } = wrap(
+      <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
+    );
+    fireEvent.press(getByTestId('btn-enviar-whatsapp'));
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Falha ao enviar mensagem',
+      'A Luna não conseguiu enviar a mensagem agora (falha no envio pelo WhatsApp).',
+    );
+    const tituloUsado = alertSpy.mock.calls[0]![0];
+    expect(tituloUsado).not.toBe('Luna indisponível');
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 

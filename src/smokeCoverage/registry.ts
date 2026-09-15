@@ -102,6 +102,23 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   'luna.service.ts::getRelatorioTriagens': {
     coberto: 'luna/triagens/relatorio (GET, JWT clinica)',
   },
+  'luna.service.ts::getTriagens': {
+    naoCoberto:
+      'GET /api/v1/luna/triagens (LU-09, fila da Luna) — idempotente, sem side effect, ' +
+      'candidato natural a smoke-contratos.sh (mesmo perfil de getRelatorioTriagens ao lado, ' +
+      'que JÁ tem check), mas o script real não tem check para esta rota nova hoje. Estender ' +
+      'smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que só toca ' +
+      'mobile-clinica-rn).',
+  },
+
+  // tutores.service.ts (LU-09)
+  'tutores.service.ts::getTutorById': {
+    naoCoberto:
+      'GET /api/v1/tutores/{id} (TutoresController.cs:44) — idempotente, sem side effect, ' +
+      'usado pela ação "Responder no WhatsApp" da Fila da Luna para buscar o telefone. Sem ' +
+      'check hoje em smoke-contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo ' +
+      'desta task.',
+  },
 
   // pets.service.ts
   'pets.service.ts::listPets': { coberto: 'pets/listar' },

@@ -135,6 +135,29 @@ describe('mock-adapter', () => {
   // CQ-09: resolveMock() devolve o shape RAW real (totalTriagens/porUrgencia com
   // ALTA/MEDIA/BAIXA), não mais o shape interno do app — a tradução acontece em
   // luna.service.ts (mesmo padrão de /dashboard/hoje acima, TASK-65).
+  // LU-09: /luna/triagens (fila) e /luna/triagens/relatorio (agregado) são
+  // mutuamente exclusivas por âncora `$` — prova de não-colisão nos dois sentidos.
+  it('resolves /luna/triagens (fila) with items[].pets/tutor and Z timestamp, distinct from /relatorio', async () => {
+    const res = await resolveMock(makeConfig('/luna/triagens'));
+    const data = res.data as {
+      items: { idTriagem: number; dtTriagem: string; pets: unknown[] }[];
+      total: number;
+    };
+    expect(data.items.length).toBeGreaterThan(0);
+    expect(data.total).toBe(data.items.length);
+    expect(data.items[0]!.dtTriagem.endsWith('Z')).toBe(true);
+    // controle positivo: a URL do relatório continua indo para o handler diferente
+    const resRelatorio = await resolveMock(makeConfig('/luna/triagens/relatorio'));
+    expect(resRelatorio.data).not.toHaveProperty('items');
+  });
+
+  it('resolves /tutores/{id}', async () => {
+    const res = await resolveMock(makeConfig('/tutores/201'));
+    const data = res.data as { id: number; nmTutor: string; nrTelefone: string };
+    expect(data.id).toBe(201);
+    expect(data.nrTelefone).toBeTruthy();
+  });
+
   it('resolves /luna/triagens/relatorio', async () => {
     const res = await resolveMock(makeConfig('/luna/triagens/relatorio'));
     const data = res.data as { totalTriagens: number; porUrgencia: Record<string, number> };

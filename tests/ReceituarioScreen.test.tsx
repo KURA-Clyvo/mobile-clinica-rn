@@ -306,7 +306,10 @@ describe('ReceituarioScreen', () => {
     });
   });
 
-  it('passes tipo="receituario" and the tutor phone to WhatsAppModal', async () => {
+  // LU-09 (E16): `tipo` saiu da prop de WhatsAppModal — não existe no contrato real
+  // da Luna e não tinha uso de UI dentro do modal. O que esta tela precisa garantir
+  // continua sendo o telefone do tutor certo chegando ao modal.
+  it('passes the tutor phone to WhatsAppModal', async () => {
     emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
@@ -317,8 +320,13 @@ describe('ReceituarioScreen', () => {
     await waitFor(() => getByTestId('btn-whatsapp'));
 
     expect(mockWhatsAppModal).toHaveBeenCalledWith(
-      expect.objectContaining({ tipo: 'receituario', dsTelefone: '11999990001' }),
+      expect.objectContaining({ dsTelefone: '11999990001' }),
     );
+    const props = mockWhatsAppModal.mock.calls[mockWhatsAppModal.mock.calls.length - 1][0] as Record<
+      string,
+      unknown
+    >;
+    expect('tipo' in props).toBe(false);
   });
 
   it('gera o receituário em PDF ao emitir a receita e mostra a confirmação', async () => {

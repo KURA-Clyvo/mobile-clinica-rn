@@ -178,6 +178,14 @@ export const STRINGS = {
     STATUS_ONLINE: 'Online',
     STATUS_DEGRADADO: 'Degradado',
     STATUS_OFFLINE: 'Offline',
+    // LU-09: literal exato exigido pelo critério de aceite do backlog (§6 LU-09).
+    FILA_TITLE: 'Fila da Luna',
+    EMPTY_FILA: 'Nenhuma mensagem de tutor no período',
+    EMPTY_FILA_DESC:
+      'Mensagens de tutores triadas pela Luna aparecem aqui, ordenadas por urgência.',
+    FILA_ERRO: 'Não foi possível carregar as mensagens da Luna.',
+    RESPONDER_WHATSAPP: 'Responder no WhatsApp',
+    ABRIR_PACIENTE: 'Abrir paciente',
     RELATORIO_TITLE: 'Relatório de Triagens',
     PERIODO_7: '7 dias',
     PERIODO_30: '30 dias',

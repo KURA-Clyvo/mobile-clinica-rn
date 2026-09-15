@@ -24,7 +24,6 @@ export interface WhatsAppModalProps {
   nmPet: string;
   nmTutor: string;
   dsTelefone: string;
-  tipo: WhatsAppEnvioRequest['tipo'];
   mensagemDefault?: string;
 }
 
@@ -94,7 +93,6 @@ export function WhatsAppModal({
   nmPet,
   nmTutor,
   dsTelefone,
-  tipo,
   mensagemDefault,
 }: WhatsAppModalProps) {
   const { colors } = useTheme();
@@ -110,14 +108,28 @@ export function WhatsAppModal({
   const { mutate: enviar, isPending } = useEnviarWhatsApp();
 
   const handleSend = () => {
-    const req: WhatsAppEnvioRequest = { telefone: dsTelefone, mensagem, tipo };
+    // E16 (LU-09): a Luna aceita {para, mensagem} — não {telefone, tipo}, que nenhum
+    // endpoint real dela jamais declarou (whatsapp.py:23-25). Ver mordida em
+    // tests/WhatsAppModal.test.tsx e tests/luna.service.test.ts.
+    const req: WhatsAppEnvioRequest = { para: dsTelefone, mensagem };
     enviar(req, {
       onSuccess: (result) => {
         if (result.status === 'enviado') {
           Alert.alert('Mensagem enviada!');
           onClose();
+        } else if (result.motivo) {
+          // LU-09 fix wave 1 (item 3, lu-09-revisao.md G2-4): falha REAL de envio
+          // (502 — Twilio rejeitou o envio, a Luna está de pé) usa título próprio,
+          // honesto — "Luna indisponível" seria falso aqui (achado da G2: a Luna
+          // respondeu, só o envio pelo WhatsApp falhou). Título genérico ("Luna
+          // indisponível") continua reservado para quando o service NÃO soube
+          // distinguir (rede/timeout/Luna fora do ar, sem status HTTP disponível).
+          Alert.alert('Falha ao enviar mensagem', result.motivo);
         } else {
-          Alert.alert('Luna indisponível', 'Não foi possível enviar agora. Tente novamente mais tarde.');
+          Alert.alert(
+            'Luna indisponível',
+            'Não foi possível enviar agora. Tente novamente mais tarde.',
+          );
         }
       },
     });
