@@ -278,6 +278,16 @@ describe('ConsultaScreen', () => {
       expect(getByTestId('luna-badge-A')).toBeTruthy();
       expect(getByTestId('luna-badge-P')).toBeTruthy();
 
+      // `criarConsultaComSucesso` já digitou 'Animal ativo' em field-dsAnamnese
+      // (para passar a validação de SOAP na criação da consulta) — então
+      // `currentText` do badge S não está vazio e tocar nele abre o Alert de
+      // confirmação (mesmo comportamento coberto isoladamente em
+      // LunaSuggestionBadge.test.tsx). Confirma a substituição para exercitar
+      // o fluxo real ponta a ponta.
+      jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
+        const substituir = buttons?.find((b) => b.text === 'Substituir');
+        substituir?.onPress?.();
+      });
       fireEvent.press(getByTestId('luna-badge-S'));
       // dsAnamnese é o campo principal correspondente à letra S (SOAP_LABELS,
       // [idPet].tsx:66) — recebe o rascunho REAL, nunca o texto fixo que
