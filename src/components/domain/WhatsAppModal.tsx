@@ -117,12 +117,18 @@ export function WhatsAppModal({
         if (result.status === 'enviado') {
           Alert.alert('Mensagem enviada!');
           onClose();
+        } else if (result.motivo) {
+          // LU-09 fix wave 1 (item 3, lu-09-revisao.md G2-4): falha REAL de envio
+          // (502 — Twilio rejeitou o envio, a Luna está de pé) usa título próprio,
+          // honesto — "Luna indisponível" seria falso aqui (achado da G2: a Luna
+          // respondeu, só o envio pelo WhatsApp falhou). Título genérico ("Luna
+          // indisponível") continua reservado para quando o service NÃO soube
+          // distinguir (rede/timeout/Luna fora do ar, sem status HTTP disponível).
+          Alert.alert('Falha ao enviar mensagem', result.motivo);
         } else {
-          // LU-09: mensagem de falha real de envio (502) != rede/Luna fora do ar —
-          // só quando o service soube distinguir (result.motivo), nunca inventado.
           Alert.alert(
             'Luna indisponível',
-            result.motivo ?? 'Não foi possível enviar agora. Tente novamente mais tarde.',
+            'Não foi possível enviar agora. Tente novamente mais tarde.',
           );
         }
       },

@@ -143,6 +143,28 @@ export function formatRelativeTime(date: Date, now: Date = new Date()): string {
   return `há ${diffDias}d`;
 }
 
+// LU-09 fix wave 1 (G2-2, lu-09-revisao.md): calcula o intervalo [dataInicio,
+// dataFim) enviado ao .NET pelos chips de período da Fila/Relatório da Luna
+// (7/30/90 dias). `dataFim` continua sendo o dia SEGUINTE a `hoje` (E14, ver
+// comentário em luna.tsx) — limite superior EXCLUSIVO que cobre qualquer hora de
+// hoje sem precisar de componente de hora no formato ISO (`formatDateISO` só emite
+// yyyy-MM-dd). ANTES deste fix, `dataInicio = hoje - periodoDias` combinado com
+// `dataFim = hoje + 1` produzia um intervalo de `periodoDias + 1` dias — com
+// `periodoDias=90` isso é 91 dias, acima do teto de `LunaService.cs:166`
+// (`(dataFim - dataInicio).TotalDays > 90` ⇒ `422`). Corrigido subtraindo
+// `periodoDias - 1`: o intervalo total continua tendo exatamente `periodoDias`
+// dias (hoje já está coberto pelo `dataFim` exclusivo), e `hoje` permanece dentro
+// de `[dataInicio, dataFim)` para qualquer `periodoDias >= 1`.
+export function calcularIntervaloPeriodo(
+  periodoDias: number,
+  hoje: Date = new Date(),
+): { dataInicio: string; dataFim: string } {
+  return {
+    dataInicio: formatDateISO(subDays(hoje, periodoDias - 1)),
+    dataFim: formatDateISO(addDays(hoje, 1)),
+  };
+}
+
 export function formatWeekRange(start: Date, end: Date): string {
   const startDay = start.getDate();
   const endDay = end.getDate();

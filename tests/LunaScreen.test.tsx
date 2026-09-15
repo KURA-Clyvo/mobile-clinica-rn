@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
-import { ScrollView } from 'react-native';
+import { ScrollView, Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import LunaScreen from '../src/app/(app)/luna';
@@ -15,7 +15,13 @@ jest.mock('expo-router', () => ({
 // LU-09 — mockado no nível do SERVIÇO (não do hook, porque a Fila da Luna chama
 // getTutorById() direto, sem hook próprio) para a ação "Responder no WhatsApp".
 const mockGetTutorById = jest.fn();
+// LU-09 fix wave 1 (item 2): spread do módulo REAL — precisa manter
+// `telefoneDisponivel` de verdade (não um stub), porque `luna.tsx` chama a função de
+// exportação nomeada, e um mock que só substituísse `getTutorById` deixaria
+// `telefoneDisponivel` undefined, lançando dentro do try/catch e mascarando o
+// comportamento real com o alerta genérico de erro.
 jest.mock('@services/tutores.service', () => ({
+  ...jest.requireActual('@services/tutores.service'),
   getTutorById: (id: number) => mockGetTutorById(id),
 }));
 
@@ -237,10 +243,14 @@ describe('LunaScreen', () => {
     expect(getByTestId('status-text').props.children).toBe('Degradado');
   });
 
+  // LU-09 fix wave 1 (G2-2): dataInicio = hoje - (periodo - 1), não hoje - periodo —
+  // com dataFim = hoje+1 (E14), isso mantém o intervalo TOTAL em exatamente `periodo`
+  // dias (29 aqui, não 30) para o teto de 90 dias do .NET nunca ser excedido pelo chip
+  // 90 (calcularIntervaloPeriodo, ver tests/date.test.ts para a mordida dedicada).
   it('changes period query when pressing "30 dias" chip', () => {
     const { getByTestId } = wrap(<LunaScreen />);
     fireEvent.press(getByTestId('chip-periodo-30'));
-    const expectedDate = formatDateISO(subDays(new Date(), 30));
+    const expectedDate = formatDateISO(subDays(new Date(), 29));
     const calls = mockUseRelatorioTriagens.mock.calls;
     const lastCall = calls[calls.length - 1][0] as { dataInicio: string };
     expect(lastCall.dataInicio).toBe(expectedDate);
@@ -334,6 +344,36 @@ describe('LunaScreen', () => {
     it('the action "Responder no WhatsApp" is absent when tutor is null (does not crash)', () => {
       const { queryByTestId } = wrap(<LunaScreen />);
       expect(queryByTestId('btn-responder-whatsapp-502')).toBeNull();
+    });
+
+    // LU-09 fix wave 1 (item 2, lu-09-revisao.md G2-3): TutorService.cs:97-99 grava o
+    // sentinela "Não informado" em NR_TELEFONE quando o cadastro não tem telefone —
+    // sem esta checagem o app ofereceria/enviaria "para: Não informado" e a Luna
+    // devolveria 502 (Twilio rejeita o destinatário). A checagem só é possível DEPOIS
+    // do GET /tutores/{id} (a fila nunca carrega telefone, LGPD), então o modal
+    // simplesmente não abre em vez do botão desaparecer antes do clique.
+    it('does not open WhatsAppModal when the tutor phone is the backend sentinel "Não informado"', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      mockGetTutorById.mockResolvedValueOnce({
+        id: 201,
+        nmTutor: 'Ana Beatriz',
+        nrTelefone: 'Não informado',
+      });
+      const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+      fireEvent.press(getByTestId('btn-responder-whatsapp-501'));
+      await waitFor(() => expect(mockGetTutorById).toHaveBeenCalledWith(201));
+      await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Telefone não cadastrado', expect.any(String)));
+      expect(queryByTestId('recipient-tutor')).toBeNull();
+    });
+
+    it('does not open WhatsAppModal when the tutor phone is empty', async () => {
+      const alertSpy = jest.spyOn(Alert, 'alert');
+      mockGetTutorById.mockResolvedValueOnce({ id: 201, nmTutor: 'Ana Beatriz', nrTelefone: '' });
+      const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+      fireEvent.press(getByTestId('btn-responder-whatsapp-501'));
+      await waitFor(() => expect(mockGetTutorById).toHaveBeenCalledWith(201));
+      await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Telefone não cadastrado', expect.any(String)));
+      expect(queryByTestId('recipient-tutor')).toBeNull();
     });
 
     it('"Abrir paciente" appears for ALTA with exactly 1 pet and navigates to the patient', () => {

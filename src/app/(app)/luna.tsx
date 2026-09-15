@@ -14,8 +14,8 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
-import { getTutorById } from '@services/tutores.service';
-import { formatDateISO, subDays, addDays, formatRelativeTime } from '@utils/date';
+import { getTutorById, telefoneDisponivel } from '@services/tutores.service';
+import { calcularIntervaloPeriodo, formatRelativeTime } from '@utils/date';
 import { ROUTES } from '@constants/routes';
 import { STRINGS } from '@constants/strings';
 import type { LunaHealthResult } from '@services/luna.service';
@@ -318,8 +318,12 @@ export default function LunaScreen() {
   // sem precisar de componente de hora no formato ISO (formatDateISO só emite
   // yyyy-MM-dd). Sem este fix, os itens 1-3 (nomes de campo/vocabulário) entregariam
   // "uma tela bonita que continua mostrando zero".
-  const dataFim = formatDateISO(addDays(new Date(), 1));
-  const dataInicio = formatDateISO(subDays(new Date(), periodo));
+  // LU-09 fix wave 1 (G2-2): a conta de dataInicio/dataFim foi extraída para
+  // calcularIntervaloPeriodo() (utils/date.ts) — o chip "90 dias" mandava 91 dias
+  // (dataFim=hoje+1 SOMADO a dataInicio=hoje-90) e o .NET recusava com 422
+  // (LunaService.cs:166, teto de 90 dias). Vale para a Fila E o relatório, que usam
+  // o mesmo par dataInicio/dataFim.
+  const { dataInicio, dataFim } = calcularIntervaloPeriodo(periodo);
 
   const { data: health } = useLunaHealth();
   const { data: relatorio, isLoading: loadingRelatorio } = useRelatorioTriagens({
@@ -347,6 +351,19 @@ export default function LunaScreen() {
     setBuscandoTelefoneId(item.idTriagem);
     try {
       const tutor = await getTutorById(item.tutor.id);
+      // LU-09 fix wave 1 (item 2, G2-3): o telefone só é conhecido DEPOIS deste
+      // fetch (a fila nunca carrega telefone, LGPD) — por isso a checagem do
+      // sentinela "Não informado"/vazio não pode acontecer no JSX do botão (que
+      // roda antes do fetch): ela vira "não oferece o modal" em vez de "não
+      // renderiza o botão". Sem telefone real, mandar {para} para a Luna resultaria
+      // em 502 (Twilio rejeita o destinatário).
+      if (!telefoneDisponivel(tutor.nrTelefone)) {
+        Alert.alert(
+          'Telefone não cadastrado',
+          'Este tutor não tem telefone cadastrado. Não é possível responder pelo WhatsApp.',
+        );
+        return;
+      }
       setWhatsappAlvo({
         nmPet: item.pets[0]?.nome ?? '',
         nmTutor: tutor.nmTutor,
