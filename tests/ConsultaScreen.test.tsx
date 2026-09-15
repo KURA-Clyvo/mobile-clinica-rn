@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Alert } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import ConsultaScreen from '../src/app/(app)/consulta/[idPet]';
@@ -173,15 +173,16 @@ describe('ConsultaScreen', () => {
     expect(queryByTestId('btn-salvar')).toBeNull();
   });
 
-  it('LunaSuggestionBadge tap fills SOAP field when empty', async () => {
-    const { getByTestId } = wrap(<ConsultaScreen />);
-    await act(async () => {
-      fireEvent.press(getByTestId('luna-badge-S'));
-    });
-    await waitFor(() => {
-      const input = getByTestId('field-dsAnamnese');
-      expect(input.props.value).toBeTruthy();
-    }, { timeout: 1500 });
+  // LU-10 (N4 do backlog) — o badge deixou de buscar texto sozinho (mock com
+  // setTimeout de 500ms). Antes de qualquer transcrição, `soapDraft` está
+  // vazio (`{s:'',o:'',a:'',p:''}`, [idPet].tsx:204) — 0 badges, não um
+  // preenchimento assíncrono de texto fixo.
+  it('LU-10: sem transcrição ainda, nenhum badge da Luna aparece nos campos SOAP', () => {
+    const { queryByTestId } = wrap(<ConsultaScreen />);
+    expect(queryByTestId('luna-badge-S')).toBeNull();
+    expect(queryByTestId('luna-badge-O')).toBeNull();
+    expect(queryByTestId('luna-badge-A')).toBeNull();
+    expect(queryByTestId('luna-badge-P')).toBeNull();
   });
 
   describe('transcrição por áudio (após consulta criada)', () => {
@@ -239,6 +240,126 @@ describe('ConsultaScreen', () => {
       expect(getByTestId('field-soap-o').props.value).toBe('draft o');
       expect(getByTestId('field-soap-a').props.value).toBe('draft a');
       expect(getByTestId('field-soap-p').props.value).toBe('draft p');
+    });
+
+    // ─── LU-10 (N4 do backlog): matar a sugestão falsa de SOAP ────────────
+    //
+    // O badge "Luna: sugerir" batia direto em `mocks/luna.mock` e devolvia um
+    // texto FIXO, independente do que a transcrição real produzisse. Depois
+    // da correção, o badge só existe quando `soapDraft` (o rascunho REAL da
+    // transcrição) tem texto para aquele campo, e o texto aplicado ao campo
+    // principal é sempre o texto do rascunho — nunca um valor de biblioteca.
+    it('LU-10: após transcrição real, os badges da Luna aparecem e preenchem o campo principal com o TEXTO REAL do rascunho', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'paciente com bom estado geral',
+            soap: {
+              s: 'Subjetivo real da transcrição',
+              o: 'Objetivo real da transcrição',
+              a: 'Avaliação real da transcrição',
+              p: 'Plano real da transcrição',
+            },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId } = await chegarNoCardTranscricao();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      // Os 4 badges (um por campo SOAP principal) agora existem.
+      expect(getByTestId('luna-badge-S')).toBeTruthy();
+      expect(getByTestId('luna-badge-O')).toBeTruthy();
+      expect(getByTestId('luna-badge-A')).toBeTruthy();
+      expect(getByTestId('luna-badge-P')).toBeTruthy();
+
+      // `criarConsultaComSucesso` já digitou 'Animal ativo' em field-dsAnamnese
+      // (para passar a validação de SOAP na criação da consulta) — então
+      // `currentText` do badge S não está vazio e tocar nele abre o Alert de
+      // confirmação (mesmo comportamento coberto isoladamente em
+      // LunaSuggestionBadge.test.tsx). Confirma a substituição para exercitar
+      // o fluxo real ponta a ponta.
+      jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
+        const substituir = buttons?.find((b) => b.text === 'Substituir');
+        substituir?.onPress?.();
+      });
+      fireEvent.press(getByTestId('luna-badge-S'));
+      // dsAnamnese é o campo principal correspondente à letra S (SOAP_LABELS,
+      // [idPet].tsx:66) — recebe o rascunho REAL, nunca o texto fixo que
+      // `mocks/luna.mock.ts::SOAP_SUGESTOES.S` devolvia antes desta task
+      // ('Tutor relata apatia há 2 dias e diminuição do apetite.').
+      expect(getByTestId('field-dsAnamnese').props.value).toBe('Subjetivo real da transcrição');
+      expect(getByTestId('field-dsAnamnese').props.value).not.toBe(
+        'Tutor relata apatia há 2 dias e diminuição do apetite.',
+      );
+    });
+
+    it('LU-10: campo do rascunho vazio/null — nenhum badge para AQUELE campo específico (os outros continuam aparecendo)', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'transcrição parcial',
+            // O (objetivo) e A (avaliação) vieram vazios/nulos da transcrição —
+            // só S e P têm rascunho de verdade.
+            soap: { s: 'Subjetivo captado', o: '', a: null, p: 'Plano captado' },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId, queryByTestId } = await chegarNoCardTranscricao();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      expect(getByTestId('luna-badge-S')).toBeTruthy();
+      expect(getByTestId('luna-badge-P')).toBeTruthy();
+      expect(queryByTestId('luna-badge-O')).toBeNull();
+      expect(queryByTestId('luna-badge-A')).toBeNull();
+    });
+
+    it('LU-10: campo já digitado manualmente — tocar no badge da Luna pede confirmação antes de substituir', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'transcrição',
+            soap: { s: 'Rascunho real da Luna', o: '', a: '', p: '' },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId } = await chegarNoCardTranscricao();
+
+      // O vet já digitou algo no campo principal ANTES de gravar o áudio —
+      // simulado aqui digitando depois, já que o campo existe desde o início.
+      fireEvent.changeText(getByTestId('field-dsAnamnese'), 'Já digitado pelo vet');
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+      fireEvent.press(getByTestId('luna-badge-S'));
+
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Substituir texto atual?',
+        expect.any(String),
+        expect.arrayContaining([
+          expect.objectContaining({ text: 'Cancelar' }),
+          expect.objectContaining({ text: 'Substituir' }),
+        ]),
+      );
+      // Sem confirmar, o texto digitado pelo vet permanece intacto.
+      expect(getByTestId('field-dsAnamnese').props.value).toBe('Já digitado pelo vet');
     });
 
     it('falha de transcrição (Luna indisponível) mostra aviso e mantém campos editáveis manualmente, sem crash', async () => {

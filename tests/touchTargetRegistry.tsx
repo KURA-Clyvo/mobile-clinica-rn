@@ -715,7 +715,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       'não no KCChip) não herda `styles.interactive` porque não recebe `onPress` próprio.',
     verify: () => {
       const { getByTestId } = wrap(
-        <LunaSuggestionBadge campo="S" idPet={1} onSugest={() => {}} />,
+        // LU-10: o badge só renderiza com rascunho não-vazio — `idPet` não
+        // existe mais na prop (removido junto do import direto de mocks/).
+        <LunaSuggestionBadge campo="S" draftText="rascunho de teste" onSugest={() => {}} />,
       );
       return expectSemGeometriaExplicita(flat(getByTestId('luna-badge-S').props.style));
     },
