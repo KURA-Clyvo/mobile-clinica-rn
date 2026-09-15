@@ -33,6 +33,10 @@ jest.mock('react-native-safe-area-context', () => ({
     const R = require('react');
     return R.createElement(View, { style }, children);
   },
+  // LU-09: WhatsAppModal (montado quando "Responder no WhatsApp" resolve) usa
+  // useSafeAreaInsets — sem isto, a chamada devolve undefined e o modal lança ao
+  // desestruturar insets.bottom.
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
 
 // CQ-07: mock do módulo interno específico (nunca 'react-native' inteiro —
