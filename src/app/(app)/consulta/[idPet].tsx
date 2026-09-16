@@ -467,7 +467,7 @@ export default function ConsultaScreen() {
                     <LunaSuggestionBadge
                       campo={letra.toUpperCase() as 'S' | 'O' | 'A' | 'P'}
                       draftText={rascunhoLuna[letra]}
-                      currentText={soapDraft[letra]}
+                      currentText={soapDraft[letra] ?? ''}
                       onSugest={(texto) =>
                         setSoapDraft((prev) => ({ ...prev, [letra]: texto }))
                       }
