@@ -202,6 +202,13 @@ export default function ConsultaScreen() {
   const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);
   const [transcricaoIndisponivel, setTranscricaoIndisponivel] = useState(false);
   const [soapDraft, setSoapDraft] = useState<SoapDraft>({ s: '', o: '', a: '', p: '' });
+  // LU-10 (ruling do Felipe, 15/09) — rascunho da Luna separado do texto
+  // editável do card. `soapDraft` é o que o vet edita e o que "Confirmar
+  // SOAP" envia; `rascunhoLuna` é o valor ORIGINAL da transcrição, imutável
+  // até a próxima transcrição — é contra ele que o badge compara para saber
+  // se ainda há algo a restaurar (ver LunaSuggestionBadge: `currentText ===
+  // draftText` esconde o badge).
+  const [rascunhoLuna, setRascunhoLuna] = useState<SoapDraft>({ s: '', o: '', a: '', p: '' });
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!);
   const recorderState = useAudioRecorderState(audioRecorder);
@@ -209,8 +216,6 @@ export default function ConsultaScreen() {
   const {
     control,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<ConsultaForm>({
     resolver: zodResolver(consultaSchema),
@@ -222,8 +227,6 @@ export default function ConsultaScreen() {
       dsObservacao: '',
     },
   });
-
-  const watchedValues = watch();
 
   const onSubmit = (data: ConsultaForm) => {
     if (!petId || !usuario) return;
@@ -271,12 +274,18 @@ export default function ConsultaScreen() {
                 return;
               }
               setDsTranscricao(result.dsTranscricao);
-              setSoapDraft({
+              const draft: SoapDraft = {
                 s: result.soap.s ?? '',
                 o: result.soap.o ?? '',
                 a: result.soap.a ?? '',
                 p: result.soap.p ?? '',
-              });
+              };
+              // LU-10: `rascunhoLuna` guarda o valor ORIGINAL da transcrição
+              // (nunca tocado pelo badge); `soapDraft` continua preenchido
+              // igual a hoje — o card nasce refletindo a Luna, e o badge só
+              // aparece depois que o vet edita e diverge dele.
+              setRascunhoLuna(draft);
+              setSoapDraft(draft);
             },
             // Falha de transcrição: campos seguem editáveis manualmente, sem crash.
             onError: () => setTranscricaoIndisponivel(true),
@@ -380,18 +389,15 @@ export default function ConsultaScreen() {
 
           {/* Campos SOAP */}
           {(Object.keys(SOAP_LABELS) as SoapField[]).map((fieldKey) => {
-            const { letra, label } = SOAP_LABELS[fieldKey];
+            // LU-10 (ruling do Felipe, 15/09): o badge SAIU destes campos —
+            // nenhum caminho salva o formulário principal depois de a
+            // consulta ser criada (só "Confirmar SOAP", que envia o card,
+            // ver handleConfirmarSoap acima). O badge mora agora no card
+            // SOAP, mais abaixo.
+            const { label } = SOAP_LABELS[fieldKey];
             return (
               <View key={fieldKey}>
-                <View style={styles.labelRow}>
-                  <Text style={styles.fieldLabel}>{label}</Text>
-                  <LunaSuggestionBadge
-                    campo={letra}
-                    draftText={soapDraft[letra.toLowerCase() as keyof SoapDraft]}
-                    currentText={watchedValues[fieldKey]}
-                    onSugest={(texto) => setValue(fieldKey, texto)}
-                  />
-                </View>
+                <Text style={styles.fieldLabel}>{label}</Text>
                 <Controller
                   control={control}
                   name={fieldKey}
@@ -449,7 +455,24 @@ export default function ConsultaScreen() {
 
               {(Object.keys(SOAP_DRAFT_LABELS) as (keyof SoapDraft)[]).map((letra) => (
                 <View key={letra}>
-                  <Text style={styles.fieldLabel}>{SOAP_DRAFT_LABELS[letra]}</Text>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.fieldLabel}>{SOAP_DRAFT_LABELS[letra]}</Text>
+                    {/* LU-10 (ruling do Felipe, 15/09): o badge mora AQUI —
+                        é o card que "Confirmar SOAP" de fato envia
+                        (handleConfirmarSoap acima). `campo` usa a MESMA
+                        letra (maiúscula) do mapeamento de `SoapDraft`, sem
+                        tabela de tradução própria — elimina por construção
+                        a permutação O↔A que uma tabela hardcoded poderia
+                        introduzir (achado IMPORTANTE da G2, Frente 2). */}
+                    <LunaSuggestionBadge
+                      campo={letra.toUpperCase() as 'S' | 'O' | 'A' | 'P'}
+                      draftText={rascunhoLuna[letra]}
+                      currentText={soapDraft[letra] ?? ''}
+                      onSugest={(texto) =>
+                        setSoapDraft((prev) => ({ ...prev, [letra]: texto }))
+                      }
+                    />
+                  </View>
                   <TextInput
                     style={styles.textarea}
                     multiline

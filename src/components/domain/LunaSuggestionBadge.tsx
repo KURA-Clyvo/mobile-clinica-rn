@@ -32,6 +32,17 @@ export function LunaSuggestionBadge({
     return null;
   }
 
+  // LU-10 (ruling do Felipe, 15/09): badge só aparece quando serve para
+  // algo. Se o texto atual do campo já É o rascunho da Luna, o vet não
+  // mexeu — não há nada a restaurar, e mostrar o badge aqui seria ruído
+  // puro. Decisão de colocar aqui (no componente, não na tela): é o mesmo
+  // componente que já decide "tenho rascunho?" — a decisão "ainda serve
+  // pra algo?" é a mesma classe de pergunta, e fica testável isoladamente
+  // sem depender de nenhuma tela específica.
+  if (currentText === draftText) {
+    return null;
+  }
+
   const aplicarRascunho = () => onSugest(draftText);
 
   const handleSugest = () => {
