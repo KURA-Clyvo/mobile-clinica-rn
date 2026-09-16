@@ -242,14 +242,16 @@ describe('ConsultaScreen', () => {
       expect(getByTestId('field-soap-p').props.value).toBe('draft p');
     });
 
-    // ─── LU-10 (N4 do backlog): matar a sugestão falsa de SOAP ────────────
+    // ─── LU-10 (ruling do Felipe, 15/09): badge migrou pro CARD SOAP ───────
     //
-    // O badge "Luna: sugerir" batia direto em `mocks/luna.mock` e devolvia um
-    // texto FIXO, independente do que a transcrição real produzisse. Depois
-    // da correção, o badge só existe quando `soapDraft` (o rascunho REAL da
-    // transcrição) tem texto para aquele campo, e o texto aplicado ao campo
-    // principal é sempre o texto do rascunho — nunca um valor de biblioteca.
-    it('LU-10: após transcrição real, os badges da Luna aparecem e preenchem o campo principal com o TEXTO REAL do rascunho', async () => {
+    // Achado IMPORTANTE da G2 (Frente 5): o badge nos campos PRINCIPAIS
+    // preenchia um formulário que nenhum caminho salva depois da consulta
+    // criada — só "Confirmar SOAP" salva, e ele envia `soapDraft` (o card).
+    // O badge passou a aplicar ao CARD: `draftText` vem de `rascunhoLuna` (o
+    // valor ORIGINAL, imutável, da transcrição) e `currentText` vem de
+    // `soapDraft` (o que está no card agora, editável). Ele só aparece
+    // quando os dois DIVERGEM — sem edição do vet, não há o que restaurar.
+    it('LU-10: logo após a transcrição, nenhum badge aparece no card (soapDraft == rascunhoLuna)', async () => {
       mockMutateEnviarTranscricao.mockImplementation(
         (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
           opts?.onSuccess?.({
@@ -266,40 +268,65 @@ describe('ConsultaScreen', () => {
         },
       );
       mockIsRecording = true;
-      const { getByTestId } = await chegarNoCardTranscricao();
+      const { getByTestId, queryByTestId } = await chegarNoCardTranscricao();
 
       await act(async () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
 
-      // Os 4 badges (um por campo SOAP principal) agora existem.
-      expect(getByTestId('luna-badge-S')).toBeTruthy();
-      expect(getByTestId('luna-badge-O')).toBeTruthy();
-      expect(getByTestId('luna-badge-A')).toBeTruthy();
-      expect(getByTestId('luna-badge-P')).toBeTruthy();
+      // O card já chegou preenchido com o rascunho — e por isso NENHUM badge
+      // aparece: currentText === draftText nos 4 campos.
+      expect(getByTestId('field-soap-s').props.value).toBe('Subjetivo real da transcrição');
+      expect(queryByTestId('luna-badge-S')).toBeNull();
+      expect(queryByTestId('luna-badge-O')).toBeNull();
+      expect(queryByTestId('luna-badge-A')).toBeNull();
+      expect(queryByTestId('luna-badge-P')).toBeNull();
+    });
 
-      // `criarConsultaComSucesso` já digitou 'Animal ativo' em field-dsAnamnese
-      // (para passar a validação de SOAP na criação da consulta) — então
-      // `currentText` do badge S não está vazio e tocar nele abre o Alert de
-      // confirmação (mesmo comportamento coberto isoladamente em
-      // LunaSuggestionBadge.test.tsx). Confirma a substituição para exercitar
-      // o fluxo real ponta a ponta.
+    it('LU-10: vet edita o card e diverge do rascunho — o badge aparece e, ao tocar, RESTAURA o rascunho real da Luna', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'paciente com bom estado geral',
+            soap: {
+              s: 'Subjetivo real da transcrição',
+              o: 'Objetivo real da transcrição',
+              a: 'Avaliação real da transcrição',
+              p: 'Plano real da transcrição',
+            },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId, queryByTestId } = await chegarNoCardTranscricao();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      // O vet edita o card — diverge do rascunho da Luna.
+      fireEvent.changeText(getByTestId('field-soap-s'), 'Texto editado pelo vet');
+      expect(getByTestId('luna-badge-S')).toBeTruthy();
+      // Os outros 3 continuam iguais ao rascunho — badge continua oculto.
+      expect(queryByTestId('luna-badge-O')).toBeNull();
+
       jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
         const substituir = buttons?.find((b) => b.text === 'Substituir');
         substituir?.onPress?.();
       });
       fireEvent.press(getByTestId('luna-badge-S'));
-      // dsAnamnese é o campo principal correspondente à letra S (SOAP_LABELS,
-      // [idPet].tsx:66) — recebe o rascunho REAL, nunca o texto fixo que
-      // `mocks/luna.mock.ts::SOAP_SUGESTOES.S` devolvia antes desta task
-      // ('Tutor relata apatia há 2 dias e diminuição do apetite.').
-      expect(getByTestId('field-dsAnamnese').props.value).toBe('Subjetivo real da transcrição');
-      expect(getByTestId('field-dsAnamnese').props.value).not.toBe(
+
+      // Restaura o rascunho REAL — nunca o texto fixo que
+      // `mocks/luna.mock.ts::SOAP_SUGESTOES.S` devolvia antes do LU-10.
+      expect(getByTestId('field-soap-s').props.value).toBe('Subjetivo real da transcrição');
+      expect(getByTestId('field-soap-s').props.value).not.toBe(
         'Tutor relata apatia há 2 dias e diminuição do apetite.',
       );
     });
 
-    it('LU-10: campo do rascunho vazio/null — nenhum badge para AQUELE campo específico (os outros continuam aparecendo)', async () => {
+    it('LU-10: campo do rascunho vazio/null — nenhum badge para AQUELE campo, mesmo se o vet editar (nada a restaurar)', async () => {
       mockMutateEnviarTranscricao.mockImplementation(
         (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
           opts?.onSuccess?.({
@@ -319,13 +346,21 @@ describe('ConsultaScreen', () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
 
+      // Edita os 4 campos do card — diverge de tudo.
+      fireEvent.changeText(getByTestId('field-soap-s'), 'S editado');
+      fireEvent.changeText(getByTestId('field-soap-o'), 'O digitado do zero');
+      fireEvent.changeText(getByTestId('field-soap-a'), 'A digitado do zero');
+      fireEvent.changeText(getByTestId('field-soap-p'), 'P editado');
+
       expect(getByTestId('luna-badge-S')).toBeTruthy();
       expect(getByTestId('luna-badge-P')).toBeTruthy();
+      // O e A nunca tiveram rascunho — sem draftText, o badge nunca aparece,
+      // não importa o quanto o vet edite.
       expect(queryByTestId('luna-badge-O')).toBeNull();
       expect(queryByTestId('luna-badge-A')).toBeNull();
     });
 
-    it('LU-10: campo já digitado manualmente — tocar no badge da Luna pede confirmação antes de substituir', async () => {
+    it('LU-10: campo editado com texto NÃO-vazio — tocar no badge pede confirmação antes de restaurar', async () => {
       mockMutateEnviarTranscricao.mockImplementation(
         (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
           opts?.onSuccess?.({
@@ -339,13 +374,12 @@ describe('ConsultaScreen', () => {
       mockIsRecording = true;
       const { getByTestId } = await chegarNoCardTranscricao();
 
-      // O vet já digitou algo no campo principal ANTES de gravar o áudio —
-      // simulado aqui digitando depois, já que o campo existe desde o início.
-      fireEvent.changeText(getByTestId('field-dsAnamnese'), 'Já digitado pelo vet');
-
       await act(async () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
+
+      // O vet edita o campo do card (diverge do rascunho) com texto próprio.
+      fireEvent.changeText(getByTestId('field-soap-s'), 'Já digitado pelo vet');
 
       const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
       fireEvent.press(getByTestId('luna-badge-S'));
@@ -359,7 +393,96 @@ describe('ConsultaScreen', () => {
         ]),
       );
       // Sem confirmar, o texto digitado pelo vet permanece intacto.
-      expect(getByTestId('field-dsAnamnese').props.value).toBe('Já digitado pelo vet');
+      expect(getByTestId('field-soap-s').props.value).toBe('Já digitado pelo vet');
+    });
+
+    // Item 4 do brief LU-10 (fecha o IMPORTANTE O↔A da Frente 2, `:93`):
+    // mapeamento testado nos 4 campos ao mesmo tempo. Mordida: trocar O↔A no
+    // mapeamento do badge do card faz este teste falhar nominalmente
+    // (reproduzido manualmente nesta task, ver relatório).
+    it('LU-10: mapeamento de letra é correto nos 4 campos do card (fecha o IMPORTANTE O↔A da G2)', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'transcrição completa',
+            soap: { s: 'draft s', o: 'draft o', a: 'draft a', p: 'draft p' },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId } = await chegarNoCardTranscricao();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      // Diverge os 4 campos do rascunho para os 4 badges aparecerem.
+      fireEvent.changeText(getByTestId('field-soap-s'), 'editado s');
+      fireEvent.changeText(getByTestId('field-soap-o'), 'editado o');
+      fireEvent.changeText(getByTestId('field-soap-a'), 'editado a');
+      fireEvent.changeText(getByTestId('field-soap-p'), 'editado p');
+
+      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
+        const substituir = buttons?.find((b) => b.text === 'Substituir');
+        substituir?.onPress?.();
+      });
+
+      fireEvent.press(getByTestId('luna-badge-S'));
+      fireEvent.press(getByTestId('luna-badge-O'));
+      fireEvent.press(getByTestId('luna-badge-A'));
+      fireEvent.press(getByTestId('luna-badge-P'));
+
+      expect(getByTestId('field-soap-s').props.value).toBe('draft s');
+      expect(getByTestId('field-soap-o').props.value).toBe('draft o');
+      expect(getByTestId('field-soap-a').props.value).toBe('draft a');
+      expect(getByTestId('field-soap-p').props.value).toBe('draft p');
+    });
+
+    // Item 5 do brief LU-10: o rascunho aplicado pelo badge chega ao que é
+    // de fato SALVO ("Confirmar SOAP" envia `soapDraft`, o card). Mordida:
+    // se o badge voltasse a chamar `setValue` do formulário (campo
+    // principal) em vez de `setSoapDraft`, o dto enviado NÃO teria o texto
+    // restaurado — este teste falharia nominalmente.
+    it('LU-10: o rascunho aplicado pelo badge chega ao dto que "Confirmar SOAP" envia', async () => {
+      mockMutateEnviarTranscricao.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: (r: unknown) => void }) => {
+          opts?.onSuccess?.({
+            idEventoClinico: 42,
+            dsTranscricao: 'transcrição',
+            soap: { s: 'Rascunho real da Luna', o: '', a: '', p: '' },
+            stSoapConfirmado: false,
+          });
+        },
+      );
+      mockIsRecording = true;
+      const { getByTestId } = await chegarNoCardTranscricao();
+
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-gravar'));
+      });
+
+      fireEvent.changeText(getByTestId('field-soap-s'), 'texto que o vet vai descartar');
+      jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
+        const substituir = buttons?.find((b) => b.text === 'Substituir');
+        substituir?.onPress?.();
+      });
+      fireEvent.press(getByTestId('luna-badge-S'));
+
+      mockMutateConfirmarSoap.mockImplementation(
+        (_vars: unknown, opts: { onSuccess?: () => void }) => {
+          opts?.onSuccess?.();
+        },
+      );
+      fireEvent.press(getByTestId('btn-confirmar-soap'));
+
+      await waitFor(() => {
+        expect(mockMutateConfirmarSoap).toHaveBeenCalledWith(
+          { idEventoClinico: 42, dto: { s: 'Rascunho real da Luna', o: '', a: '', p: '' } },
+          expect.any(Object),
+        );
+      });
     });
 
     it('falha de transcrição (Luna indisponível) mostra aviso e mantém campos editáveis manualmente, sem crash', async () => {

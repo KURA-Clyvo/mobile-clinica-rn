@@ -134,6 +134,33 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
     expect(onSugest).toHaveBeenCalledWith(RASCUNHO_REAL);
   });
 
+  // LU-10 (ruling do Felipe, 15/09): badge só aparece quando serve para
+  // algo. `currentText === draftText` (o vet não mexeu, ou já restaurou)
+  // não tem nada a restaurar — o badge some.
+  it('currentText igual ao draftText — badge fica oculto (nada para restaurar)', () => {
+    const { queryByTestId } = wrap(
+      <LunaSuggestionBadge
+        campo="S"
+        draftText={RASCUNHO_REAL}
+        currentText={RASCUNHO_REAL}
+        onSugest={jest.fn()}
+      />,
+    );
+    expect(queryByTestId('luna-badge-S')).toBeNull();
+  });
+
+  it('currentText diferente do draftText — badge aparece normalmente', () => {
+    const { getByTestId } = wrap(
+      <LunaSuggestionBadge
+        campo="S"
+        draftText={RASCUNHO_REAL}
+        currentText="Texto diferente do rascunho"
+        onSugest={jest.fn()}
+      />,
+    );
+    expect(getByTestId('luna-badge-S')).toBeTruthy();
+  });
+
   it('cancelando o Alert NÃO chama onSugest', () => {
     const onSugest = jest.fn();
     jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
