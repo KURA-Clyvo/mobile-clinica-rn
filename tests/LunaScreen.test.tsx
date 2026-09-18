@@ -202,6 +202,17 @@ describe('LunaScreen', () => {
     expect(queryByTestId('svc-visaoComputacional')).toBeNull();
   });
 
+  // Shape medido contra a Luna real: oracle/kura_api são BOOLEANOS. Com o tipo antigo
+  // (string) a tela chamava .toLowerCase() num boolean e ficava em branco.
+  it('aceita oracle/kura_api booleanos, que é o que a Luna real devolve', () => {
+    mockUseLunaHealth.mockReturnValue({
+      data: { status: 'degraded', oracle: true, kura_api: false, httpStatus: 503 as const },
+    });
+    const { getByTestId } = wrap(<LunaScreen />);
+    expect(getByTestId('svc-oracle').props.children).toBe('UP');
+    expect(getByTestId('svc-kura_api').props.children).toBe('DOWN');
+  });
+
   it('sub-service card reflects "down" for a service whose value is not ok/up', () => {
     mockUseLunaHealth.mockReturnValue({ data: MOCK_HEALTH_DEGRADADO });
     const { getByTestId } = wrap(<LunaScreen />);

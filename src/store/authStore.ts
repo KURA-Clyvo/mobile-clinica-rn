@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '@services/queryClient';
+import { AUTH_TOKEN_KEY } from '@services/api/client';
 import { VeterinarioResponse } from '../types/api';
 import type { TipoPerfilUsuario } from '../utils/perfilUsuario';
 
@@ -65,12 +66,18 @@ export const useAuthStore = create<AuthState>()(
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
 
+      // O interceptor do apiClient (services/api/client.ts) lê o Bearer de
+      // AsyncStorage[AUTH_TOKEN_KEY], não deste store. Até aqui ninguém escrevia essa
+      // chave: fora do modo mock TODA chamada saía sem Authorization e levava 401 —
+      // login ok, dashboard vazio (o modo mock mascarava, porque não passa pelo token).
       setSession: ({ token, expiresAt, email, tpPerfil, usuario }) => {
         set({ token, expiresAt, email, tpPerfil, usuario });
+        void AsyncStorage.setItem(AUTH_TOKEN_KEY, token);
       },
 
       clearSession: () => {
         set({ token: null, expiresAt: null, email: null, tpPerfil: null, usuario: null });
+        void AsyncStorage.removeItem(AUTH_TOKEN_KEY);
         queryClient.clear();
       },
 
@@ -92,6 +99,8 @@ export const useAuthStore = create<AuthState>()(
       }),
       onRehydrateStorage: () => (state) => {
         // ← chamado quando o AsyncStorage termina de ser lido
+        // Sessão persistida antes da correção acima: repõe a chave que o interceptor lê.
+        if (state?.token) void AsyncStorage.setItem(AUTH_TOKEN_KEY, state.token);
         state?.setHasHydrated(true);
       },
     },

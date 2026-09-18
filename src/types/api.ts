@@ -543,10 +543,13 @@ export interface LunaHealthResponse {
 // nesta máquina. Tratados aqui como string opaca; quem decide "está up?" compara de
 // forma defensiva e case-insensitive (ver isServicoUp em luna.tsx), não assume um
 // literal específico.
+// Medido contra a Luna real (GET /ready, web/schemas.py::ReadyResponse): `oracle` e
+// `kura_api` são BOOLEANOS (`{"status":"ok","kura_api":true,"oracle":true}`). O tipo
+// antigo (string) fazia a tela Luna chamar `.toLowerCase()` num boolean e ficar branca.
 export interface LunaReadyResponse {
   status: string;
-  oracle: string;
-  kura_api: string;
+  oracle: boolean | string;
+  kura_api: boolean | string;
 }
 
 // ─── Erros normalizados ───────────────────────────────────────
