@@ -73,8 +73,10 @@ function isLunaHealthUp(
 // isLunaHealthUp() não dependa mais de uma chave específica do corpo (ver acima), uma
 // chave individual como `oracle` pode estar ausente sem que isso seja um crash; nesse
 // caso trata como "não confirmado up", não lança.
-function isServicoUp(valor: string | undefined | null): boolean {
+function isServicoUp(valor: boolean | string | undefined | null): boolean {
   if (valor == null) return false;
+  // A Luna real devolve booleano (ver LunaReadyResponse); string fica por compatibilidade.
+  if (typeof valor === 'boolean') return valor;
   const v = valor.toLowerCase();
   return v === 'ok' || v === 'up';
 }
