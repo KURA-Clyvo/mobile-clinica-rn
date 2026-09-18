@@ -148,3 +148,17 @@ describe('authStore', () => {
     logSpy.mockRestore();
   });
 });
+
+// O apiClient lê o Bearer de AsyncStorage['KURA_AUTH_TOKEN']. Sem estas escritas, fora
+// do modo mock toda chamada autenticada levava 401 (login ok, dashboard vazio).
+describe('token visível para o interceptor do apiClient', () => {
+  it('setSession grava o token na chave lida pelo apiClient', () => {
+    useAuthStore.getState().setSession(sessao({ token: 'tok-real' }));
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith('KURA_AUTH_TOKEN', 'tok-real');
+  });
+
+  it('clearSession remove a chave', () => {
+    useAuthStore.getState().clearSession();
+    expect(AsyncStorage.removeItem).toHaveBeenCalledWith('KURA_AUTH_TOKEN');
+  });
+});
