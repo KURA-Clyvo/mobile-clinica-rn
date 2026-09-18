@@ -45,10 +45,21 @@ npm start          # Expo Dev Server
 npm run android    # Android
 npm run ios        # iOS (macOS only)
 npm run web        # Web (react-native-web, Expo Router com output "static")
+npm run build:web  # Build estático da web em dist/ (para hospedar)
 npm test           # Jest
 npm run lint       # ESLint
 npm run type-check # TypeScript
 ```
+
+> ℹ️ O Metro roda na porta **8082**, não na 8081 padrão do Expo: a 8081 é a da API Java
+> (tutor) no docker-compose do DevOps-Cloud. Com a stack de pé e o Metro na 8081, o
+> `expo export` fica pendurado em "Static rendering is enabled" e o dev server não sobe.
+> Por isso `build:web` passa por `scripts/export-web.js` (o `expo export` não aceita `--port`).
+>
+> ℹ️ Trocou o `.env`? Reinicie com cache limpo (`npx expo start -c --port 8082`): as
+> variáveis `EXPO_PUBLIC_*` são embutidas no bundle, e sem `-c` o app pode continuar com o
+> valor antigo de `EXPO_PUBLIC_USE_MOCKS`. Com `EXPO_PUBLIC_USE_MOCKS=false` na web, a origem
+> (ex. `http://localhost:8082`) precisa estar em `CORS_ALLOWED_ORIGINS` da API .NET e da Luna.
 
 ## Branches
 
@@ -127,7 +138,7 @@ cd android && ./gradlew assembleDebug
 > Para iterar só no emulador x86_64, restrinja a ABI:
 > `./gradlew assembleDebug -PreactNativeArchitectures=x86_64`.
 
-> ℹ️ `npm run android` continua sendo `expo start --android` (Metro), **não** `expo run:android`.
+> ℹ️ `npm run android` continua sendo `expo start --android --port 8082` (Metro), **não** `expo run:android`.
 > O `expo prebuild` reescreve esse script no `package.json` como efeito colateral; a reescrita é
 > revertida de propósito para preservar o fluxo documentado na seção *Scripts*.
 
