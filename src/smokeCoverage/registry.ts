@@ -76,6 +76,10 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   'eventos-clinicos.service.ts::baixarEAbrirReceituario': {
     coberto: 'eventos-clinicos/{id}/receituario/{idDocumento}/download (GET)',
   },
+  // Ramo web do mesmo download (expo-file-system não existe no navegador).
+  'eventos-clinicos.service.ts::abrirReceituarioNoNavegador': {
+    coberto: 'eventos-clinicos/{id}/receituario/{idDocumento}/download (GET)',
+  },
 
   // luna.service.ts
   'luna.service.ts::enviarWhatsApp': {

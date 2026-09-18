@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -131,8 +132,13 @@ export async function baixarEAbrirReceituario(
   idEventoClinico: number,
   documento: DocumentoResponse,
 ): Promise<void> {
+  const caminho = `/api/v1/eventos-clinicos/${idEventoClinico}/receituario/${documento.id}/download`;
+  if (Platform.OS === 'web') {
+    await abrirReceituarioNoNavegador(caminho, documento);
+    return;
+  }
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
-  const url = `${baseUrl}/api/v1/eventos-clinicos/${idEventoClinico}/receituario/${documento.id}/download`;
+  const url = `${baseUrl}${caminho}`;
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
 
   const destino = new File(Paths.cache, documento.nmArquivo);
@@ -151,4 +157,31 @@ export async function baixarEAbrirReceituario(
       dialogTitle: documento.nmArquivo,
     });
   }
+}
+
+/**
+ * Web: expo-file-system não tem implementação no navegador (o downloadFileAsync de lá só
+ * loga um warning e resolve sem fazer nada — o botão ficava mudo). Aqui o PDF vem pelo
+ * apiClient (Bearer pelo interceptor) como blob e abre numa aba nova; se o navegador
+ * bloquear o pop-up (a chamada já saiu do gesto do clique), cai para download direto.
+ */
+async function abrirReceituarioNoNavegador(
+  caminho: string,
+  documento: DocumentoResponse,
+): Promise<void> {
+  const { data } = await apiClient.get<Blob>(caminho, { responseType: 'blob' });
+  const blob =
+    data instanceof Blob ? data : new Blob([data as BlobPart], { type: documento.dsTipoMime });
+  const url = URL.createObjectURL(blob);
+  const aba = window.open(url, '_blank');
+  if (!aba) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = documento.nmArquivo;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+  // Revoga depois: a aba nova ainda precisa ler o blob enquanto carrega.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
