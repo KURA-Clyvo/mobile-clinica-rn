@@ -2,15 +2,37 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "npm run build:web",
+  "buildCommand": "npm run build:web && mv dist/assets/node_modules dist/assets/nm",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/proxy/clinica/:path*", "destination": "http://kura-alpha-clinica-api.eastus2.azurecontainer.io:8080/:path*" },
-    { "source": "/proxy/luna/:path*", "destination": "http://kura-alpha-luna-ai.eastus2.azurecontainer.io:8000/:path*" },
-    { "source": "/consulta/:idPet", "destination": "/consulta/[idPet]" },
-    { "source": "/receituario/:idPet", "destination": "/receituario/[idPet]" },
-    { "source": "/teleorientacao/:idPet", "destination": "/teleorientacao/[idPet]" },
-    { "source": "/pacientes/:id", "destination": "/pacientes/[id]" }
+    {
+      "source": "/assets/node_modules/:path*",
+      "destination": "/assets/nm/:path*"
+    },
+    {
+      "source": "/proxy/clinica/:path*",
+      "destination": "http://kura-alpha-clinica-api.eastus2.azurecontainer.io:8080/:path*"
+    },
+    {
+      "source": "/proxy/luna/:path*",
+      "destination": "http://kura-alpha-luna-ai.eastus2.azurecontainer.io:8000/:path*"
+    },
+    {
+      "source": "/consulta/:idPet",
+      "destination": "/consulta/[idPet]"
+    },
+    {
+      "source": "/receituario/:idPet",
+      "destination": "/receituario/[idPet]"
+    },
+    {
+      "source": "/teleorientacao/:idPet",
+      "destination": "/teleorientacao/[idPet]"
+    },
+    {
+      "source": "/pacientes/:id",
+      "destination": "/pacientes/[id]"
+    }
   ]
 }
