@@ -1,3 +1,9 @@
+// Fuso fixo da suíte: o app roda no Brasil e há testes que dependem disso de propósito
+// (tests/periodoFinanceiro.test.ts prova que `new Date('2026-09-01')` desloca o dia num
+// fuso negativo). O runner do CI (ubuntu-latest) está em UTC, onde esse controle falhava.
+// Setado aqui, antes de o Jest criar os workers, que herdam o ambiente.
+process.env.TZ = 'America/Sao_Paulo';
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',
