@@ -149,6 +149,17 @@ export interface PetResponse {
   tutores: TutorMini[];
 }
 
+// ─── Foto do pet (FT-07/FT-03) ────────────────────────────────
+// Contrato do backend (FT-03, backend-clinica-dotnet main 5adb9e5):
+// POST /api/v1/pets/{id}/foto devolve 200 com estes 2 campos — DsFotoChave
+// nunca é exposta para consumo direto pelo app (a URL de exibição é a
+// FT-04/FT-08, dsFotoUrl/dsFotoThumbUrl em PetResponse), só serve para
+// confirmar que o upload persistiu.
+export interface PetFotoResponse {
+  dsFotoChave: string;
+  dtFotoAtualizacao: string;
+}
+
 export interface TimelineEventResponse {
   idEventoClinico: number;
   nmTipo: 'CONSULTA' | 'VACINA' | 'PRESCRICAO' | 'EXAME' | 'TELEORIENTACAO';
