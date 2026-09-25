@@ -128,6 +128,34 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   'pets.service.ts::listPets': { coberto: 'pets/listar' },
   'pets.service.ts::getPetById': { coberto: 'pets/{id} (GET detalhe, contexto clinica)' },
   'pets.service.ts::getPetTimeline': { coberto: 'pets/timeline (GET, nao mais 500)' },
+  // FT-07 (KURA_BACKLOG_FOTO_PET.md) — POST /api/v1/pets/{id}/foto é novo neste
+  // ciclo. `anexarParteFoto` toca rede via `fetch(...)` no ramo web (busca a
+  // blob: URL do arquivo já manipulado antes de anexar ao FormData) — não é uma
+  // chamada ao backend, mas o walker (linha ~563 de discover-network-consumers.ts)
+  // trata qualquer `fetch` como toque de rede, então precisa de entrada aqui como
+  // qualquer outra. `uploadFoto` é a chamada real ao backend (`apiClient.post`).
+  // grep confirmado (`grep -n "pets.*foto\|/foto" DevOps-Cloud/scripts/smoke-
+  // contratos.sh` -> 0 linhas, com o repo irmão clonado ao lado nesta sessão).
+  // Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta
+  // task (que só toca mobile-clinica-rn) — candidato a follow-up da FT-10 (gate
+  // G4 do backlog de foto).
+  'pets.service.ts::anexarParteFoto': {
+    naoCoberto:
+      'fetch(uri) no ramo web de uploadFoto — busca a blob: URL do arquivo JÁ ' +
+      'MANIPULADO (expo-image-manipulator) para virar Blob antes do FormData, não é ' +
+      'uma chamada ao backend. Sem check hoje em smoke-contratos.sh; extensão de ' +
+      'DevOps-Cloud fora do escopo desta task.',
+  },
+  'pets.service.ts::uploadFoto': {
+    naoCoberto:
+      'POST /api/v1/pets/{id}/foto (FT-03) — multipart com 2 partes (thumb/media), ' +
+      'side-effecting (grava DS_FOTO_CHAVE/DT_FOTO_ATUALIZACAO real e persiste ' +
+      'arquivo no volume de storage), com o mesmo grau de complexidade de setup dos ' +
+      'outros multipart deste registry (enviarTranscricao) — exige um arquivo de ' +
+      'imagem válido versionado ou gerado on-the-fly. Sem check hoje em smoke-' +
+      'contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo desta task ' +
+      '— candidato a follow-up na FT-10 (gate G4 do backlog de foto).',
+  },
 
   // teleconsulta.service.ts
   'teleconsulta.service.ts::criarOuObterSala': { coberto: 'teleconsulta/{id}/sala (POST criar)' },

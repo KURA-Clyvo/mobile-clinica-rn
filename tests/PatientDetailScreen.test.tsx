@@ -52,15 +52,21 @@ function setViewport(width: number, height: number) {
   mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
 }
 
-jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
+// FT-07: a tela agora também chama `useUploadFotoPet` (botão "Foto") — sem
+// mockar aqui, o mesmo módulo mockado por `usePetDetail: jest.fn()` devolve
+// `useUploadFotoPet: undefined` e a tela quebra em TODO teste deste arquivo
+// com "useUploadFotoPet is not a function" (medido: era exatamente esse o
+// sintoma antes desta linha).
+jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn(), useUploadFotoPet: jest.fn() }));
 jest.mock('@hooks/usePetTimeline', () => ({ usePetTimeline: jest.fn() }));
 
 import { useLocalSearchParams } from 'expo-router';
-import { usePetDetail } from '../src/hooks/usePetDetail';
+import { usePetDetail, useUploadFotoPet } from '../src/hooks/usePetDetail';
 import { usePetTimeline } from '../src/hooks/usePetTimeline';
 
 const mockUseLocalSearchParams = useLocalSearchParams as jest.Mock;
 const mockUsePetDetail = usePetDetail as jest.Mock;
+const mockUseUploadFotoPet = useUploadFotoPet as jest.Mock;
 const mockUsePetTimeline = usePetTimeline as jest.Mock;
 
 const MOCK_PET: PetResponse = {
@@ -122,6 +128,7 @@ beforeEach(() => {
   mockUseLocalSearchParams.mockReturnValue({ id: '1' });
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
   mockUsePetTimeline.mockReturnValue({ data: MOCK_EVENTS, isLoading: false });
+  mockUseUploadFotoPet.mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
 
 describe('PatientDetailScreen', () => {
