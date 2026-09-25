@@ -1,5 +1,5 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import type { PetResponse, TimelineEventResponse } from '../types/api';
+import type { PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
 
 const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000).toISOString();
@@ -168,4 +168,31 @@ export async function timeline(config: InternalAxiosRequestConfig): Promise<Time
   const match = /\/pets\/(\d+)\/timeline$/.exec(url);
   const id = match ? parseInt(match[1] ?? '0', 10) : 0;
   return TIMELINES[id] ?? [];
+}
+
+/**
+ * FT-07 (regra v5 — o mock é o 2º consumidor do service): `POST
+ * /api/v1/pets/{id}/foto` real (FT-03) devolve 200 com `dsFotoChave` +
+ * `dtFotoAtualizacao`. Este handler NÃO lança e NÃO inspeciona o
+ * `FormData` (o mock-adapter não decodifica multipart) — só confirma o
+ * shape cru que o service espera de volta, para o par service×mock
+ * executar sem exceção sob `EXPO_PUBLIC_USE_MOCKS=true` (G4b).
+ */
+export async function uploadFoto(config: InternalAxiosRequestConfig): Promise<PetFotoResponse> {
+  const url = config.url ?? '';
+  const match = /\/pets\/(\d+)\/foto$/.exec(url);
+  const id = match ? parseInt(match[1] ?? '0', 10) : 0;
+  const pet = PETS.find((p) => p.id === id);
+  if (!pet) {
+    const err: { status: number; code: string; message: string } = {
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Pet com ID ${id} não encontrado`,
+    };
+    return Promise.reject(err);
+  }
+  return {
+    dsFotoChave: `clinica/1/pet/${id}/${Date.now()}.webp`,
+    dtFotoAtualizacao: new Date().toISOString(),
+  };
 }
