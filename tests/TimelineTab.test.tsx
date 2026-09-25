@@ -23,13 +23,18 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn() }));
+// FT-07: a tela também chama `useUploadFotoPet` (botão "Foto") — sem mockar
+// aqui, o módulo mockado devolve `useUploadFotoPet: undefined` e a tela
+// quebra em TODO teste deste arquivo (mesma causa do ajuste em
+// PatientDetailScreen.test.tsx).
+jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: jest.fn(), useUploadFotoPet: jest.fn() }));
 jest.mock('@hooks/usePetTimeline', () => ({ usePetTimeline: jest.fn() }));
 
-import { usePetDetail } from '../src/hooks/usePetDetail';
+import { usePetDetail, useUploadFotoPet } from '../src/hooks/usePetDetail';
 import { usePetTimeline } from '../src/hooks/usePetTimeline';
 
 const mockUsePetDetail = usePetDetail as jest.Mock;
+const mockUseUploadFotoPet = useUploadFotoPet as jest.Mock;
 const mockUsePetTimeline = usePetTimeline as jest.Mock;
 
 const MOCK_PET: PetResponse = {
@@ -63,6 +68,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
   mockUsePetTimeline.mockReturnValue({ data: MOCK_EVENTS, isLoading: false });
+  mockUseUploadFotoPet.mockReturnValue({ mutate: jest.fn(), isPending: false });
 });
 
 describe('TimelineTab', () => {

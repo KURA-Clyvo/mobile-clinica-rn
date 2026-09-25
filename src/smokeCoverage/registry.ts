@@ -128,6 +128,47 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   'pets.service.ts::listPets': { coberto: 'pets/listar' },
   'pets.service.ts::getPetById': { coberto: 'pets/{id} (GET detalhe, contexto clinica)' },
   'pets.service.ts::getPetTimeline': { coberto: 'pets/timeline (GET, nao mais 500)' },
+  // FT-07 (KURA_BACKLOG_FOTO_PET.md) — POST /api/v1/pets/{id}/foto é novo neste
+  // ciclo. `anexarParteFoto` toca rede via `fetch(...)` no ramo web (busca a
+  // blob: URL do arquivo já manipulado antes de anexar ao FormData) — não é uma
+  // chamada ao backend, mas o walker (linha ~563 de discover-network-consumers.ts)
+  // trata qualquer `fetch` como toque de rede, então precisa de entrada aqui como
+  // qualquer outra. `uploadFoto` é a chamada real ao backend (`apiClient.post`).
+  // grep confirmado (`grep -n "pets.*foto\|/foto" DevOps-Cloud/scripts/smoke-
+  // contratos.sh` -> 0 linhas, com o repo irmão clonado ao lado nesta sessão).
+  //
+  // Fix wave G2 (m-3): `SMOKE_COVERAGE_REGISTRY`/`smoke-coverage.test.ts` só têm
+  // 2 categorias (`coberto`/`naoCoberto`) e nenhum mecanismo de exclusão — toda
+  // função descoberta por AST PRECISA de entrada, sem terceira opção (medido
+  // lendo `tests/smoke-coverage.test.ts`, metade 1). A razão anterior desta
+  // entrada dizia "extensão de DevOps-Cloud fora do escopo desta task", que é a
+  // MESMA frase usada para endpoints que faltam check hoje mas SÃO cobríveis no
+  // futuro (`uploadFoto` logo abaixo é um deles) — o G2 (g2-ft07.md, m-3) apontou
+  // que isso é falso para este caso específico: `anexarParteFoto` nunca vai
+  // chamar o backend, porque o único `fetch` dela é local
+  // (`fetch(variante.uri)` de uma `blob:` URL do próprio navegador, saída do
+  // `canvas.toBlob` do expo-image-manipulator — nunca sai da máquina). Não há
+  // "extensão do script" que resolva isso: nenhum script de smoke-contratos
+  // jamais vai ter check para uma chamada que não é HTTP contra o servidor.
+  'pets.service.ts::anexarParteFoto': {
+    naoCoberto:
+      'fetch(variante.uri) no ramo web de uploadFoto — busca uma blob: URL LOCAL ' +
+      '(saída do canvas.toBlob do expo-image-manipulator, já MANIPULADA) para virar ' +
+      'Blob antes de anexar ao FormData. NÃO é chamada de rede ao backend — é helper ' +
+      'local sem chamada HTTP. `naoCoberto` aqui é PERMANENTE, não "sem check hoje": ' +
+      'nenhuma extensão futura de smoke-contratos.sh cobre isto, porque não existe ' +
+      'check possível para uma chamada que nunca sai do navegador.',
+  },
+  'pets.service.ts::uploadFoto': {
+    naoCoberto:
+      'POST /api/v1/pets/{id}/foto (FT-03) — multipart com 2 partes (thumb/media), ' +
+      'side-effecting (grava DS_FOTO_CHAVE/DT_FOTO_ATUALIZACAO real e persiste ' +
+      'arquivo no volume de storage), com o mesmo grau de complexidade de setup dos ' +
+      'outros multipart deste registry (enviarTranscricao) — exige um arquivo de ' +
+      'imagem válido versionado ou gerado on-the-fly. Sem check hoje em smoke-' +
+      'contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo desta task ' +
+      '— candidato a follow-up na FT-10 (gate G4 do backlog de foto).',
+  },
 
   // teleconsulta.service.ts
   'teleconsulta.service.ts::criarOuObterSala': { coberto: 'teleconsulta/{id}/sala (POST criar)' },

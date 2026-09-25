@@ -29,6 +29,10 @@ const ROUTES: [RegExp, MockHandler][] = [
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],
   [/\/pets\/\d+\/timeline$/, petsMock.timeline],
+  // FT-07: mesma forma estrutural de `/usuarios-clinica\/\d+\/senha$/` acima —
+  // ancorada em `$`, terminando em letra ("foto"), mutuamente exclusiva de
+  // `/pets\/\d+$/` (que exige terminar em dígito) por construção.
+  [/\/pets\/\d+\/foto$/, petsMock.uploadFoto],
   [/\/pets\/\d+$/, petsMock.byId],
   [/\/pets$/, petsMock.list],
   [/\/eventos-clinicos\/consultas$/, eventosMock.criarConsulta],

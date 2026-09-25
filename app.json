@@ -39,6 +39,13 @@
         {
           "microphonePermission": "Permitir que o KURA acesse o microfone para gravar o áudio da consulta e gerar o rascunho SOAP."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o KURA acesse suas fotos para cadastrar a foto do pet.",
+          "cameraPermission": "Permitir que o KURA acesse a câmera para fotografar o pet."
+        }
       ]
     ],
     "experiments": {

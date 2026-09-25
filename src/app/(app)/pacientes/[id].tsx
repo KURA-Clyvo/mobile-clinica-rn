@@ -5,13 +5,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
-import { usePetDetail } from '@hooks/usePetDetail';
+import { usePetDetail, useUploadFotoPet } from '@hooks/usePetDetail';
 import { usePetTimeline } from '@hooks/usePetTimeline';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
@@ -25,7 +27,7 @@ import { calcularIdade, formatDateShort } from '@utils/date';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import { useAuthStore } from '@store/authStore';
-import type { TimelineEventResponse } from '../../../types/api';
+import type { ApiError, TimelineEventResponse } from '../../../types/api';
 
 type TabKey = 'timeline' | 'vacinas' | 'docs';
 
@@ -251,6 +253,7 @@ export default function PacienteDetailScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('timeline');
 
   const { data: pet, isLoading, isError } = usePetDetail(petId);
+  const uploadFotoMutation = useUploadFotoPet();
 
   if (isLoading) {
     return (
@@ -305,6 +308,73 @@ export default function PacienteDetailScreen() {
     Alert.alert('', 'Telefone copiado');
   };
 
+  // FT-07 — sobe a foto do pet. `useUploadFotoPet` (usePetDetail.ts) cuida
+  // de gerar as 2 variantes (256/1080, WebP) via `utils/fotoPet.ts` e
+  // invalidar o cache do pet ao terminar; aqui só decide a ORIGEM da imagem
+  // (galeria/câmera) e traduz erro em mensagem humana (400/413).
+  const enviarFoto = (uriOriginal: string, larguraOriginal?: number) => {
+    if (!pet) return;
+    uploadFotoMutation.mutate(
+      { idPet: pet.id, uriOriginal, larguraOriginal },
+      {
+        onSuccess: () => Alert.alert('', 'Foto atualizada com sucesso.'),
+        onError: (erro: unknown) => {
+          const apiError = erro as ApiError;
+          const mensagem =
+            apiError.status === 413
+              ? 'Essa imagem é grande demais. Tente uma foto menor.'
+              : apiError.status === 400
+                ? 'Não foi possível processar essa imagem. Tente outra foto.'
+                : 'Não foi possível enviar a foto. Tente novamente.';
+          Alert.alert('', mensagem);
+        },
+      },
+    );
+  };
+
+  const escolherDaGaleria = async () => {
+    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissao.granted) {
+      Alert.alert('', 'Permita o acesso às fotos para cadastrar a imagem do pet.');
+      return;
+    }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+    if (resultado.canceled || !resultado.assets[0]) return;
+    // Fix wave G2 (m-4): `width` vem do próprio picker — 0 quando o SO não
+    // informa (ImagePicker.types.d.ts:248), tratado como "desconhecida" em
+    // `larguraEfetiva` (utils/fotoPet.ts).
+    enviarFoto(resultado.assets[0].uri, resultado.assets[0].width);
+  };
+
+  const tirarComCamera = async () => {
+    const permissao = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permissao.granted) {
+      Alert.alert('', 'Permita o acesso à câmera para fotografar o pet.');
+      return;
+    }
+    const resultado = await ImagePicker.launchCameraAsync({ quality: 1 });
+    if (resultado.canceled || !resultado.assets[0]) return;
+    enviarFoto(resultado.assets[0].uri, resultado.assets[0].width);
+  };
+
+  // Câmera "onde houver" (brief FT-07): a web não tem um fluxo de câmera
+  // nativo confiável via expo-image-picker (o input de arquivo já cobre a
+  // galeria/upload local) — só a opção de galeria aparece nesse ambiente.
+  const handleEscolherFoto = () => {
+    if (Platform.OS === 'web') {
+      escolherDaGaleria();
+      return;
+    }
+    Alert.alert('Foto do pet', 'Escolha a origem da imagem', [
+      { text: 'Galeria', onPress: () => escolherDaGaleria() },
+      { text: 'Câmera', onPress: () => tirarComCamera() },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   return (
     // CQ-15: mesmo raciocínio do bloco de loading acima — paddingHorizontal={0}
     // porque o `header` é faixa colorida de borda a borda. CQ-15 fix wave
@@ -339,6 +409,20 @@ export default function PacienteDetailScreen() {
           própria tela — ver guarda em consulta/[idPet].tsx e
           receituario/[idPet].tsx. */}
       <View style={styles.actionRow}>
+        {/* FT-07: papéis GESTOR e VETERINARIO podem subir foto (contrato
+            FT-03) — diferente de Consulta/Receituário, não depende de
+            `usuario` (ficha de veterinário), por isso fica fora do guard
+            `{usuario && ...}` que protege os outros 2 botões. */}
+        <KCButton
+          variant="secondary"
+          size="sm"
+          loading={uploadFotoMutation.isPending}
+          disabled={uploadFotoMutation.isPending}
+          onPress={handleEscolherFoto}
+          testID="btn-foto"
+        >
+          Foto
+        </KCButton>
         {usuario && (
           <KCButton
             variant="primary"

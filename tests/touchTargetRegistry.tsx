@@ -230,7 +230,18 @@ const mockUsePetDetailReturn = jest.fn(() => ({
   isLoading: false,
   isError: false,
 }));
-jest.mock('@hooks/usePetDetail', () => ({ usePetDetail: () => mockUsePetDetailReturn() }));
+// FT-07: PacienteDetailScreen também chama useUploadFotoPet() (botão "Foto")
+// — sem mockar aqui, `undefined()` derruba TODO render desta tela neste
+// arquivo, mesmo raciocínio do comentário de useAtualizarStatusAgendamento
+// mais abaixo.
+const mockUseUploadFotoPetReturn = jest.fn(() => ({
+  mutate: jest.fn(),
+  isPending: false,
+}));
+jest.mock('@hooks/usePetDetail', () => ({
+  usePetDetail: () => mockUsePetDetailReturn(),
+  useUploadFotoPet: () => mockUseUploadFotoPetReturn(),
+}));
 
 const mockUsePetTimelineReturn = jest.fn(() => ({
   data: [] as TimelineEventResponse[],

@@ -149,6 +149,20 @@ export interface PetResponse {
   tutores: TutorMini[];
 }
 
+// ─── Foto do pet (FT-07/FT-03) ────────────────────────────────
+// Contrato do backend (FT-03, backend-clinica-dotnet main 5adb9e5,
+// PetFotoResponseDto.cs:10): POST /api/v1/pets/{id}/foto devolve 200 com
+// estes 3 campos — DsFotoChave nunca é exposta para consumo direto pelo app
+// (a URL de exibição é a FT-04/FT-08, dsFotoUrl/dsFotoThumbUrl em
+// PetResponse); idPet e dsFotoChave/dtFotoAtualizacao só servem para
+// confirmar que o upload persistiu. `idPet` não é consumido pela UI hoje
+// (fix wave G2, m-2) — mantido só para o shape bater com o backend real.
+export interface PetFotoResponse {
+  idPet: number;
+  dsFotoChave: string;
+  dtFotoAtualizacao: string;
+}
+
 export interface TimelineEventResponse {
   idEventoClinico: number;
   nmTipo: 'CONSULTA' | 'VACINA' | 'PRESCRICAO' | 'EXAME' | 'TELEORIENTACAO';
