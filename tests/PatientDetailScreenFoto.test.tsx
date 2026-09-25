@@ -244,3 +244,29 @@ describe('PatientDetailScreen — câmera nunca oferecida na web (m-1, fix wave 
     );
   });
 });
+
+// FT-08: o header do detalhe usa a variante 1080 (dsFotoUrl), nunca a thumb
+// 256 (regra A5 do backlog — lista usa a thumb, detalhe usa a 1080).
+describe('PatientDetailScreen — avatar com foto real (FT-08)', () => {
+  const FOTO_1080 =
+    'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_1080.webp?exp=1&sig=a';
+  const FOTO_256 =
+    'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_256.webp?exp=1&sig=b';
+
+  it('passa a variante 1080 (dsFotoUrl) para o portrait do header — mordida: trocar por dsFotoThumbUrl faz esta asserção falhar', () => {
+    mockUsePetDetail.mockReturnValue({
+      data: { ...MOCK_PET, dsFotoUrl: FOTO_1080, dsFotoThumbUrl: FOTO_256 },
+      isLoading: false,
+      isError: false,
+    });
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    const foto = getByTestId('kc-pet-portrait-foto');
+    expect(foto.props.source).toEqual([{ uri: FOTO_1080 }]);
+  });
+
+  it('sem foto, o header continua mostrando a ilustração (sem regressão da FT-07)', () => {
+    mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
+    const { queryByTestId } = wrap(<PatientDetailScreen />);
+    expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+  });
+});

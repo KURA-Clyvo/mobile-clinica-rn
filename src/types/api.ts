@@ -138,6 +138,14 @@ export interface TutorMini {
   dsEmail: string;
 }
 
+// FT-08 — âncora da regra 11 (CLAUDE.md do workspace): espelha
+// `PetResponseDto.cs:24-25` (backend-clinica-dotnet main `5adb9e5`,
+// commit `merge feat: serve pet photos by signed URL and expose photo URLs
+// in the pet DTO (FT-04)`), conferido em 2026-09-25 com
+// `git show 5adb9e5:src/Kura.Application/DTOs/Pet/PetResponseDto.cs`.
+// `DsFotoUrl` = variante 1080 (detalhe, regra A5), `DsFotoThumbUrl` =
+// variante 256 (lista/avatar). `null` quando o pet não tem foto — nunca
+// lança, nunca string vazia.
 export interface PetResponse {
   id: number;
   nmPet: string;
@@ -147,6 +155,8 @@ export interface PetResponse {
   sgSexo: 'M' | 'F';
   sgPorte: 'P' | 'M' | 'G' | 'GG';
   tutores: TutorMini[];
+  dsFotoUrl?: string | null;
+  dsFotoThumbUrl?: string | null;
 }
 
 // ─── Foto do pet (FT-07/FT-03) ────────────────────────────────

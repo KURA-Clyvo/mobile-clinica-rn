@@ -101,6 +101,24 @@ describe('mappers', () => {
       const pet = mapPetDto(dto);
       expect(pet.tutores).toEqual([]);
     });
+
+    // FT-08: dsFotoUrl/dsFotoThumbUrl (PetResponseDto.cs:24-25, FT-04).
+    it('maps dsFotoUrl/dsFotoThumbUrl when the pet has a photo', () => {
+      const dto: PetResponse = {
+        ...petFixture,
+        dsFotoUrl: 'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_1080.webp?exp=1&sig=a',
+        dsFotoThumbUrl: 'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_256.webp?exp=1&sig=a',
+      };
+      const pet = mapPetDto(dto);
+      expect(pet.fotoUrl).toBe(dto.dsFotoUrl);
+      expect(pet.fotoThumbUrl).toBe(dto.dsFotoThumbUrl);
+    });
+
+    it('maps fotoUrl/fotoThumbUrl as undefined when the pet has no photo', () => {
+      const pet = mapPetDto(petFixture);
+      expect(pet.fotoUrl).toBeUndefined();
+      expect(pet.fotoThumbUrl).toBeUndefined();
+    });
   });
 
   describe('mapAlertaDto', () => {

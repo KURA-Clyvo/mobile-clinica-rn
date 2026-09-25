@@ -14,6 +14,11 @@ const PETS: PetResponse[] = [
     sgSexo: 'M',
     sgPorte: 'G',
     tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos.mendes@email.com' }],
+    // FT-08: pet COM foto no mock — prova visual dos 2 casos (com/sem foto)
+    // no modo mock. Formato espelha o real (FT-04): variantes 256/1080,
+    // mesma chave, query de assinatura fake (o mock-adapter não valida sig).
+    dsFotoUrl: 'https://picsum.photos/seed/thor/1080',
+    dsFotoThumbUrl: 'https://picsum.photos/seed/thor/256',
   },
   {
     id: 2,
@@ -24,6 +29,8 @@ const PETS: PetResponse[] = [
     sgSexo: 'F',
     sgPorte: 'G',
     tutores: [{ id: 11, nmTutor: 'Patrícia Souza', dsTelefone: '11999990002', dsEmail: 'patricia.s@email.com' }],
+    dsFotoUrl: 'https://picsum.photos/seed/mel/1080',
+    dsFotoThumbUrl: 'https://picsum.photos/seed/mel/256',
   },
   {
     id: 3,
