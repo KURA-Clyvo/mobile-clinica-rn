@@ -66,6 +66,13 @@ async function anexarParteFoto(
  * multipart quando o corpo é `FormData` — forçar o header apaga esse
  * boundary e quebra o parsing do lado do servidor (ver brief FT-07 e
  * `KURA_BACKLOG_FOTO_PET.md`).
+ *
+ * Fix wave G2 (m-4, g2-ft07.md M2): na web, `thumb.uri`/`media.uri` são
+ * `blob:` URLs (saída do `canvas.toBlob` do expo-image-manipulator) — o
+ * `Blob` já foi extraído para o `FormData` por `anexarParteFoto` antes do
+ * `finally`, então a URL não é mais necessária a partir daqui. Revoga nos 2
+ * casos (sucesso e erro no POST) para não vazar memória a cada upload; no
+ * nativo é no-op guardado por `Platform.OS`.
  */
 export async function uploadFoto(
   idPet: number,
@@ -76,9 +83,16 @@ export async function uploadFoto(
   await anexarParteFoto(formData, 'thumb', thumb);
   await anexarParteFoto(formData, 'media', media);
 
-  const { data } = await apiClient.post<PetFotoResponse>(
-    `/api/v1/pets/${idPet}/foto`,
-    formData,
-  );
-  return data;
+  try {
+    const { data } = await apiClient.post<PetFotoResponse>(
+      `/api/v1/pets/${idPet}/foto`,
+      formData,
+    );
+    return data;
+  } finally {
+    if (Platform.OS === 'web') {
+      URL.revokeObjectURL(thumb.uri);
+      URL.revokeObjectURL(media.uri);
+    }
+  }
 }

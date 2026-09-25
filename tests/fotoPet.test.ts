@@ -83,6 +83,31 @@ describe('gerarVariantesFoto — nativo (iOS/Android)', () => {
     expect(resultado.thumb.mimeType).toBe('image/webp');
     expect(resultado.media.mimeType).toBe('image/webp');
   });
+
+  // Fix wave G2 (m-4, g2-ft07.md M10): resize({width: alvo}) AMPLIA uma foto
+  // menor que o alvo — bytes a mais, sem ganho de qualidade.
+  it('NÃO amplia: com largura original 600px (menor que o alvo 1080 da media), pede 600 — nunca 1080', async () => {
+    mockManipulateEcoandoLargura('manip://');
+    await gerarVariantesFoto(URI_PICKER_ORIGINAL, 42, 600);
+
+    const larguras = manipulateAsync.mock.calls
+      .map((chamada) => chamada[1][0]!.resize.width)
+      .sort((a, b) => a - b);
+    // thumb pede 256 (600 > 256, sem clamp) e media pede 600 (600 < 1080,
+    // clampado pela largura original) — 1080 NUNCA é pedido aqui.
+    expect(larguras).toEqual([256, 600]);
+    expect(larguras).not.toContain(LARGURA_MEDIA_CONTRATO);
+  });
+
+  it('sem largura original informada (undefined, ou 0 — valor que o picker devolve quando o SO não informa), pede o alvo cheio (comportamento anterior à fix wave G2)', async () => {
+    mockManipulateEcoandoLargura('manip://');
+    await gerarVariantesFoto(URI_PICKER_ORIGINAL, 42, 0);
+
+    const larguras = manipulateAsync.mock.calls
+      .map((chamada) => chamada[1][0]!.resize.width)
+      .sort((a, b) => a - b);
+    expect(larguras).toEqual([LARGURA_THUMB_CONTRATO, LARGURA_MEDIA_CONTRATO]);
+  });
 });
 
 describe('gerarVariantesFoto — web (canvas.toBlob)', () => {
@@ -136,5 +161,35 @@ describe('gerarVariantesFoto — web (canvas.toBlob)', () => {
       ImageManipulator.SaveFormat.JPEG,
       ImageManipulator.SaveFormat.JPEG,
     ]);
+  });
+
+  // Fix wave G2 (m-4, g2-ft07.md M2): a sonda WebP descartada é uma blob:
+  // URL do navegador (canvas.toBlob) que nunca mais é usada — tem que ser
+  // revogada, senão vaza memória a cada foto que cai no fallback JPEG.
+  it('revoga a blob: URL da sonda descartada quando cai no fallback JPEG', async () => {
+    mockManipulateEcoandoLargura('blob://');
+    global.fetch = jest.fn(
+      async () => ({ blob: async () => new Blob([], { type: 'image/png' }) }) as unknown as Response,
+    );
+    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    await gerarVariantesFoto(URI_PICKER_ORIGINAL, 7);
+
+    // A sonda é o thumb pedido em WebP: `blob://256` (LARGURA_THUMB_CONTRATO).
+    expect(revokeSpy).toHaveBeenCalledWith(`blob://${LARGURA_THUMB_CONTRATO}`);
+    revokeSpy.mockRestore();
+  });
+
+  it('NÃO revoga nada quando o canvas codifica WebP de verdade (a sonda é reaproveitada como o thumb final)', async () => {
+    mockManipulateEcoandoLargura('blob://');
+    global.fetch = jest.fn(
+      async () => ({ blob: async () => new Blob([], { type: 'image/webp' }) }) as unknown as Response,
+    );
+    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    await gerarVariantesFoto(URI_PICKER_ORIGINAL, 7);
+
+    expect(revokeSpy).not.toHaveBeenCalled();
+    revokeSpy.mockRestore();
   });
 });

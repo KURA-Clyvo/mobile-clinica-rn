@@ -30,6 +30,7 @@ const MEDIA: FotoVarianteGerada = {
   mimeType: 'image/webp',
 };
 const RESPOSTA: PetFotoResponse = {
+  idPet: 9,
   dsFotoChave: 'clinica/1/pet/9/ab12.webp',
   dtFotoAtualizacao: '2026-09-25T12:00:00.000Z',
 };
@@ -92,6 +93,18 @@ describe('uploadFoto — nativo (iOS/Android)', () => {
     const contentType = config?.headers?.['Content-Type'] ?? config?.headers?.['content-type'];
     expect(contentType).toBeUndefined();
   });
+
+  // Fix wave G2 (m-4): a revogação de blob: URL só faz sentido na web — no
+  // nativo `thumb.uri`/`media.uri` são caminhos de arquivo real (`file://`),
+  // não URLs do navegador.
+  it('NÃO chama URL.revokeObjectURL no nativo', async () => {
+    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    await uploadFoto(9, THUMB, MEDIA);
+
+    expect(revokeSpy).not.toHaveBeenCalled();
+    revokeSpy.mockRestore();
+  });
 });
 
 describe('uploadFoto — web (FormData precisa de Blob de verdade)', () => {
@@ -123,5 +136,36 @@ describe('uploadFoto — web (FormData precisa de Blob de verdade)', () => {
     expect(nomesDasPartes).toEqual(['thumb', 'media']);
     expect(formDataSpy.mock.calls[0]![1]).toBe(blobThumb);
     expect(formDataSpy.mock.calls[1]![1]).toBe(blobMedia);
+  });
+
+  // Fix wave G2 (m-4, g2-ft07.md M2): thumb.uri/media.uri são blob: URLs na
+  // web — o Blob já foi extraído para o FormData no ponto em que o POST
+  // termina, então a URL não serve mais pra nada. Revogar evita vazar
+  // memória a cada upload.
+  it('revoga as blob: URLs (thumb/media) depois do envio', async () => {
+    global.fetch = jest.fn(async () => ({
+      blob: async () => new Blob(['x'], { type: 'image/webp' }),
+    })) as unknown as typeof fetch;
+    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    await uploadFoto(9, THUMB, MEDIA);
+
+    expect(revokeSpy).toHaveBeenCalledWith(THUMB.uri);
+    expect(revokeSpy).toHaveBeenCalledWith(MEDIA.uri);
+    revokeSpy.mockRestore();
+  });
+
+  it('revoga as blob: URLs também quando o POST FALHA (finally, não só o caminho feliz)', async () => {
+    global.fetch = jest.fn(async () => ({
+      blob: async () => new Blob(['x'], { type: 'image/webp' }),
+    })) as unknown as typeof fetch;
+    mockApiPost.mockRejectedValueOnce(Object.assign(new Error('413'), { status: 413 }));
+    const revokeSpy = jest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    await expect(uploadFoto(9, THUMB, MEDIA)).rejects.toMatchObject({ status: 413 });
+
+    expect(revokeSpy).toHaveBeenCalledWith(THUMB.uri);
+    expect(revokeSpy).toHaveBeenCalledWith(MEDIA.uri);
+    revokeSpy.mockRestore();
   });
 });

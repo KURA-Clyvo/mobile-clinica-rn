@@ -172,8 +172,9 @@ export async function timeline(config: InternalAxiosRequestConfig): Promise<Time
 
 /**
  * FT-07 (regra v5 — o mock é o 2º consumidor do service): `POST
- * /api/v1/pets/{id}/foto` real (FT-03) devolve 200 com `dsFotoChave` +
- * `dtFotoAtualizacao`. Este handler NÃO lança e NÃO inspeciona o
+ * /api/v1/pets/{id}/foto` real (FT-03) devolve 200 com `idPet`,
+ * `dsFotoChave` e `dtFotoAtualizacao` (PetFotoResponseDto.cs:10, backend
+ * `5adb9e5` — fix wave G2, m-2). Este handler NÃO lança e NÃO inspeciona o
  * `FormData` (o mock-adapter não decodifica multipart) — só confirma o
  * shape cru que o service espera de volta, para o par service×mock
  * executar sem exceção sob `EXPO_PUBLIC_USE_MOCKS=true` (G4b).
@@ -192,6 +193,7 @@ export async function uploadFoto(config: InternalAxiosRequestConfig): Promise<Pe
     return Promise.reject(err);
   }
   return {
+    idPet: id,
     dsFotoChave: `clinica/1/pet/${id}/${Date.now()}.webp`,
     dtFotoAtualizacao: new Date().toISOString(),
   };

@@ -277,8 +277,11 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       mimeType: 'image/webp',
     };
 
-    it('uploadFoto executa sem lançar e devolve dsFotoChave/dtFotoAtualizacao', async () => {
+    it('uploadFoto executa sem lançar e devolve idPet/dsFotoChave/dtFotoAtualizacao', async () => {
       const resultado = await uploadFoto(1, thumb, media);
+      // Fix wave G2, m-2: idPet entrou no shape (PetFotoResponseDto.cs:10,
+      // backend `5adb9e5`) — o mock precisa devolvê-lo para o contrato bater.
+      expect(resultado.idPet).toBe(1);
       expect(typeof resultado.dsFotoChave).toBe('string');
       expect(resultado.dsFotoChave.length).toBeGreaterThan(0);
       expect(typeof resultado.dtFotoAtualizacao).toBe('string');

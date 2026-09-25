@@ -312,10 +312,10 @@ export default function PacienteDetailScreen() {
   // de gerar as 2 variantes (256/1080, WebP) via `utils/fotoPet.ts` e
   // invalidar o cache do pet ao terminar; aqui só decide a ORIGEM da imagem
   // (galeria/câmera) e traduz erro em mensagem humana (400/413).
-  const enviarFoto = (uriOriginal: string) => {
+  const enviarFoto = (uriOriginal: string, larguraOriginal?: number) => {
     if (!pet) return;
     uploadFotoMutation.mutate(
-      { idPet: pet.id, uriOriginal },
+      { idPet: pet.id, uriOriginal, larguraOriginal },
       {
         onSuccess: () => Alert.alert('', 'Foto atualizada com sucesso.'),
         onError: (erro: unknown) => {
@@ -343,7 +343,10 @@ export default function PacienteDetailScreen() {
       quality: 1,
     });
     if (resultado.canceled || !resultado.assets[0]) return;
-    enviarFoto(resultado.assets[0].uri);
+    // Fix wave G2 (m-4): `width` vem do próprio picker — 0 quando o SO não
+    // informa (ImagePicker.types.d.ts:248), tratado como "desconhecida" em
+    // `larguraEfetiva` (utils/fotoPet.ts).
+    enviarFoto(resultado.assets[0].uri, resultado.assets[0].width);
   };
 
   const tirarComCamera = async () => {
@@ -354,7 +357,7 @@ export default function PacienteDetailScreen() {
     }
     const resultado = await ImagePicker.launchCameraAsync({ quality: 1 });
     if (resultado.canceled || !resultado.assets[0]) return;
-    enviarFoto(resultado.assets[0].uri);
+    enviarFoto(resultado.assets[0].uri, resultado.assets[0].width);
   };
 
   // Câmera "onde houver" (brief FT-07): a web não tem um fluxo de câmera

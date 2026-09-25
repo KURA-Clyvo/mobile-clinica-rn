@@ -20,12 +20,23 @@ export function usePetDetail(id: number | null) {
  * (`dsFotoUrl`/`dsFotoThumbUrl`) é a FT-08, mas sem invalidar aqui a
  * próxima tela continuaria servindo o `staleTime` antigo (120s) de
  * `usePetDetail`.
+ *
+ * `larguraOriginal` (fix wave G2, m-4): largura da foto ANTES do reencode,
+ * repassada direto para `gerarVariantesFoto` — evita ampliar fotos menores
+ * que os alvos 256/1080. Opcional: sem ela, o comportamento é o mesmo de
+ * antes desta fix wave.
+ *
+ * Cobertura de integração (fix wave G2, I-1 — `tests/useUploadFotoPet.
+ * test.ts`): é NESTA função, e só nela, que a regra A4 (nunca subir o
+ * arquivo cru do picker) se realiza — `gerarVariantesFoto` e `uploadFoto`
+ * são testados isolados em `fotoPet.test.ts`/`pets.service.test.ts`, mas
+ * nenhum dos dois prova que UM chama o OUTRO com os argumentos certos.
  */
 export function useUploadFotoPet() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { idPet: number; uriOriginal: string }) => {
-      const variantes = await gerarVariantesFoto(vars.uriOriginal, vars.idPet);
+    mutationFn: async (vars: { idPet: number; uriOriginal: string; larguraOriginal?: number }) => {
+      const variantes = await gerarVariantesFoto(vars.uriOriginal, vars.idPet, vars.larguraOriginal);
       return uploadFoto(vars.idPet, variantes.thumb, variantes.media);
     },
     retry: 0,
