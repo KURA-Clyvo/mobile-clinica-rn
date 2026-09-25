@@ -22,7 +22,8 @@
 import { getHoje, getAlertas, getRecentes } from '../src/services/dashboard.service';
 import { getAgenda, atualizarStatusAgendamento } from '../src/services/agenda.service';
 import { login, registerClinica } from '../src/services/auth.service';
-import { listPets, getPetById, getPetTimeline } from '../src/services/pets.service';
+import { listPets, getPetById, getPetTimeline, uploadFoto } from '../src/services/pets.service';
+import type { FotoVarianteGerada } from '../src/utils/fotoPet';
 import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
 import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens, getTriagens } from '../src/services/luna.service';
 import { getTutorById } from '../src/services/tutores.service';
@@ -255,6 +256,36 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       expect(res.tpPerfil).toBe('VETERINARIO');
       expect(res.usuario).not.toBeNull();
       expect(res.usuario?.nmVeterinario).toBe('Dr. Felipe Ferrete');
+    });
+  });
+
+  // FT-07 — par novo (service -> apiClient real -> mock-adapter ->
+  // pets.mock.ts::uploadFoto), regra v5/G4b: o mock é o 2º consumidor de
+  // `uploadFoto`. `Platform.OS` aqui é o default do preset jest-expo
+  // ('ios'), então exercita o ramo nativo de `anexarParteFoto`
+  // (pets.service.ts) — o ramo web (fetch->Blob) tem cobertura própria em
+  // tests/pets.service.test.ts.
+  describe('pets.service — uploadFoto (FT-07)', () => {
+    const thumb: FotoVarianteGerada = {
+      uri: 'file:///cache/pet-1-thumb.webp',
+      fileName: 'pet-1-thumb.webp',
+      mimeType: 'image/webp',
+    };
+    const media: FotoVarianteGerada = {
+      uri: 'file:///cache/pet-1-media.webp',
+      fileName: 'pet-1-media.webp',
+      mimeType: 'image/webp',
+    };
+
+    it('uploadFoto executa sem lançar e devolve dsFotoChave/dtFotoAtualizacao', async () => {
+      const resultado = await uploadFoto(1, thumb, media);
+      expect(typeof resultado.dsFotoChave).toBe('string');
+      expect(resultado.dsFotoChave.length).toBeGreaterThan(0);
+      expect(typeof resultado.dtFotoAtualizacao).toBe('string');
+    });
+
+    it('uploadFoto com pet inexistente rejeita 404 (mesma convenção de petsMock.byId)', async () => {
+      await expect(uploadFoto(999, thumb, media)).rejects.toMatchObject({ status: 404 });
     });
   });
 
