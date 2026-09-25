@@ -77,7 +77,7 @@ describe('PetListItem', () => {
     const petComFoto: PetResponse = { ...PET_LABRADOR, dsFotoUrl: FOTO_1080, dsFotoThumbUrl: FOTO_256 };
     const { getByTestId } = wrap(<PetListItem pet={petComFoto} onPress={jest.fn()} />);
     const foto = getByTestId('kc-pet-portrait-foto');
-    expect(foto.props.source).toEqual([{ uri: FOTO_256 }]);
+    expect(foto.props.source[0].uri).toBe(FOTO_256);
   });
 
   it('sem foto, continua mostrando a ilustração (sem regressão)', () => {

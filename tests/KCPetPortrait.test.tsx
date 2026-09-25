@@ -93,15 +93,18 @@ describe('KCPetPortrait', () => {
       const foto = getByTestId('kc-pet-portrait-foto');
       // expo-image normaliza `source` para array internamente
       // (resolveSources) mesmo recebendo um objeto único.
-      expect(foto.props.source).toEqual([{ uri: FOTO_URL }]);
+      expect(foto.props.source).toEqual([{ uri: FOTO_URL, cacheKey: CACHE_KEY_ESPERADA }]);
     });
 
-    it('cacheKey é a URL SEM a query string — mordida: usar a URL completa faz esta asserção falhar', () => {
+    it('cacheKey (dentro de source) é a URL SEM a query string — mordida: usar a URL completa faz esta asserção falhar', () => {
       const { getByTestId } = wrap(<KCPetPortrait palette="lab" fotoUrl={FOTO_URL} />);
       const foto = getByTestId('kc-pet-portrait-foto');
-      expect(foto.props.cacheKey).toBe(CACHE_KEY_ESPERADA);
-      expect(foto.props.cacheKey).not.toContain('sig=');
-      expect(foto.props.cacheKey).not.toContain('exp=');
+      // `cacheKey` é campo de `ImageSource` (dentro de `source`), não prop
+      // solta do componente `<Image>` do expo-image.
+      const cacheKey = foto.props.source[0].cacheKey;
+      expect(cacheKey).toBe(CACHE_KEY_ESPERADA);
+      expect(cacheKey).not.toContain('sig=');
+      expect(cacheKey).not.toContain('exp=');
     });
 
     it('usa cachePolicy de disco e contentFit cover', () => {

@@ -261,7 +261,10 @@ describe('PatientDetailScreen — avatar com foto real (FT-08)', () => {
     });
     const { getByTestId } = wrap(<PatientDetailScreen />);
     const foto = getByTestId('kc-pet-portrait-foto');
-    expect(foto.props.source).toEqual([{ uri: FOTO_1080 }]);
+    // `source` é normalizado em array pelo expo-image e carrega também
+    // `cacheKey` (KCPetPortrait.test.tsx testa isso em detalhe) — aqui só
+    // importa QUAL variante (1080 x 256) chegou no `uri`.
+    expect(foto.props.source[0].uri).toBe(FOTO_1080);
   });
 
   it('sem foto, o header continua mostrando a ilustração (sem regressão da FT-07)', () => {

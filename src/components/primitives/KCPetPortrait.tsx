@@ -88,12 +88,14 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
       <View testID="kc-pet-portrait" accessibilityLabel={accessibilityLabel} style={containerStyle}>
         <Image
           testID="kc-pet-portrait-foto"
-          source={{ uri: fotoUrl }}
+          // `cacheKey` é campo de `ImageSource` (dentro de `source`), não
+          // prop do componente `<Image>` — achado de processo (tsc pegou:
+          // "Property 'cacheKey' does not exist on type ... ImageProps").
+          source={{ uri: fotoUrl, cacheKey: derivarCacheKeyFoto(fotoUrl) }}
           style={{ width: '100%', height: '100%' }}
           contentFit="cover"
           transition={200}
           cachePolicy="disk"
-          cacheKey={derivarCacheKeyFoto(fotoUrl)}
           placeholder={{ blurhash: BLURHASH_NEUTRO }}
           placeholderContentFit="cover"
           onError={() => setErroFoto(true)}
