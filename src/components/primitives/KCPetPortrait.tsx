@@ -98,7 +98,11 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
   ];
 
   // FT-08: com foto (e sem erro de carregamento) → expo-image de verdade.
-  if (temFoto) {
+  // `fotoUrl && !erroFoto` (não a variável `temFoto`) de propósito: o tsc só
+  // estreita `fotoUrl` pra `string` dentro deste `if` quando a condição usa
+  // a variável diretamente — achado de processo desta fix wave (G2), pego
+  // pelo `type-check`, não pela suíte Jest (JS puro não reclama de `null`).
+  if (fotoUrl && !erroFoto) {
     return (
       <View
         testID="kc-pet-portrait"
