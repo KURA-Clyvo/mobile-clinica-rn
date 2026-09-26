@@ -690,13 +690,13 @@ export function discoverNetworkConsumers(serviceDir: string): ConsumerFn[] {
 
 /**
  * Extrai os nomes de check reais (1º argumento de `chamar`/`chamar_apikey`/
- * `chamar_idempotency`) de um `smoke-contratos.sh` já lido em memória — é o que
- * fecha o laço da metade "coberto: <nome>" do registry contra o script de verdade,
- * em vez de confiar que o nome citado no registry ainda existe.
+ * `chamar_idempotency`/`chamar_upload_foto`) de um `smoke-contratos.sh` já lido em
+ * memória — é o que fecha o laço da metade "coberto: <nome>" do registry contra o
+ * script de verdade, em vez de confiar que o nome citado no registry ainda existe.
  */
 export function extrairNomesDeCheck(conteudoScript: string): Set<string> {
   const nomes = new Set<string>();
-  const regex = /^chamar(?:_apikey|_idempotency)?\s+"((?:[^"\\]|\\.)*)"/gm;
+  const regex = /^chamar(?:_apikey|_idempotency|_upload_foto)?\s+"((?:[^"\\]|\\.)*)"/gm;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(conteudoScript)) !== null) {
     const nome = m[1];

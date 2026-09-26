@@ -159,15 +159,19 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'nenhuma extensão futura de smoke-contratos.sh cobre isto, porque não existe ' +
       'check possível para uma chamada que nunca sai do navegador.',
   },
+  // COV-1 (g4-ft10.md F9): o `naoCoberto` acima era a versão de ANTES do G4 da
+  // FT-10 — nele o bloco 23 do smoke-contratos.sh (DevOps-Cloud) ainda não tinha
+  // rodado contra o compose real. O G4 rodou (upload 200, GET thumb/media 200 com
+  // bytes iguais, sig adulterada 403 — `chamar_upload_foto "pets/{id}/foto (POST,
+  // upload thumb+media)"`) e o gate continuava dizendo "sem check hoje", porque o
+  // regex de `extrairNomesDeCheck` só reconhecia `chamar`/`chamar_apikey`/
+  // `chamar_idempotency`, nunca `chamar_upload_foto` — corrigido em
+  // `discover-network-consumers.ts`. Deixar esta entrada como `naoCoberto` depois
+  // do fix do regex derrubaria a metade 2 do teste (nome não batendo com nenhum do
+  // script) — o nome abaixo é literal, copiado do 1º argumento de
+  // `chamar_upload_foto` em `scripts/smoke-contratos.sh` (DevOps-Cloud).
   'pets.service.ts::uploadFoto': {
-    naoCoberto:
-      'POST /api/v1/pets/{id}/foto (FT-03) — multipart com 2 partes (thumb/media), ' +
-      'side-effecting (grava DS_FOTO_CHAVE/DT_FOTO_ATUALIZACAO real e persiste ' +
-      'arquivo no volume de storage), com o mesmo grau de complexidade de setup dos ' +
-      'outros multipart deste registry (enviarTranscricao) — exige um arquivo de ' +
-      'imagem válido versionado ou gerado on-the-fly. Sem check hoje em smoke-' +
-      'contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo desta task ' +
-      '— candidato a follow-up na FT-10 (gate G4 do backlog de foto).',
+    coberto: 'pets/{id}/foto (POST, upload thumb+media)',
   },
 
   // teleconsulta.service.ts
