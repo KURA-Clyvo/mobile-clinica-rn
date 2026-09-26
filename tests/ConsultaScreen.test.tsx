@@ -620,3 +620,32 @@ describe('ConsultaScreen — guarda de ficha de veterinário (FM-01)', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
+
+// FT-08, fix wave G2 (G2-1): o header desta tela usa a variante 1080
+// (dsFotoUrl, regra A5 — detalhe usa a 1080, lista usa a thumb 256). Antes
+// desta fix wave, NENHUM teste deste arquivo passava dsFoto* no mock de
+// usePetDetail — trocar por thumb ou remover a foto passava verde (G2, C8/C10,
+// `184 passed`, `EXIT=0`, "NINGUÉM" pegava).
+describe('ConsultaScreen — avatar com foto real no header (FT-08, fix wave G2)', () => {
+  const FOTO_1080 =
+    'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_1080.webp?exp=1&sig=a';
+  const FOTO_256 =
+    'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_256.webp?exp=1&sig=b';
+
+  it('passa a variante 1080 (dsFotoUrl) para o portrait do header — mordida: trocar por dsFotoThumbUrl faz esta asserção falhar', () => {
+    mockUsePetDetail.mockReturnValue({
+      data: { ...MOCK_PET, dsFotoUrl: FOTO_1080, dsFotoThumbUrl: FOTO_256 },
+      isLoading: false,
+      isError: false,
+    });
+    const { getByTestId } = wrap(<ConsultaScreen />);
+    const foto = getByTestId('kc-pet-portrait-foto');
+    expect(foto.props.source[0].uri).toBe(FOTO_1080);
+  });
+
+  it('sem foto, o header continua mostrando a ilustração — mordida: remover a foto sem este teste passa verde', () => {
+    mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
+    const { queryByTestId } = wrap(<ConsultaScreen />);
+    expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+  });
+});
