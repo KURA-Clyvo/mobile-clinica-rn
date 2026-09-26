@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleProp, ViewStyle } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@theme/index';
+import { derivarCacheKeyFoto } from '@utils/fotoCache';
 
 export type PetPalette = 'lab' | 'siam' | 'border' | 'poodle' | 'persa' | 'srd' | 'golden' | 'husky';
 
@@ -10,6 +12,21 @@ export interface KCPetPortraitProps {
   size?: number;
   ring?: boolean;
   style?: StyleProp<ViewStyle>;
+  /**
+   * FT-08: URL assinada da foto real do pet (`PetResponse.dsFotoUrl`/
+   * `dsFotoThumbUrl`, FT-04) — o chamador decide qual variante repassar
+   * (lista → thumb 256, detalhe → 1080, regra A5). `null`/`undefined`/vazio
+   * caem no ramo de ilustração.
+   */
+  fotoUrl?: string | null;
+  /**
+   * FT-08: nome do pet, usado só para compor o `accessibilityLabel` nos 2
+   * ramos (com foto e sem foto). Sem `nome`, nenhum `accessibilityLabel` é
+   * definido — mantém os snapshots existentes intactos, porque os testes
+   * anteriores a esta task não passam essa prop e um prop `undefined` não é
+   * serializado pelo react-test-renderer.
+   */
+  nome?: string;
 }
 
 const PALETTE_MAP: Record<PetPalette, { top: string; base: string; accent: string }> = {
@@ -23,34 +40,115 @@ const PALETTE_MAP: Record<PetPalette, { top: string; base: string; accent: strin
   husky:  { top: '#E8E8F0', base: '#4A4A6A', accent: '#2A2A4A' },
 };
 
+// FT-08: blurhash neutro (cinza uniforme) mostrado pelo expo-image enquanto
+// a foto real carrega — não depende de rede nem da paleta da raça (a
+// paleta some assim que a foto existe, ela é só o placeholder do ramo sem
+// foto).
+const BLURHASH_NEUTRO = 'L4L4-;~q00~q00Rj9Fxu00xu%MRj';
 
-export function KCPetPortrait({ palette, size = 88, ring = false, style }: KCPetPortraitProps) {
+export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl, nome }: KCPetPortraitProps) {
   const { colors } = useTheme();
   const { top, base, accent } = PALETTE_MAP[palette];
   const borderRadius = size / 2;
   const accentSize = Math.round(size * 0.3);
 
+  // FT-08: erro no carregamento da imagem (URL expirada, arquivo ausente
+  // etc.) volta para a ilustração — sem crash, sem espaço em branco. Reseta
+  // quando a URL muda (ex.: troca de pet numa lista com componente
+  // reaproveitado) para não prender um pet novo no erro de outro.
+  const [erroFoto, setErroFoto] = useState(false);
+  useEffect(() => {
+    setErroFoto(false);
+  }, [fotoUrl]);
+
+  const temFoto = Boolean(fotoUrl) && !erroFoto;
+  // FT-08, fix wave G2 (G2-5): o ramo sem foto usa uma ilustração genérica —
+  // "Foto de X" seria falso ali (não existe foto nenhuma). "Avatar de X" no
+  // ramo sem foto, "Foto de X" só quando há foto de verdade.
+  const accessibilityLabel = nome ? (temFoto ? `Foto de ${nome}` : `Avatar de ${nome}`) : undefined;
+  // FT-08, fix wave G2 (G2-4): a View com o rótulo precisa ser `accessible`
+  // para o leitor de tela anunciar o avatar UMA VEZ — sem isso, ele desce
+  // nos filhos (a `<Image>`/`<LinearGradient>`) e tenta ler cada um
+  // separadamente. `accessibilityRole="image"` vira `role="img"` no
+  // react-native-web (`AccessibilityUtil.propsToAriaRole`), que é o que faz
+  // o `aria-label` valer num elemento genérico na web — sem role, o
+  // `aria-label` de um `<div>` é ignorado pela maioria dos leitores de tela.
+  // Os dois só são definidos quando há rótulo, pelo mesmo motivo do
+  // `accessibilityLabel`: preservar os 8 snapshots que não passam `nome`.
+  const acessivelComoImagem = accessibilityLabel ? true : undefined;
+  const papelDeImagem = accessibilityLabel ? ('image' as const) : undefined;
+
+  const containerStyle = [
+    {
+      width: size,
+      height: size,
+      borderRadius,
+      overflow: 'hidden' as const,
+    },
+    ring && {
+      borderWidth: 2,
+      borderColor: colors.bgElev,
+      shadowColor: colors.border,
+      shadowOpacity: 1,
+      shadowRadius: 1,
+      shadowOffset: { width: 0, height: 1 },
+      elevation: 1,
+    },
+    style,
+  ];
+
+  // FT-08: com foto (e sem erro de carregamento) → expo-image de verdade.
+  // `fotoUrl && !erroFoto` (não a variável `temFoto`) de propósito: o tsc só
+  // estreita `fotoUrl` pra `string` dentro deste `if` quando a condição usa
+  // a variável diretamente — achado de processo desta fix wave (G2), pego
+  // pelo `type-check`, não pela suíte Jest (JS puro não reclama de `null`).
+  if (fotoUrl && !erroFoto) {
+    return (
+      <View
+        testID="kc-pet-portrait"
+        accessible={acessivelComoImagem}
+        accessibilityRole={papelDeImagem}
+        accessibilityLabel={accessibilityLabel}
+        style={containerStyle}
+      >
+        <Image
+          testID="kc-pet-portrait-foto"
+          // `cacheKey` é campo de `ImageSource` (dentro de `source`), não
+          // prop do componente `<Image>` — achado de processo (tsc pegou:
+          // "Property 'cacheKey' does not exist on type ... ImageProps").
+          source={{ uri: fotoUrl, cacheKey: derivarCacheKeyFoto(fotoUrl) }}
+          style={{ width: '100%', height: '100%' }}
+          contentFit="cover"
+          transition={200}
+          cachePolicy="disk"
+          placeholder={{ blurhash: BLURHASH_NEUTRO }}
+          placeholderContentFit="cover"
+          onError={() => setErroFoto(true)}
+          // FT-08, fix wave G2 (G2-4): no `react-native-web`, o
+          // `accessibilityLabel` da `<Image>` do expo-image vira o `alt` do
+          // `<img>` (`ImageWrapper.tsx`: `alt={accessibilityLabel}`). Sem
+          // isso a `<Image>` virava `<img>` SEM `alt` na web. Medido também
+          // (`ExpoImage.tsx:59,103`): no NATIVO, `alt` e `accessibilityLabel`
+          // são o MESMO prop final (`accessibilityLabel ?? alt`) — não há
+          // como diferenciar "só pro alt web" de "rótulo nativo" nesta lib,
+          // então usamos `accessibilityLabel` diretamente, igual ao container.
+          accessibilityLabel={accessibilityLabel}
+        />
+      </View>
+    );
+  }
+
+  // FT-08: sem foto OU erro no carregamento → ilustração atual, RENDER
+  // IDÊNTICO ao de antes desta task (nenhum snapshot existente muda:
+  // `accessibilityLabel` só aparece quando `nome` é passado, e os testes
+  // anteriores nunca passam essa prop).
   return (
     <View
       testID="kc-pet-portrait"
-      style={[
-        {
-          width: size,
-          height: size,
-          borderRadius,
-          overflow: 'hidden',
-        },
-        ring && {
-          borderWidth: 2,
-          borderColor: colors.bgElev,
-          shadowColor: colors.border,
-          shadowOpacity: 1,
-          shadowRadius: 1,
-          shadowOffset: { width: 0, height: 1 },
-          elevation: 1,
-        },
-        style,
-      ]}
+      accessible={acessivelComoImagem}
+      accessibilityRole={papelDeImagem}
+      accessibilityLabel={accessibilityLabel}
+      style={containerStyle}
     >
       <LinearGradient
         colors={[top, base]}

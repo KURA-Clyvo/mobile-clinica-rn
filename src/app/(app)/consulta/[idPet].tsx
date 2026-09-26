@@ -362,6 +362,9 @@ export default function ConsultaScreen() {
         <KCPetPortrait
           palette={racaToPalette(pet?.nmRaca ?? '')}
           size={44}
+          // FT-08 (regra A5): o DETALHE usa a variante 1080.
+          fotoUrl={pet?.dsFotoUrl}
+          nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
           <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>

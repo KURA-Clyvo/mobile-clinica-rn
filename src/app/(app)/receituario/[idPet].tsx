@@ -326,7 +326,13 @@ export default function ReceituarioScreen() {
     <ScreenContainer scroll={false} paddingHorizontal={0}>
       {/* Header do pet */}
       <View style={styles.petHeader}>
-        <KCPetPortrait palette={racaToPalette(pet?.nmRaca ?? '')} size={44} />
+        <KCPetPortrait
+          palette={racaToPalette(pet?.nmRaca ?? '')}
+          size={44}
+          // FT-08 (regra A5): o DETALHE usa a variante 1080.
+          fotoUrl={pet?.dsFotoUrl}
+          nome={pet?.nmPet}
+        />
         <View style={styles.petInfo}>
           <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>
           <Text style={styles.petDate}>{formatDateFull(new Date())}</Text>

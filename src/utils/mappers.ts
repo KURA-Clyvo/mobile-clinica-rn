@@ -55,6 +55,10 @@ export function mapPetDto(dto: PetResponse): Pet {
     sexo: dto.sgSexo,
     porte: dto.sgPorte,
     tutores: dto.tutores.map(mapTutorDto),
+    // FT-08: repassa as URLs de foto sem transformação (null/undefined
+    // significam "sem foto" — a UI trata os 2 casos da mesma forma).
+    fotoUrl: dto.dsFotoUrl,
+    fotoThumbUrl: dto.dsFotoThumbUrl,
   };
 }
 

@@ -17,6 +17,9 @@ export interface Pet {
   sexo: 'M' | 'F';
   porte: 'P' | 'M' | 'G' | 'GG';
   tutores: Tutor[];
+  // FT-08: URL assinada da foto (1080 e 256, ver PetResponse em types/api.ts).
+  fotoUrl?: string | null;
+  fotoThumbUrl?: string | null;
 }
 
 export interface Alerta {

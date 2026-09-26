@@ -67,7 +67,14 @@ export function PetListItem({ pet, onPress }: PetListItemProps) {
       style={[styles.row, getWebInteractionStyle(webInteraction, colors.borderFocus)]}
       accessibilityRole="button"
     >
-      <KCPetPortrait palette={racaToPalette(pet.nmRaca)} size={52} ring />
+      <KCPetPortrait
+        palette={racaToPalette(pet.nmRaca)}
+        size={52}
+        ring
+        // FT-08 (regra A5): a LISTA usa a variante 256 (thumb), nunca a 1080.
+        fotoUrl={pet.dsFotoThumbUrl}
+        nome={pet.nmPet}
+      />
       <View style={styles.info}>
         <View style={styles.nameRow}>
           <Text style={styles.name}>{pet.nmPet}</Text>

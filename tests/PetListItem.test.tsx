@@ -69,4 +69,19 @@ describe('PetListItem', () => {
     );
     expect(getByTestId('kc-pet-portrait')).toBeTruthy();
   });
+
+  // FT-08 (regra A5 do backlog): a LISTA usa a thumb (256), nunca a 1080.
+  it('passa dsFotoThumbUrl (256) para o portrait — mordida: trocar por dsFotoUrl faz esta asserção falhar', () => {
+    const FOTO_256 = 'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_256.webp?exp=1&sig=b';
+    const FOTO_1080 = 'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/1/uuid_1080.webp?exp=1&sig=a';
+    const petComFoto: PetResponse = { ...PET_LABRADOR, dsFotoUrl: FOTO_1080, dsFotoThumbUrl: FOTO_256 };
+    const { getByTestId } = wrap(<PetListItem pet={petComFoto} onPress={jest.fn()} />);
+    const foto = getByTestId('kc-pet-portrait-foto');
+    expect(foto.props.source[0].uri).toBe(FOTO_256);
+  });
+
+  it('sem foto, continua mostrando a ilustração (sem regressão)', () => {
+    const { queryByTestId } = wrap(<PetListItem pet={PET_LABRADOR} onPress={jest.fn()} />);
+    expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+  });
 });

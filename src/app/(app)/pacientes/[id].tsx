@@ -385,7 +385,14 @@ export default function PacienteDetailScreen() {
     <ScreenContainer paddingHorizontal={0} edges={['bottom', 'left', 'right']}>
       {/* Header */}
       <View testID="pet-header" style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <KCPetPortrait palette={racaToPalette(pet.nmRaca)} size={96} ring />
+        <KCPetPortrait
+          palette={racaToPalette(pet.nmRaca)}
+          size={96}
+          ring
+          // FT-08 (regra A5): o DETALHE usa a variante 1080.
+          fotoUrl={pet.dsFotoUrl}
+          nome={pet.nmPet}
+        />
         <Text style={styles.petName}>{pet.nmPet}</Text>
         <Text style={styles.petSubtitle}>{`${pet.nmRaca} · ${pet.nmEspecie}`}</Text>
         <View style={styles.chipRow}>
