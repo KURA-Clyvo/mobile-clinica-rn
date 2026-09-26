@@ -363,7 +363,7 @@ export default function ConsultaScreen() {
           palette={racaToPalette(pet?.nmRaca ?? '')}
           size={44}
           // FT-08 (regra A5): o DETALHE usa a variante 1080.
-          fotoUrl={pet?.dsFotoUrl}
+          fotoUrl={pet?.dsFotoThumbUrl}
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
