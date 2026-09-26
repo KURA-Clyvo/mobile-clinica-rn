@@ -14,6 +14,16 @@
  * Usar a URL inteira (com query) como `cacheKey` baixaria a foto de novo a
  * cada expiração da assinatura, mesmo sem a foto ter mudado — o oposto do
  * que a regra A7 pede ("foto baixada uma vez por aparelho").
+ *
+ * FT-08, fix wave G2 (G2-7): "baixada uma vez por aparelho" vale SÓ NO
+ * NATIVO. Na WEB, o `expo-image` ignora `cacheKey`/`cachePolicy` por
+ * completo (medido em `node_modules/expo-image/src/web/`: `cacheKey` não
+ * aparece em nenhum arquivo do bundle web; `cachePolicy` só é lido em
+ * `useHeaders`, e só quando `source.headers` existe, que não é o nosso
+ * caso) — o `<img src>` recebe a URL COMPLETA e o cache é o HTTP do
+ * navegador, chaveado pela URL inteira. Como o `.NET`/Java emitem `exp`
+ * novo a cada resposta do DTO (`GeradorUrlFotoPet`), na web cada refetch do
+ * pet baixa a foto de novo, mesmo sem ela ter mudado.
  */
 export function derivarCacheKeyFoto(url: string): string {
   const indiceQuery = url.indexOf('?');

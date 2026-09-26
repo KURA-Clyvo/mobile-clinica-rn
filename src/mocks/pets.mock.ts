@@ -15,8 +15,14 @@ const PETS: PetResponse[] = [
     sgPorte: 'G',
     tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos.mendes@email.com' }],
     // FT-08: pet COM foto no mock — prova visual dos 2 casos (com/sem foto)
-    // no modo mock. Formato espelha o real (FT-04): variantes 256/1080,
-    // mesma chave, query de assinatura fake (o mock-adapter não valida sig).
+    // no modo mock. Fix wave G2 (G2-6): as URLs abaixo são `picsum.photos` —
+    // NÃO reproduzem o formato real da FT-04
+    // (`/api/v1/fotos/clinica/{idClinica}/pet/{idPet}/{uuid}_{tam}.{ext}
+    // ?exp=...&sig=...`, ver `backend-clinica-dotnet` `5adb9e5`); só a
+    // resolução (256 menor, 1080 maior) é preservada. Não dá para apontar
+    // pro caminho real aqui: em modo mock não existe `.NET` para servir o
+    // arquivo, e um caminho fake não carregaria nada — o `onError` cairia
+    // direto na ilustração, sem valor nenhum de demonstração visual.
     dsFotoUrl: 'https://picsum.photos/seed/thor/1080',
     dsFotoThumbUrl: 'https://picsum.photos/seed/thor/256',
   },
