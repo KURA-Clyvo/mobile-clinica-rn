@@ -61,7 +61,22 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
     setErroFoto(false);
   }, [fotoUrl]);
 
-  const accessibilityLabel = nome ? `Foto de ${nome}` : undefined;
+  const temFoto = Boolean(fotoUrl) && !erroFoto;
+  // FT-08, fix wave G2 (G2-5): o ramo sem foto usa uma ilustração genérica —
+  // "Foto de X" seria falso ali (não existe foto nenhuma). "Avatar de X" no
+  // ramo sem foto, "Foto de X" só quando há foto de verdade.
+  const accessibilityLabel = nome ? (temFoto ? `Foto de ${nome}` : `Avatar de ${nome}`) : undefined;
+  // FT-08, fix wave G2 (G2-4): a View com o rótulo precisa ser `accessible`
+  // para o leitor de tela anunciar o avatar UMA VEZ — sem isso, ele desce
+  // nos filhos (a `<Image>`/`<LinearGradient>`) e tenta ler cada um
+  // separadamente. `accessibilityRole="image"` vira `role="img"` no
+  // react-native-web (`AccessibilityUtil.propsToAriaRole`), que é o que faz
+  // o `aria-label` valer num elemento genérico na web — sem role, o
+  // `aria-label` de um `<div>` é ignorado pela maioria dos leitores de tela.
+  // Os dois só são definidos quando há rótulo, pelo mesmo motivo do
+  // `accessibilityLabel`: preservar os 8 snapshots que não passam `nome`.
+  const acessivelComoImagem = accessibilityLabel ? true : undefined;
+  const papelDeImagem = accessibilityLabel ? ('image' as const) : undefined;
 
   const containerStyle = [
     {
@@ -83,9 +98,15 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
   ];
 
   // FT-08: com foto (e sem erro de carregamento) → expo-image de verdade.
-  if (fotoUrl && !erroFoto) {
+  if (temFoto) {
     return (
-      <View testID="kc-pet-portrait" accessibilityLabel={accessibilityLabel} style={containerStyle}>
+      <View
+        testID="kc-pet-portrait"
+        accessible={acessivelComoImagem}
+        accessibilityRole={papelDeImagem}
+        accessibilityLabel={accessibilityLabel}
+        style={containerStyle}
+      >
         <Image
           testID="kc-pet-portrait-foto"
           // `cacheKey` é campo de `ImageSource` (dentro de `source`), não
@@ -99,6 +120,15 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
           placeholder={{ blurhash: BLURHASH_NEUTRO }}
           placeholderContentFit="cover"
           onError={() => setErroFoto(true)}
+          // FT-08, fix wave G2 (G2-4): no `react-native-web`, o
+          // `accessibilityLabel` da `<Image>` do expo-image vira o `alt` do
+          // `<img>` (`ImageWrapper.tsx`: `alt={accessibilityLabel}`). Sem
+          // isso a `<Image>` virava `<img>` SEM `alt` na web. Medido também
+          // (`ExpoImage.tsx:59,103`): no NATIVO, `alt` e `accessibilityLabel`
+          // são o MESMO prop final (`accessibilityLabel ?? alt`) — não há
+          // como diferenciar "só pro alt web" de "rótulo nativo" nesta lib,
+          // então usamos `accessibilityLabel` diretamente, igual ao container.
+          accessibilityLabel={accessibilityLabel}
         />
       </View>
     );
@@ -109,7 +139,13 @@ export function KCPetPortrait({ palette, size = 88, ring = false, style, fotoUrl
   // `accessibilityLabel` só aparece quando `nome` é passado, e os testes
   // anteriores nunca passam essa prop).
   return (
-    <View testID="kc-pet-portrait" accessibilityLabel={accessibilityLabel} style={containerStyle}>
+    <View
+      testID="kc-pet-portrait"
+      accessible={acessivelComoImagem}
+      accessibilityRole={papelDeImagem}
+      accessibilityLabel={accessibilityLabel}
+      style={containerStyle}
+    >
       <LinearGradient
         colors={[top, base]}
         start={{ x: 0.5, y: 0 }}

@@ -128,21 +128,97 @@ describe('KCPetPortrait', () => {
     });
 
     it('accessibilityLabel com o nome do pet no ramo COM foto', () => {
-      const { getByLabelText } = wrap(
-        <KCPetPortrait palette="lab" fotoUrl={FOTO_URL} nome="Thor" />,
-      );
-      expect(getByLabelText('Foto de Thor')).toBeTruthy();
+      // getByTestId, não getByLabelText: com o fix do G2-4 a `<Image>` TAMBÉM
+      // carrega `accessibilityLabel` (ver describe G2-4 abaixo) — o RTL, ao
+      // contrário de um leitor de tela real, não sabe que o `accessible` do
+      // container absorve o filho, e `getByLabelText` acharia 2 elementos.
+      const { getByTestId } = wrap(<KCPetPortrait palette="lab" fotoUrl={FOTO_URL} nome="Thor" />);
+      expect(getByTestId('kc-pet-portrait').props.accessibilityLabel).toBe('Foto de Thor');
     });
 
-    it('accessibilityLabel com o nome do pet no ramo SEM foto', () => {
-      const { getByLabelText } = wrap(<KCPetPortrait palette="lab" nome="Bolinha" />);
-      expect(getByLabelText('Foto de Bolinha')).toBeTruthy();
+    it('accessibilityLabel com o nome do pet no ramo SEM foto — G2-5: "Avatar de X", não "Foto de X" (não existe foto nenhuma)', () => {
+      const { getByTestId } = wrap(<KCPetPortrait palette="lab" nome="Bolinha" />);
+      const label = getByTestId('kc-pet-portrait').props.accessibilityLabel;
+      expect(label).toBe('Avatar de Bolinha');
+      expect(label).not.toBe('Foto de Bolinha');
     });
 
     it('sem nome, nenhum accessibilityLabel é definido (compatibilidade com os snapshots antigos)', () => {
       const { getByTestId } = wrap(<KCPetPortrait palette="lab" />);
       const portrait = getByTestId('kc-pet-portrait');
       expect(portrait.props.accessibilityLabel).toBeUndefined();
+    });
+
+    // G2-2: o reset de `erroFoto` quando a `fotoUrl` muda não tinha teste —
+    // mordida: remover o `useEffect([fotoUrl])` passa verde (C11 do G2,
+    // `184 passed`, `EXIT=0`). Cenário real: URL expira, o `onError` dispara,
+    // o pet é recarregado com uma URL nova (uuid/exp/sig diferentes) — sem o
+    // reset o avatar ficaria preso na ilustração mesmo com a foto nova válida.
+    it('G2-2 — após onError, uma NOVA fotoUrl reseta erroFoto e volta a tentar a imagem', () => {
+      const FOTO_2 =
+        'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/2/uuid-novo_1080.webp?exp=1790099999&sig=novasig';
+      const { getByTestId, queryByTestId, rerender } = wrap(
+        <KCPetPortrait palette="lab" fotoUrl={FOTO_URL} />,
+      );
+      const foto1 = getByTestId('kc-pet-portrait-foto');
+      fireEvent(foto1, 'error', { nativeEvent: { error: 'expirou' } } as never);
+      expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+      expect(getByTestId('LinearGradient')).toBeTruthy();
+
+      rerender(<ThemeProvider><KCPetPortrait palette="lab" fotoUrl={FOTO_2} /></ThemeProvider>);
+
+      const foto2 = getByTestId('kc-pet-portrait-foto');
+      expect(foto2.props.source).toEqual([
+        { uri: FOTO_2, cacheKey: 'https://kura-clinica.vercel.app/proxy/clinica/api/v1/fotos/clinica/1/pet/2/uuid-novo_1080.webp' },
+      ]);
+    });
+
+    // G2-4: acessibilidade real, não só a letra do brief. (a) o CONTAINER
+    // precisa ser `accessible` para o leitor de tela anunciar o avatar UMA
+    // VEZ; sem isso ele desce nos filhos e tenta ler cada um. (b) a `<Image>`
+    // precisa de `accessibilityLabel` (medido: `ExpoImage.tsx:59,103` funde
+    // `alt`/`accessibilityLabel` no MESMO prop final no nativo; no
+    // `react-native-web` ele vira o `alt` do `<img>`) para a web não gerar
+    // `<img>` sem texto alternativo.
+    describe('G2-4 — acessibilidade (container `accessible` + accessibilityLabel na imagem)', () => {
+      it('ramo COM foto: container é accessible, role "image", e a Image recebe o mesmo rótulo — mordida: remover `accessible` faz esta asserção falhar', () => {
+        const { getByTestId } = wrap(<KCPetPortrait palette="lab" fotoUrl={FOTO_URL} nome="Thor" />);
+        const portrait = getByTestId('kc-pet-portrait');
+        expect(portrait.props.accessible).toBe(true);
+        expect(portrait.props.accessibilityRole).toBe('image');
+        expect(portrait.props.accessibilityLabel).toBe('Foto de Thor');
+        const foto = getByTestId('kc-pet-portrait-foto');
+        expect(foto.props.accessibilityLabel).toBe('Foto de Thor');
+      });
+
+      it('ramo SEM foto: container é accessible com role "image" e o rótulo "Avatar de X"', () => {
+        const { getByTestId } = wrap(<KCPetPortrait palette="lab" nome="Bolinha" />);
+        const portrait = getByTestId('kc-pet-portrait');
+        expect(portrait.props.accessible).toBe(true);
+        expect(portrait.props.accessibilityRole).toBe('image');
+        expect(portrait.props.accessibilityLabel).toBe('Avatar de Bolinha');
+      });
+
+      it('sem nome, `accessible`/`accessibilityRole` continuam undefined (não muda os 8 snapshots)', () => {
+        const { getByTestId } = wrap(<KCPetPortrait palette="lab" />);
+        const portrait = getByTestId('kc-pet-portrait');
+        expect(portrait.props.accessible).toBeUndefined();
+        expect(portrait.props.accessibilityRole).toBeUndefined();
+      });
+
+      // NÃO É MORDIDA — é uma nota de medição sobre o LIMITE da ferramenta de
+      // teste, não do componente. Num leitor de tela real, `accessible=true`
+      // no container faz iOS/Android tratarem a subárvore como UM elemento
+      // opaco: o `accessibilityLabel` da `<Image>` filha deixa de ser
+      // alcançável individualmente (comportamento documentado do RN, não
+      // reproduzível em jsdom/react-test-renderer). O RTL não simula essa
+      // fusão — `getAllByLabelText` aqui acha os 2 nós (container + Image)
+      // porque compara props isoladamente, sem entender `accessible`/`role`.
+      // NÃO VERIFICADO com leitor de tela real.
+      it('RTL (ao contrário de um leitor de tela real) enxerga 2 nós com o mesmo rótulo — limite da ferramenta, não do componente', () => {
+        const { getAllByLabelText } = wrap(<KCPetPortrait palette="lab" fotoUrl={FOTO_URL} nome="Thor" />);
+        expect(getAllByLabelText('Foto de Thor')).toHaveLength(2);
+      });
     });
   });
 });
