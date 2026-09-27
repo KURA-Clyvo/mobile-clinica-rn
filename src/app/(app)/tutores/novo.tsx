@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,8 +20,9 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { ROUTES } from '@constants/routes';
 import { useCriarTutor, useReemitirConvite } from '@hooks/useTutores';
-import { mensagemErroCadastroTutor } from '@services/tutores.service';
+import { mensagemErroCadastroTutor, mensagemErroReemissaoConvite } from '@services/tutores.service';
 import { mascararTelefone, somenteDigitos, linkWhatsApp } from '@utils/telefone';
 import type { ApiError, ConviteTutor } from '../../../types/api';
 
@@ -43,15 +44,25 @@ const schema = z
       .string()
       .refine((v) => somenteDigitos(v).length === 11, 'CPF precisa ter 11 dígitos'),
     dsEmail: z.string().trim().email('Informe um e-mail válido'),
+    // G2 (I-1): teto de 15 dígitos alinhado ao `TetoDigitos` de
+    // `NormalizadorTelefone.cs` (E.164) — o piso de 10 já cobre nacional
+    // (10-11) e a máscara (`mascararTelefone`) permite até 15 quando há '+'.
     nrTelefone: z
       .string()
-      .refine((v) => somenteDigitos(v).length >= 10, 'Informe um telefone válido, com DDD'),
+      .refine(
+        (v) => somenteDigitos(v).length >= 10 && somenteDigitos(v).length <= 15,
+        'Informe um telefone válido, com DDD',
+      ),
     usaMesmoWhatsapp: z.boolean(),
     dsWhatsapp: z.string().optional(),
     aceitouAvisoPrivacidade: z.boolean(),
   })
   .refine(
-    (data) => data.usaMesmoWhatsapp || somenteDigitos(data.dsWhatsapp ?? '').length >= 10,
+    (data) => {
+      if (data.usaMesmoWhatsapp) return true;
+      const n = somenteDigitos(data.dsWhatsapp ?? '').length;
+      return n >= 10 && n <= 15;
+    },
     { message: 'Informe um WhatsApp válido, com DDD', path: ['dsWhatsapp'] },
   );
 
@@ -132,6 +143,7 @@ export default function NovoTutorScreen() {
     control,
     handleSubmit,
     watch,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -148,6 +160,24 @@ export default function NovoTutorScreen() {
 
   const aceitouAviso = watch('aceitouAvisoPrivacidade');
   const usaMesmoWhatsapp = watch('usaMesmoWhatsapp');
+
+  // G2 REC-03 (C-1, Critical): `(app)/_layout.tsx` é um Drawer, e o Drawer do
+  // react-navigation v7 NÃO desmonta a tela ao perder o foco (não existe mais
+  // `unmountOnBlur`) — sem isto, "Voltar" deixava `convite` vivo no estado, e
+  // reentrar em "Novo tutor" reabria o QR/token do tutor ANTERIOR em vez de
+  // um formulário vazio (medido com o roteador real, `g2-rec03.md` §F4).
+  // `useFocusEffect` roda a função de limpeza quando a tela PERDE o foco —
+  // aqui ela zera TUDO (convite + formulário), então a PRÓXIMA vez que a tela
+  // ganhar foco (nova visita) começa sempre do zero, independente de o
+  // componente continuar montado pelo Drawer.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setConvite(null);
+        reset();
+      };
+    }, [reset]),
+  );
 
   const onSubmit = (data: FormValues) => {
     // Mordida (c): sem o aceite o formulário nem chega aqui — o botão está
@@ -188,9 +218,14 @@ export default function NovoTutorScreen() {
       { idTutor: convite.idTutor, nomeTutor: convite.nomeTutor, whatsapp: convite.whatsapp },
       {
         onSuccess: (resultado) => setConvite(resultado),
+        // m1 (G2): mensagem genérica pra QUALQUER status ≠ 400, também na
+        // reemissão — antes mostrava `err.message` cru (ex.: "Tutor id 42 já
+        // possui conta…", 409), texto técnico e nunca pensado pra tela.
         onError: (err: unknown) => {
-          const e = err as ApiError;
-          Alert.alert('Não foi possível gerar novo convite', e?.message ?? 'Tente novamente.');
+          Alert.alert(
+            'Não foi possível gerar novo convite',
+            mensagemErroReemissaoConvite(err as ApiError),
+          );
         },
       },
     );
@@ -271,7 +306,7 @@ export default function NovoTutorScreen() {
             </KCButton>
             <KCButton
               variant="secondary"
-              onPress={() => router.back()}
+              onPress={() => router.push(ROUTES.app.pacientes)}
               accessibilityLabel="Voltar para pacientes"
               testID="btn-voltar-pacientes"
             >
@@ -289,7 +324,7 @@ export default function NovoTutorScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-form-tutor"
             accessibilityLabel="Voltar"
           >

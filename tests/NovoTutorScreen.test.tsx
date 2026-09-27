@@ -15,9 +15,19 @@ import {
 } from '../src/mocks/tutores.mock';
 
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: mockBack }),
-}));
+jest.mock('expo-router', () => {
+  const ReactForMock = require('react');
+  return {
+    useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: mockBack }),
+    // G2 (C-1): `novo.tsx` agora usa `useFocusEffect` pra zerar o estado no blur —
+    // este teste renderiza a tela ISOLADA (sem navegação real, sem blur/foco de
+    // verdade), então `useEffect(callback, [])` é uma emulação razoável de "um
+    // ciclo de foco" (roda no mount, roda a limpeza no unmount). O comportamento
+    // de navegação REAL (perder foco, reentrar) é coberto por
+    // tests/NovoTutorScreen.navigation.test.tsx, que NÃO mocka expo-router.
+    useFocusEffect: (callback: () => void | (() => void)) => ReactForMock.useEffect(callback, []),
+  };
+});
 
 jest.mock('react-native-safe-area-context', () => {
   const ReactForMock = require('react');

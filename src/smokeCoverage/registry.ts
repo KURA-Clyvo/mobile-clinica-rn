@@ -123,18 +123,28 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'check hoje em smoke-contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo ' +
       'desta task.',
   },
-  // REC-03 — 2 endpoints NOVOS (POST /api/v1/tutores, POST /api/v1/tutores/{id}/convite,
-  // rec-03-report.md). Side-effecting (grava TUTOR/TUTOR_INVITE no Oracle real) e sem check
-  // hoje em smoke-contratos.sh (grep confirmado: `grep -n "tutores" DevOps-Cloud/scripts/' +
-  // smoke-contratos.sh` só acha o GET /tutores/{id} de LU-09, nenhuma linha para POST
-  // /tutores nem /convite). Estender é mudança em DevOps-Cloud, fora do escopo desta task
-  // (que só toca mobile-clinica-rn).
+  // REC-03 — 2 endpoints (POST /api/v1/tutores, POST /api/v1/tutores/{id}/convite,
+  // rec-03-report.md).
+  //
+  // 🔴 CORRIGIDO na fix wave G2 (achado m5): o comentário anterior desta entrada alegava
+  // "grep confirmado: `grep -n "tutores" .../smoke-contratos.sh` só acha o GET /tutores/{id}
+  // de LU-09, nenhuma linha para POST /tutores" — FALSO, medido pelo revisor
+  // (`g2-rec03.md` §F7) e reconferido aqui: `grep -n 'api/v1/tutores"' DevOps-Cloud/scripts/
+  // smoke-contratos.sh` (`origin/main` `ebb2da0`) acha **3** chamadas `POST /api/v1/tutores`
+  // (`:312` "setup/tutores", `:481` "tutores/POST (sem nrTelefone)", `:571` "setup/tutores
+  // (para checks Luna)"). O `naoCoberto` continua correto (razão abaixo), mas a justificativa
+  // escrita estava errada — "documentação que garante o que o código não faz", a mesma classe
+  // de defeito que este projeto já reprovou task por antes (CLAUDE.md, lição do FIX_6).
   'tutores.service.ts::criarTutor': {
     naoCoberto:
       'POST /api/v1/tutores (TutorCreateDto -> TutorComInviteResponseDto) — grava tutor + ' +
       'convite no Oracle real, gera CPF/e-mail novos a cada chamada (não idempotente, ' +
-      'colidiria em reexecução sem CPF/e-mail únicos por run). Sem check hoje em ' +
-      'smoke-contratos.sh; candidato a follow-up em DevOps-Cloud.',
+      'colidiria em reexecução sem CPF/e-mail únicos por run). O smoke JÁ TEM 3 chamadas ' +
+      'POST /api/v1/tutores (`:312`, `:481`, `:571`), mas para o CONTRATO ANTIGO — sem ' +
+      '`stAvisoPrivacidadeInformado` e sem `invite`/`dsLinkConvite` na resposta, e o `:481` ' +
+      'espera 201 SEM `nrTelefone`, contrato oposto ao da REC-01 (`nrTelefone` obrigatório, ' +
+      'ver `g0-recepcao.md:294`). Atualizar os 3 checks pro contrato novo é mudança em ' +
+      'DevOps-Cloud — REC-05, não esta task (que só toca mobile-clinica-rn).',
   },
   'tutores.service.ts::reemitirConvite': {
     naoCoberto:

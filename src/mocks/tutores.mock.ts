@@ -117,10 +117,63 @@ function novoInvite(canal: string): InviteWireDto {
   };
 }
 
+// ─── Réplica ANCORADA de NormalizadorTelefone.cs (regra v11 do CLAUDE.md —
+// cópia de regra de negócio de OUTRO repo precisa de âncora fixa) ──────────
+//
+// G2 REC-03 (achado m2): o mock devolvia `nrTelefone` CRU no corpo da
+// resposta (ex. "11987654321"), mas o servidor real devolve NORMALIZADO
+// (ex. "5511987654321", TutorService.cs:128 — `tutor.NrTelefone` é
+// `telefoneArmazenado`, saída de `TentarNormalizar`, nunca a entrada crua).
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Domain/Tutores/NormalizadorTelefone.cs
+// COMMIT:  e33da98 (origin/main)
+// CONFERIDO EM: 2026-09-27 (fix wave G2 da REC-03, achado m2)
+// REPRODUZIR:
+//     git show origin/main:src/Kura.Domain/Tutores/NormalizadorTelefone.cs | sed -n '79p;88-112p'
+//
+// Regra (ordem importa, ancorada linha a linha):
+//   :79      comDdiExplicito = entrada começa com '+' (TrimStart().StartsWith('+'))
+//   :88-90   ramo 1: comDdiExplicito -> guarda só os dígitos, SEM o '+'
+//   :93-95   ramo 2: sem '+', 12 ou 13 dígitos começando com "55" -> guarda como veio
+//   :98-100  ramo 3: sem '+', 10 ou 11 dígitos -> prefixa "55"
+//   :105     ramo 4: nenhuma forma reconhecida -> inválido (null)
+//   :112     fora de [10,15] dígitos (só o ramo 1 pode violar isso) -> inválido (null)
+const PISO_DIGITOS_TELEFONE = 10;
+const TETO_DIGITOS_TELEFONE = 15;
+function normalizarTelefoneComoServidor(entrada: string): string | null {
+  if (!entrada || !entrada.trim()) return null;
+  const comDdiExplicito = entrada.trimStart().startsWith('+');
+  const digitos = entrada.replace(/\D/g, '');
+  if (!digitos) return null;
+
+  let candidato: string;
+  if (comDdiExplicito) {
+    candidato = digitos;
+  } else if ((digitos.length === 12 || digitos.length === 13) && digitos.startsWith('55')) {
+    candidato = digitos;
+  } else if (digitos.length === 10 || digitos.length === 11) {
+    candidato = `55${digitos}`;
+  } else {
+    return null;
+  }
+
+  if (candidato.length < PISO_DIGITOS_TELEFONE || candidato.length > TETO_DIGITOS_TELEFONE) {
+    return null;
+  }
+  return candidato;
+}
+
+// clinicaId fixo — mesmo padrão de usuarios-clinica.mock.ts::buildUsuarios
+// (ambiente de demo single-tenant, `idClinica: 1` hardcoded em vários mocks).
+const CLINICA_ID_MOCK = 1;
+
+// G2 (m2): formato alinhado a GeradorLinkConvite.cs:69 (origin/main e33da98)
+// — `{baseUrl}/register?token={token}&clinicaId={id}`. Base fictícia (nunca
+// um domínio real); ANTES desta correção era `.../convite/<token>`, um
+// caminho que o servidor real não produz.
 function linkConvite(nrToken: string): string {
-  // Mesmo formato de link declarado no relatório da task (rec-03-report.md)
-  // — plausível, nunca um domínio real de produção.
-  return `https://app.kura.vet/convite/${nrToken}`;
+  return `https://app.kura.vet/register?token=${encodeURIComponent(nrToken)}&clinicaId=${CLINICA_ID_MOCK}`;
 }
 
 // POST /api/v1/tutores.
@@ -157,13 +210,30 @@ export async function criar(
     );
   }
 
+  // G2 (m2): TutorService.CreateAsync (backend-clinica-dotnet, origin/main e33da98)
+  // normaliza ANTES de persistir/devolver — o mock replica isso, não só o formato do
+  // corpo. `RegraDeNegocioException("Telefone inválido."/"WhatsApp inválido.")` vira 422
+  // real quando `TentarNormalizar` falha; defesa em profundidade (inalcançável quando o
+  // cliente valida direito, mas o app deste repo é só UM dos clientes possíveis).
+  const telefoneNormalizado = normalizarTelefoneComoServidor(body.nrTelefone);
+  if (!telefoneNormalizado) {
+    return rejeitar(422, 'TELEFONE_INVALIDO', 'Telefone inválido.');
+  }
+  const whatsappNormalizado =
+    body.dsWhatsapp && body.dsWhatsapp.trim()
+      ? normalizarTelefoneComoServidor(body.dsWhatsapp)
+      : telefoneNormalizado;
+  if (!whatsappNormalizado) {
+    return rejeitar(422, 'WHATSAPP_INVALIDO', 'WhatsApp inválido.');
+  }
+
   const semLinkConvite = body.nrCpf === CPF_MOCK_SEM_LINK;
   const novo: TutorArmazenado = {
     id: Math.max(0, ...store.map((t) => t.id)) + 1,
     nmTutor: body.nmTutor,
     nrCpf: body.nrCpf,
     dsEmail: body.dsEmail,
-    nrTelefone: body.nrTelefone,
+    nrTelefone: telefoneNormalizado,
     stAtiva: true,
     semLinkConvite,
   };

@@ -174,6 +174,11 @@ jest.mock('expo-router', () => {
   return {
     useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
     useLocalSearchParams: () => mockUseLocalSearchParams(),
+    // REC-03 G2 (C-1): `(app)/tutores/novo.tsx` usa `useFocusEffect` pra zerar o
+    // estado no blur — as entradas deste registry renderizam a tela ISOLADA (sem
+    // navegação real), então `useEffect(callback, [])` emula "um ciclo de foco"
+    // (mount + limpeza no unmount), suficiente pra medir geometria dos touchables.
+    useFocusEffect: (callback: () => void | (() => void)) => ReactForMock.useEffect(callback, []),
     Link: ({
       href,
       asChild,
