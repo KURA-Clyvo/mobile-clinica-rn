@@ -168,7 +168,12 @@ export default function NovoTutorScreen() {
       },
       {
         onSuccess: (resultado) => setConvite(resultado),
-        onError: (err) => {
+        // `err: unknown` (não o `Error` inferido por padrão pelo `useMutation`) —
+        // mesmo padrão de usuarios/index.tsx::handleErro: aceitar `unknown` é
+        // compatível com o slot `onError` de qualquer TError (contravariância de
+        // parâmetro), e é o que permite o cast para `ApiError` logo abaixo sem o
+        // TS reclamar de overlap insuficiente (TS2352 — Error x ApiError).
+        onError: (err: unknown) => {
           // Mordida (d): 409/500 nunca mostram err.message cru (pode conter
           // CPF/e-mail duplicado — oráculo cross-tenant, ver E46).
           Alert.alert('Não foi possível cadastrar', mensagemErroCadastroTutor(err as ApiError));
@@ -183,7 +188,7 @@ export default function NovoTutorScreen() {
       { idTutor: convite.idTutor, nomeTutor: convite.nomeTutor, whatsapp: convite.whatsapp },
       {
         onSuccess: (resultado) => setConvite(resultado),
-        onError: (err) => {
+        onError: (err: unknown) => {
           const e = err as ApiError;
           Alert.alert('Não foi possível gerar novo convite', e?.message ?? 'Tente novamente.');
         },

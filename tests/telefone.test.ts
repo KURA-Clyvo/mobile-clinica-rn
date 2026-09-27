@@ -43,7 +43,8 @@ describe('telefone.ts — utilitários puros (REC-03)', () => {
 
       // Decodifica de volta e confirma que a mensagem sobrevive intacta.
       const query = link.split('?text=')[1];
-      expect(decodeURIComponent(query)).toBe('Olá! Segue o link: https://x.io/abc é seu.');
+      expect(query).toBeDefined();
+      expect(decodeURIComponent(query!)).toBe('Olá! Segue o link: https://x.io/abc é seu.');
     });
   });
 });

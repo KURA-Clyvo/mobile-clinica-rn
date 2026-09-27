@@ -114,7 +114,9 @@ describe('NovoTutorScreen — mordida (d): 409/500 do cadastro mostram mensagem 
     });
 
     await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    const [, mensagem] = alertSpy.mock.calls[0];
+    const chamada = alertSpy.mock.calls[0];
+    expect(chamada).toBeDefined();
+    const [, mensagem] = chamada!;
     expect(mensagem).not.toContain(CPF_MOCK_DUPLICADO);
     expect(mensagem).not.toContain('outra clínica');
     expect(mensagem).toContain('Não foi possível cadastrar o tutor');
@@ -175,7 +177,9 @@ describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordi
     });
 
     expect(openURLSpy).toHaveBeenCalledTimes(1);
-    const url = openURLSpy.mock.calls[0][0];
+    const chamada = openURLSpy.mock.calls[0];
+    expect(chamada).toBeDefined();
+    const [url] = chamada!;
     expect(url).toMatch(/^https:\/\/wa\.me\/5511987654321\?text=/);
   });
 });
