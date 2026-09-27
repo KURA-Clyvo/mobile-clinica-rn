@@ -55,8 +55,15 @@ const ROUTES: [RegExp, MockHandler][] = [
   // `/luna\/triagens$/` exige terminar em "triagens" (sem sufixo). Sem colisão.
   [/\/luna\/triagens\/relatorio$/, lunaMock.relatorioTriagens],
   [/\/luna\/triagens$/, lunaMock.triagens],
+  // REC-03: POST /api/v1/tutores/{id}/convite — precisa vir ANTES de
+  // /tutores\/\d+$/ (mesmo raciocínio do bloco FM-02/FM-05 abaixo): termina
+  // em "convite", não em dígito, mutuamente exclusiva por construção, mas
+  // mantida nesta ordem por legibilidade.
+  [/\/tutores\/\d+\/convite$/, tutoresMock.reemitirConvite],
   // LU-09: GET /api/v1/tutores/{id} — busca de telefone para "Responder no WhatsApp".
   [/\/tutores\/\d+$/, tutoresMock.byId],
+  // REC-03: POST /api/v1/tutores — cadastro de novo tutor + convite.
+  [/\/tutores$/, tutoresMock.criar],
   // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
   // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).
   [/\/teleconsulta\/\d+\/sala$/, teleconsultaMock.sala],

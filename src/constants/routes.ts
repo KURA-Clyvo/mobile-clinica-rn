@@ -26,6 +26,9 @@ export const ROUTES = {
     // Rota é estaticamente conhecida (src/app/(app)/pacientes/[id].tsx); o expo-router
     // não tipa segmentos dinâmicos via template literal, só o helper `Href` cobre o alvo.
     pacienteDetalhe: (id: number) => `/pacientes/${id}` as Href,
+    // REC-03: src/app/(app)/tutores/novo.tsx. Ponto de entrada: botão "Novo
+    // tutor" em pacientes/index.tsx.
+    tutorNovo: '/tutores/novo' as Href,
     // Idem: src/app/(app)/consulta/[idPet].tsx.
     consulta: (idPet: number) => `/consulta/${idPet}` as Href,
     // idAgendamento é opcional: sem ele (entrada ad-hoc via ficha do pet) a tela não
