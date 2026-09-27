@@ -123,6 +123,26 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'check hoje em smoke-contratos.sh; estender é mudança em DevOps-Cloud, fora do escopo ' +
       'desta task.',
   },
+  // REC-03 — 2 endpoints NOVOS (POST /api/v1/tutores, POST /api/v1/tutores/{id}/convite,
+  // rec-03-report.md). Side-effecting (grava TUTOR/TUTOR_INVITE no Oracle real) e sem check
+  // hoje em smoke-contratos.sh (grep confirmado: `grep -n "tutores" DevOps-Cloud/scripts/' +
+  // smoke-contratos.sh` só acha o GET /tutores/{id} de LU-09, nenhuma linha para POST
+  // /tutores nem /convite). Estender é mudança em DevOps-Cloud, fora do escopo desta task
+  // (que só toca mobile-clinica-rn).
+  'tutores.service.ts::criarTutor': {
+    naoCoberto:
+      'POST /api/v1/tutores (TutorCreateDto -> TutorComInviteResponseDto) — grava tutor + ' +
+      'convite no Oracle real, gera CPF/e-mail novos a cada chamada (não idempotente, ' +
+      'colidiria em reexecução sem CPF/e-mail únicos por run). Sem check hoje em ' +
+      'smoke-contratos.sh; candidato a follow-up em DevOps-Cloud.',
+  },
+  'tutores.service.ts::reemitirConvite': {
+    naoCoberto:
+      'POST /api/v1/tutores/{id}/convite (InviteTutorReemitidoResponseDto) — depende de um ' +
+      'tutor já existente (id real), que smoke-contratos.sh hoje não cria antes de chamar ' +
+      'este endpoint. Sem check hoje; candidato a follow-up em DevOps-Cloud junto do item ' +
+      'acima.',
+  },
 
   // pets.service.ts
   'pets.service.ts::listPets': { coberto: 'pets/listar' },
