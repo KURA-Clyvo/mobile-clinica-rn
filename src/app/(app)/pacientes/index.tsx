@@ -65,6 +65,7 @@ const makeStyles = (colors: typeof lightColors) =>
       position: 'absolute',
       bottom: 24,
       right: 24,
+      gap: 10,
     },
     listContent: {
       paddingBottom: 80,
@@ -197,6 +198,19 @@ export default function PacientesScreen() {
       />
 
       <View style={styles.fabContainer}>
+        {/* REC-03: entrada real de cadastro de tutor — POST /api/v1/tutores
+            existe e a UI (formulário + convite) foi construída nesta task.
+            Distinta do botão "+ Novo" abaixo (cadastro de PACIENTE/pet, que
+            continua sem fluxo real — ver comentário da TASK-83 logo abaixo). */}
+        <KCButton
+          variant="secondary"
+          size="md"
+          onPress={() => router.push(ROUTES.app.tutorNovo)}
+          accessibilityLabel="Novo tutor"
+          testID="btn-novo-tutor"
+        >
+          Novo tutor
+        </KCButton>
         {/* TASK-83: não existe fluxo de cadastro de paciente nesta tela — o endpoint
             `POST /api/v1/pets` existe no .NET, mas construir a UI (formulário, seleção
             de tutor, validação) é funcionalidade nova fora do escopo deste fix (D1 do

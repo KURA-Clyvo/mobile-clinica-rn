@@ -146,6 +146,10 @@ import ServicosPrecoScreen from '../src/app/(app)/servicos-preco/index';
 import FinanceiroScreen from '../src/app/(app)/financeiro/index';
 import LoginScreen from '../src/app/login';
 import RegisterScreen from '../src/app/register';
+// REC-03 — 1 tela nova (`(app)/tutores/novo.tsx`), mesmo dever dos blocos
+// FM-02/FM-05/FM-08 acima: entrada própria no registry abaixo, ou o gate de
+// cobertura falha.
+import NovoTutorScreen from '../src/app/(app)/tutores/novo';
 
 // --- Mocks compartilhados — só o necessário pra renderizar AppHeader/
 // NavDrawer/WhatsAppModal fora do app real. Padrões copiados dos testes que
@@ -170,6 +174,11 @@ jest.mock('expo-router', () => {
   return {
     useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
     useLocalSearchParams: () => mockUseLocalSearchParams(),
+    // REC-03 G2 (C-1): `(app)/tutores/novo.tsx` usa `useFocusEffect` pra zerar o
+    // estado no blur — as entradas deste registry renderizam a tela ISOLADA (sem
+    // navegação real), então `useEffect(callback, [])` emula "um ciclo de foco"
+    // (mount + limpeza no unmount), suficiente pra medir geometria dos touchables.
+    useFocusEffect: (callback: () => void | (() => void)) => ReactForMock.useEffect(callback, []),
     Link: ({
       href,
       asChild,
@@ -309,6 +318,15 @@ jest.mock('@hooks/useUsuariosClinica', () => ({
     mutate: mockMutateTrocarSenhaUsuarioClinica,
     isPending: false,
   }),
+}));
+
+// REC-03 — mesmo padrão dos blocos FM-02/FM-05 acima: mocka-se o HOOK, não
+// o service. `(app)/tutores/novo.tsx` importa os 2.
+const mockMutateCriarTutor = jest.fn();
+const mockMutateReemitirConvite = jest.fn();
+jest.mock('@hooks/useTutores', () => ({
+  useCriarTutor: () => ({ mutate: mockMutateCriarTutor, isPending: false }),
+  useReemitirConvite: () => ({ mutate: mockMutateReemitirConvite, isPending: false }),
 }));
 
 // FM-05 — mesmo padrão do bloco FM-02 acima: mocka-se o HOOK, não o
@@ -1101,11 +1119,14 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId, UNSAFE_getAllByType } = wrap(<PacientesScreen />);
       fireEvent.changeText(getByTestId('search-input'), 'thor');
       // A tela também renderiza o FAB "+ Novo" (`KCButton`, que embrulha o
-      // PRÓPRIO `TouchableOpacity` com `testID="btn-novo-paciente"`) — 2
+      // PRÓPRIO `TouchableOpacity` com `testID="btn-novo-paciente"`) e, desde
+      // a REC-03, o botão "Novo tutor" (`testID="btn-novo-tutor"`) — 3
       // `TouchableOpacity` na árvore depois de digitar, então
       // `UNSAFE_getByType` (que exige exatamente 1 match) quebraria aqui.
-      // Filtra pelo testID do FAB para isolar o botão de limpar busca, que
-      // não tem testID próprio.
+      // Filtra pelo testID do FAB "+ Novo" para isolar o botão de limpar
+      // busca, que não tem testID próprio e continua sendo o PRIMEIRO da
+      // árvore (a busca renderiza antes do fabContainer) — `.find()` acha
+      // ele mesmo com o botão novo no meio.
       const clearButton = UNSAFE_getAllByType(TouchableOpacity).find(
         (el) => el.props.testID !== 'btn-novo-paciente',
       );
@@ -1518,6 +1539,56 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       });
       const { getByTestId } = wrap(<SettingsScreen />);
       return expectSemGeometriaExplicita(flat(getByTestId('btn-painel-financeiro').props.style));
+    },
+  },
+
+  // REC-03 — 3 tocáveis novos em `(app)/tutores/novo.tsx::NovoTutorScreen`.
+  // A tela de CONVITE (renderizada quando `convite` não é `null`) só usa
+  // `KCButton` (já coberto por `KCButton.tsx::KCButton#1`, tag não-literal
+  // para este walker) — nenhum touchable novo nasce ali.
+  '(app)/tutores/novo.tsx::NovoTutorScreen#1': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'btn-voltar-form-tutor',
+    reason:
+      'Botão de voltar do cabeçalho (`btn-voltar-form-tutor`) não recebe `style` nenhum — só ' +
+      'embrulha o ícone "back". Sem height/minHeight/width/minWidth. Mesmo padrão de outros ' +
+      'botões de ícone solto deste registry (ex.: `UsuarioClinicaFormModal.tsx::' +
+      'UsuarioClinicaFormModal#1`). Não corrigido nesta task — candidato a follow-up.',
+    verify: () => {
+      const { getByTestId } = wrap(<NovoTutorScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-form-tutor').props.style));
+    },
+  },
+
+  '(app)/tutores/novo.tsx::NovoTutorScreen#2': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'switch-mesmo-whatsapp',
+    reason:
+      'Switch "WhatsApp é o mesmo número" (`switch-mesmo-whatsapp`) — mesmo caso de ' +
+      '`settings.tsx::SettingsScreen#1`/`#2` (sem `style`, geometria de `Switch` vem do ' +
+      'nativo, fora do que este walker prova sem Yoga real). Não corrigido — candidato a ' +
+      'follow-up conjunto com os outros 2 `Switch` deste app.',
+    verify: () => {
+      const { getByTestId } = wrap(<NovoTutorScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('switch-mesmo-whatsapp').props.style));
+    },
+  },
+
+  '(app)/tutores/novo.tsx::NovoTutorScreen#3': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'checkbox-aviso-privacidade',
+    reason:
+      'Checkbox do aviso de privacidade (`checkbox-aviso-privacidade`) — `checkboxRow: { ' +
+      'flexDirection:"row", alignItems:"center", gap:10 }` no PRÓPRIO `TouchableOpacity` ' +
+      '(o quadrado visual de 22×22 é um `View` filho, não o alvo de toque medido aqui) — sem ' +
+      'height/minHeight/width/minWidth no elemento tocável. Não corrigido — candidato a ' +
+      'follow-up (ex.: `hitSlop`, mesmo remédio já registrado em ' +
+      '`discoverInteractiveTouchables.ts`).',
+    verify: () => {
+      const { getByTestId } = wrap(<NovoTutorScreen />);
+      return expectSemGeometriaExplicita(
+        flat(getByTestId('checkbox-aviso-privacidade').props.style),
+      );
     },
   },
 };

@@ -528,6 +528,77 @@ export interface TutorDetalheResponse {
   nrTelefone: string;
 }
 
+// ─── Tutores (.NET — criação + convite, REC-03) ────────────────
+// POST /api/v1/tutores (TutorCreateDto — rec-03-report.md, contrato
+// confirmado na fonte contra backend-clinica-dotnet `origin/main` e33da98).
+// `dsWhatsapp` AUSENTE (não `undefined` explícito no corpo enviado — ver
+// tutores.service.ts::criarTutor) ⇒ backend assume "mesmo número" do
+// `nrTelefone`. `stAvisoPrivacidadeInformado` precisa ser `true` — ausente
+// ou `false` vira 400 (TutorCreateValidator.cs).
+export interface TutorCreateWireDto {
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  dsWhatsapp?: string;
+  stAvisoPrivacidadeInformado: boolean;
+  dsCanalConvite?: 'WHATSAPP' | 'EMAIL' | 'SMS';
+}
+
+// InviteTutorResponseDto — mesmo shape devolvido tanto no cadastro
+// (aninhado em TutorComInviteWireDto.invite) quanto na reemissão (aninhado
+// em InviteReemitidoWireDto.invite).
+export interface InviteWireDto {
+  id: number;
+  nrToken: string;
+  dtExpiracao: string;
+  dsCanal: string;
+  stUtilizado: boolean;
+}
+
+// POST /api/v1/tutores -> 201, TutorComInviteResponseDto.
+export interface TutorComInviteWireDto {
+  id: number;
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  stAtiva: boolean;
+  invite: InviteWireDto;
+  dsLinkConvite: string | null;
+}
+
+// POST /api/v1/tutores/{id}/convite -> 201, InviteTutorReemitidoResponseDto.
+export interface InviteReemitidoWireDto {
+  invite: InviteWireDto;
+  dsLinkConvite: string | null;
+}
+
+// Tipos de UI (o que a tela "Novo tutor" produz/consome) — REC-03.
+export interface NovoTutorInput {
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  // true = "mesmo número" (pré-marcado, default da tela): `dsWhatsapp` não é
+  // enviado ao backend. false = usa o valor de `dsWhatsapp` abaixo.
+  usaMesmoWhatsapp: boolean;
+  dsWhatsapp?: string;
+  aceitouAvisoPrivacidade: boolean;
+}
+
+// Estado local da tela de convite (nunca uma rota — QR nunca cacheado).
+export interface ConviteTutor {
+  idTutor: number;
+  nomeTutor: string;
+  // Número (só dígitos, sem máscara) usado para montar o link do wa.me —
+  // o de WhatsApp se informado, senão o telefone principal.
+  whatsapp: string;
+  nrToken: string;
+  dtExpiracao: string;
+  dsLinkConvite: string | null;
+}
+
 // ─── Luna (Python — chamada direta) ───────────────────────────
 // Espelha EnviarWhatsAppRequest/-Response de luna/src/web/routers/whatsapp.py
 // (whatsapp.py:23-25). E16 (LU-09): o shape real da Luna é {para, mensagem} — o app
