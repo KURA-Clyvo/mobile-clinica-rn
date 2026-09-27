@@ -11,13 +11,42 @@
 // (colada em `g2-rec03.md`), adaptada e mantida aqui como teste PERMANENTE da suíte (não uma
 // sonda descartável).
 import React from 'react';
-import { Text, Pressable } from 'react-native';
+import { Text, Pressable, Alert } from 'react-native';
 import { renderRouter, screen, act, fireEvent, waitFor } from 'expo-router/testing-library';
 import { Drawer } from 'expo-router/drawer';
 import { router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import NovoTutorScreen from '../src/app/(app)/tutores/novo';
+import { __resetTutoresParaTeste } from '../src/mocks/tutores.mock';
+
+// G2b (m8) — mock PARCIAL de tutores.service.ts: delega pra implementação REAL
+// (`jest.requireActual`, cadeia real de mock por baixo) SEMPRE, exceto quando
+// `mockSegurar` está ligado — aí a promise de `criarTutor` fica "em voo" até o
+// teste mandar resolver (`mockDeferred.resolve()`), simulando rede lenta. Não
+// afeta os outros describes deste arquivo (`mockSegurar` nasce `false`).
+let mockDeferred: { resolve: () => void } | null = null;
+let mockSegurar = false;
+jest.mock('../src/services/tutores.service', () => {
+  const actual = jest.requireActual('../src/services/tutores.service');
+  return {
+    ...actual,
+    criarTutor: (input: unknown) => {
+      if (!mockSegurar) return actual.criarTutor(input);
+      return new Promise((resolve) => {
+        mockDeferred = {
+          resolve: () =>
+            resolve(
+              actual.criarTutor(input).then((r: unknown) => {
+                (globalThis as { mockDone?: boolean }).mockDone = true;
+                return r;
+              }),
+            ),
+        };
+      });
+    },
+  };
+});
 
 // O mock do container VISUAL do Drawer é necessário porque o preset do Reanimated 4 deste
 // projeto não expõe `useSharedValue` no ambiente de teste (sem isto: `TypeError: useSharedValue
@@ -72,6 +101,13 @@ function Pacientes() {
 
 const originalUseMocks = process.env.EXPO_PUBLIC_USE_MOCKS;
 
+beforeEach(() => {
+  __resetTutoresParaTeste();
+  mockSegurar = false;
+  mockDeferred = null;
+  (globalThis as { mockDone?: boolean }).mockDone = false;
+});
+
 afterEach(() => {
   process.env.EXPO_PUBLIC_USE_MOCKS = originalUseMocks;
   jest.clearAllMocks();
@@ -123,5 +159,98 @@ describe('NovoTutorScreen — mordida C-1 (Critical, G2): "Voltar" + reentrar n�
     expect(screen.queryByTestId('convite-qrcode')).toBeNull();
     expect(screen.getByTestId('input-nome-tutor').props.value).toBe('');
     expect(screen.getByTestId('input-cpf-tutor').props.value).toBe('');
+  });
+});
+
+// G2b (m8, Minor — resto do C-1 por corrida): o `useFocusEffect` só limpa o estado NO MOMENTO
+// do blur — se a mutação de `criarTutor` ainda está EM VOO quando o operador sai pela sidebar
+// (não pelo botão "Voltar" da própria tela) e a resposta chega DEPOIS, com a tela já fora de
+// foco, o `onSuccess` antigo chamava `setConvite(resultado)` incondicionalmente e reabria o
+// QR/token na reentrada. Base: sonda `g2bprobe-nav.test.tsx` do revisor (S4/S5, colada em
+// `g2b-rec03.md`), adaptada e mantida aqui como teste PERMANENTE.
+function montarComAgenda() {
+  process.env.EXPO_PUBLIC_USE_MOCKS = 'true';
+  return renderRouter(
+    {
+      _layout: Layout,
+      'pacientes/index': Pacientes,
+      'tutores/novo': NovoTutorScreen,
+      dashboard: () => <Text>D</Text>,
+      agenda: () => <Text testID="agenda">A</Text>,
+    },
+    { initialUrl: '/pacientes' },
+  );
+}
+
+async function preencherESalvar(cpf = '98765432100') {
+  fireEvent.changeText(screen.getByTestId('input-nome-tutor'), 'Ana Beatriz');
+  fireEvent.changeText(screen.getByTestId('input-cpf-tutor'), cpf);
+  fireEvent.changeText(screen.getByTestId('input-email-tutor'), 'ana@example.com');
+  fireEvent.changeText(screen.getByTestId('input-telefone-tutor'), '11987654321');
+  fireEvent.press(screen.getByTestId('checkbox-aviso-privacidade'));
+  await act(async () => {
+    fireEvent.press(screen.getByTestId('btn-salvar-tutor'));
+  });
+}
+
+describe('NovoTutorScreen — mordida m8 (Minor, G2b): sucesso fora de foco não repõe o convite', () => {
+  it('mutação em voo -> sai pelo menu (sem "Voltar") -> resposta chega com a tela oculta -> reentra: SEM QR', async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    montarComAgenda();
+    fireEvent.press(screen.getByTestId('novo'));
+
+    mockSegurar = true;
+    await preencherESalvar();
+    // A mutação está presa em `mockDeferred` — nada respondeu ainda.
+    expect(mockDeferred).not.toBeNull();
+
+    // Sai pela SIDEBAR (não pelo botão "Voltar" da própria tela) — mesma ação que o item do
+    // NavDrawer dispara (`router.navigate`, não `router.push`/`back`).
+    act(() => {
+      router.navigate('/agenda');
+    });
+
+    // AGORA a resposta chega, com a tela de "Novo tutor" fora de foco.
+    await act(async () => {
+      mockDeferred?.resolve();
+    });
+    await waitFor(() => expect((globalThis as { mockDone?: boolean }).mockDone).toBe(true));
+    // Drena a fila de microtasks do onSuccess (setState fora de act do RN não tem outro sinal).
+    await act(async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+    });
+
+    // Reentra em "Novo tutor" — MORDIDA: sem a checagem de foco no onSuccess, o convite do
+    // tutor que acabou de ser salvo reaparece aqui (QR do tutor "fantasma").
+    act(() => {
+      router.navigate('/pacientes');
+    });
+    fireEvent.press(screen.getByTestId('novo'));
+    await act(async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId('convite-qrcode')).toBeNull();
+    expect(screen.getByTestId('input-nome-tutor')).toBeTruthy();
+  });
+
+  it('CONTROLE POSITIVO — a mesma mutação em voo, resolvida SEM sair da tela, mostra o QR normalmente', async () => {
+    montarComAgenda();
+    fireEvent.press(screen.getByTestId('novo'));
+
+    mockSegurar = true;
+    await preencherESalvar();
+    mockSegurar = false;
+
+    await act(async () => {
+      mockDeferred?.resolve();
+    });
+    await waitFor(() => expect((globalThis as { mockDone?: boolean }).mockDone).toBe(true));
+    await act(async () => {
+      for (let i = 0; i < 50; i++) await Promise.resolve();
+    });
+
+    // Prova que o instrumento ENXERGA o onSuccess chegando: sem sair da tela, o QR aparece.
+    expect(screen.queryByTestId('convite-qrcode')).toBeTruthy();
   });
 });

@@ -19,24 +19,38 @@ export function temPrefixoInternacional(v: string): boolean {
 // Máscara de exibição, aplicada enquanto o usuário digita.
 // SEM '+': BR nacional, até 11 dígitos (DDD + número) — comportamento
 // original, inalterado. (11) 9123-4567 | (11) 91234-5678
-// COM '+' (G2, I-1): preserva o '+' e permite até 15 dígitos (teto do E.164,
-// mesmo `TetoDigitos` de `NormalizadorTelefone.cs`) — ANTES desta correção a
-// função descartava o '+' e cortava em 11 dígitos, corrompendo qualquer
-// número estrangeiro em silêncio (`+55 11 98765-4321` virava um BR
-// diferente, `+1 415 555 2671` idem). Sem agrupamento visual (só dígitos
-// crus após o '+') — o formato exato varia demais entre países pra valer a
-// complexidade de uma máscara por DDI.
+//
+// G2b (I-1b, Important — resto do I-1): 12 ou 13 dígitos SEM '+' que
+// começam com "55" — a forma em que o número sai de planilha/CRM/export da
+// Twilio, ex. `5511987654321` colado — é a forma "já prefixada" que
+// `NormalizadorTelefone.cs:93-95` reconhece SOZINHO (ramo 2, sem precisar de
+// '+' nenhum). ANTES desta correção, o teto de 11 dígitos do ramo nacional
+// truncava isso para `55119876543`, e o servidor (ramo 3) gravava
+// `5555119876543` — número inexistente, com o `wa.me` abrindo o mesmo
+// número errado. Por isso o teto de 11 dígitos só vale quando o total FICA
+// em 11 ou menos — acima disso (12+), mostra os dígitos crus, sem
+// agrupamento (mesmo raciocínio do caminho '+': o formato varia demais pra
+// valer uma máscara própria).
+//
+// G2b (m7, Minor): nem aqui nem no ramo '+' há mais TETO — antes, 16+
+// dígitos com '+' eram absorvidos em silêncio até 15 (`slice(0,15)`); a
+// tecla extra simplesmente não tinha efeito visível, sem nenhum aviso.
+// Hoje a máscara deixa crescer e é o ZOD (schema de `novo.tsx`, `<= 15`
+// dígitos) quem barra com mensagem — errar deixa de ser silencioso.
 export function mascararTelefone(v: string): string {
   if (temPrefixoInternacional(v)) {
-    const d = somenteDigitos(v).slice(0, 15);
+    const d = somenteDigitos(v);
     return d.length === 0 ? '+' : `+${d}`;
   }
-  const d = somenteDigitos(v).slice(0, 11);
-  if (d.length === 0) return '';
-  if (d.length <= 2) return `(${d}`;
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  const d = somenteDigitos(v);
+  if (d.length <= 11) {
+    if (d.length === 0) return '';
+    if (d.length <= 2) return `(${d}`;
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  }
+  return d;
 }
 
 // G2 REC-03 (I-1): o valor que VAI PARA O SERVIDOR precisa preservar o '+'

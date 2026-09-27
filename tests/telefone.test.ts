@@ -32,14 +32,20 @@ describe('telefone.ts — utilitários puros (REC-03)', () => {
       expect(mascararTelefone('1133334444')).toBe('(11) 3333-4444');
     });
 
-    it('ignora dígitos além do 11º quando NÃO há + (nacional)', () => {
-      expect(mascararTelefone('119123456789999')).toBe('(11) 91234-5678');
+    // G2b (I-1b/m7): ANTES desta correção wave, qualquer coisa acima de 11 dígitos sem
+    // '+' era silenciosamente cortada em 11 (mesmo defeito do I-1, por outro vetor) — o
+    // teste ANTIGO ("ignora dígitos além do 11º") fixava exatamente esse comportamento
+    // como desejado. Hoje o teto de 11 só formata NACIONALMENTE; acima disso, mostra os
+    // dígitos crus (sem inventar nem descartar nenhum) — quem decide se é válido é o zod
+    // (schema de `novo.tsx`, `<= 15`), não a máscara.
+    it('acima de 11 dígitos sem +, mostra os dígitos CRUS — não trunca mais em silêncio', () => {
+      expect(mascararTelefone('119123456789999')).toBe('119123456789999'); // 15 dígitos
     });
 
     // G2 (I-1, Important): ANTES desta correção, `mascararTelefone` descartava o '+' e
     // truncava em 11 dígitos SEMPRE — um número estrangeiro/BR-com-DDI virava um BR
-    // diferente e errado, em silêncio. Hoje, com '+', preserva o sinal e permite até 15.
-    describe('com + (G2 I-1): preserva o prefixo e permite até 15 dígitos', () => {
+    // diferente e errado, em silêncio. Hoje, com '+', preserva o sinal.
+    describe('com + (G2 I-1): preserva o prefixo', () => {
       it('BR com + mantém os 13 dígitos (não trunca em 11)', () => {
         expect(mascararTelefone('+5511987654321')).toBe('+5511987654321');
       });
@@ -48,12 +54,36 @@ describe('telefone.ts — utilitários puros (REC-03)', () => {
         expect(mascararTelefone('+351912345678')).toBe('+351912345678');
         expect(mascararTelefone('+442079460958')).toBe('+442079460958');
       });
-      it('trunca em 15 dígitos mesmo com + (teto do E.164)', () => {
-        expect(mascararTelefone(`+${'1'.repeat(20)}`)).toBe(`+${'1'.repeat(15)}`);
-      });
       it('só o + sozinho não quebra (nenhum dígito ainda)', () => {
         expect(mascararTelefone('+')).toBe('+');
       });
+    });
+
+    // G2b (I-1b, Important — resto do I-1): 12/13 dígitos SEM '+' que começam com "55"
+    // (forma de planilha/CRM/Twilio, ex.: `5511987654321` colado) é a forma "já
+    // prefixada" que NormalizadorTelefone.cs:93-95 reconhece SOZINHO. ANTES desta
+    // correção, o teto de 11 dígitos truncava isso em `55119876543`, e o servidor
+    // (ramo 3) gravava `5555119876543` — número inexistente. Mordida real abaixo.
+    describe('12-13 dígitos sem + começando com 55 (G2b I-1b): NÃO trunca', () => {
+      it('BR já prefixado colado (13 dígitos) mantém todos os dígitos, sem grupamento', () => {
+        expect(mascararTelefone('5511987654321')).toBe('5511987654321');
+      });
+      it('BR já prefixado, fixo (12 dígitos)', () => {
+        expect(mascararTelefone('551134567890')).toBe('551134567890');
+      });
+      it('DIGITADO caractere a caractere dá o MESMO resultado que colado (simula o app real)', () => {
+        let digitado = '';
+        for (const ch of '5511987654321') digitado = mascararTelefone(digitado + ch);
+        expect(digitado).toBe('5511987654321');
+      });
+    });
+
+    // m7 (Minor): m7 pede "mais de 15 dígitos, com OU SEM +, o zod barra — a máscara não
+    // esconde o problema truncando em silêncio". Testado aqui só a AUSÊNCIA de teto na
+    // máscara (o zod barrando de verdade é mordida de UI, NovoTutorScreen.test.tsx).
+    it('m7 — mais de 15 dígitos, com ou sem +, NÃO é truncado pela máscara', () => {
+      expect(mascararTelefone(`+${'1'.repeat(20)}`)).toBe(`+${'1'.repeat(20)}`);
+      expect(mascararTelefone('1'.repeat(20))).toBe('1'.repeat(20));
     });
   });
 
@@ -72,6 +102,14 @@ describe('telefone.ts — utilitários puros (REC-03)', () => {
       expect(paraEnvioServidor('+1 415 555 2671')).toBe('+14155552671');
       expect(paraEnvioServidor('+351 912 345 678')).toBe('+351912345678');
       expect(paraEnvioServidor('+44 20 7946 0958')).toBe('+442079460958');
+    });
+
+    // G2b (I-1b): BR já prefixado SEM '+' (12-13 dígitos, "55" na frente) — precisa
+    // chegar ao servidor com os 13 dígitos INTEIROS (ramo 2 de NormalizadorTelefone.cs),
+    // nunca truncado em 11 pela máscara antes de chegar aqui.
+    it('BR já prefixado sem + (12-13 dígitos, "55" na frente) -> todos os dígitos', () => {
+      expect(paraEnvioServidor('5511987654321')).toBe('5511987654321');
+      expect(paraEnvioServidor('551134567890')).toBe('551134567890');
     });
   });
 

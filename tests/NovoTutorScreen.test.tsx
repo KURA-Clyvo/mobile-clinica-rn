@@ -168,6 +168,49 @@ describe('NovoTutorScreen — mordida (e): dsLinkConvite null vira explicação,
   });
 });
 
+// G2b (m7, Minor): telefone com mais de 15 dígitos precisa ser barrado pelo zod (COM
+// mensagem visível), não silenciosamente truncado pela máscara — a máscara em si já não
+// trunca mais (tests/telefone.test.ts), aqui é a INTEGRAÇÃO: o formulário de fato recusa
+// submeter, e o service nunca é chamado.
+describe('NovoTutorScreen — mordida m7: telefone acima do teto é barrado pelo zod', () => {
+  it('16 dígitos (sem +) -> mostra o erro de validação e NÃO chama o service', async () => {
+    const { getByTestId, queryByText } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    // Sobrescreve o telefone válido com um de 16 dígitos — 1 acima do teto do zod (<=15).
+    fireEvent.changeText(getByTestId('input-telefone-tutor'), '1'.repeat(16));
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    expect(queryByText('Informe um telefone válido, com DDD')).toBeTruthy();
+    // Não avançou para a tela de convite — o service nunca foi chamado.
+    expect(() => getByTestId('convite-qrcode')).toThrow();
+    expect(() => getByTestId('convite-sem-link')).toThrow();
+  });
+
+  it('CONTROLE POSITIVO — 15 dígitos (exatamente no teto) passa e completa o cadastro', async () => {
+    const { getByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    // Com '+' — sem ele, 15 dígitos não bate em NENHUM ramo de
+    // NormalizadorTelefone.cs (só reconhece 10/11 ou 12/13 sem '+'; 15
+    // exige DDI explícito, ramo 1) e o MOCK rejeitaria com 422. O teto do
+    // zod é sobre TOTAL de dígitos, não sobre a forma — este é o caso onde
+    // 15 dígitos é uma entrada REALMENTE válida.
+    fireEvent.changeText(getByTestId('input-telefone-tutor'), `+${'1'.repeat(15)}`);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
+  });
+});
+
 describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordida b, integrada)', () => {
   it('abre o wa.me com o número normalizado e a mensagem codificada', async () => {
     const openURLSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true as never);

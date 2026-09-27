@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -170,14 +170,35 @@ export default function NovoTutorScreen() {
   // aqui ela zera TUDO (convite + formulário), então a PRÓXIMA vez que a tela
   // ganhar foco (nova visita) começa sempre do zero, independente de o
   // componente continuar montado pelo Drawer.
+  //
+  // G2b (m8, Minor): o cleanup só roda NO MOMENTO do blur — se a mutação
+  // ainda está em voo quando o operador sai pela sidebar (sem passar pelo
+  // "Voltar" desta tela) e a resposta chega DEPOIS, com a tela já fora de
+  // foco, o `onSuccess` (abaixo) rodava incondicionalmente e repunha o
+  // convite no estado; a reentrada mostrava o QR do tutor que acabou de ser
+  // salvo (`g2b-rec03.md` §R2, S4). `emFocoRef` é a mesma fonte de verdade
+  // que `useFocusEffect` já observa (true logo que a tela ganha foco, false
+  // ANTES do cleanup rodar no blur) — os 2 `onSuccess` abaixo checam essa
+  // ref e ignoram uma resposta tardia chegando com a tela oculta.
+  const emFocoRef = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      emFocoRef.current = true;
       return () => {
+        emFocoRef.current = false;
         setConvite(null);
         reset();
       };
     }, [reset]),
   );
+
+  // G2b (m8): ponto único onde os 2 `onSuccess` (criar/reemitir) decidem se
+  // aplicam o resultado — nunca aplicar quando a tela já perdeu o foco
+  // (resposta tardia chegando depois do operador já ter saído).
+  const aplicarConviteSeEmFoco = (resultado: ConviteTutor) => {
+    if (!emFocoRef.current) return;
+    setConvite(resultado);
+  };
 
   const onSubmit = (data: FormValues) => {
     // Mordida (c): sem o aceite o formulário nem chega aqui — o botão está
@@ -197,7 +218,7 @@ export default function NovoTutorScreen() {
         aceitouAvisoPrivacidade: data.aceitouAvisoPrivacidade,
       },
       {
-        onSuccess: (resultado) => setConvite(resultado),
+        onSuccess: (resultado) => aplicarConviteSeEmFoco(resultado),
         // `err: unknown` (não o `Error` inferido por padrão pelo `useMutation`) —
         // mesmo padrão de usuarios/index.tsx::handleErro: aceitar `unknown` é
         // compatível com o slot `onError` de qualquer TError (contravariância de
@@ -217,7 +238,7 @@ export default function NovoTutorScreen() {
     reemitir(
       { idTutor: convite.idTutor, nomeTutor: convite.nomeTutor, whatsapp: convite.whatsapp },
       {
-        onSuccess: (resultado) => setConvite(resultado),
+        onSuccess: (resultado) => aplicarConviteSeEmFoco(resultado),
         // m1 (G2): mensagem genérica pra QUALQUER status ≠ 400, também na
         // reemissão — antes mostrava `err.message` cru (ex.: "Tutor id 42 já
         // possui conta…", 409), texto técnico e nunca pensado pra tela.
