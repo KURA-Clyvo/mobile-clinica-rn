@@ -88,6 +88,23 @@ export function formatDateISO(date: Date): string {
   ].join('-');
 }
 
+// REC-04 fix wave (G2, m-2 — g2-rec04.md M4): `Date.toISOString()` converte
+// para UTC (sufixo "Z") — um cadastro feito entre ~21h e 24h em fuso
+// negativo (ex.: America/Sao_Paulo, UTC-3) produz um instante UTC do dia
+// SEGUINTE, e um campo `DateTime` do .NET sem componente de fuso (como
+// `DtNascimento`) grava esse dia deslocado. Medido: `new Date(2025,8,27,
+// 22,30).toISOString()` => `"2025-09-28T01:30:00.000Z"` — 28/9 gravado para
+// um pet nascido em 27/9. Mesma classe de bug já existe (pré-existente, não
+// corrigido aqui — fora do escopo desta task) em
+// `receituario/[idPet].tsx:225,245` e `consulta/[idPet].tsx:237`; código
+// NOVO (PetForm.tsx) não deveria replicá-la. Formato local sem sufixo de
+// fuso (`T00:00:00`, hora sempre meia-noite — só a DATA importa pra
+// DtNascimento): o `.NET` recebe `Kind=Unspecified`, sem conversão, grava o
+// mesmo dia que `formatDateISO` (mesmos getters locais) já mostrava na tela.
+export function paraDataLocalSemFuso(date: Date): string {
+  return `${formatDateISO(date)}T00:00:00`;
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getDate() === b.getDate() &&

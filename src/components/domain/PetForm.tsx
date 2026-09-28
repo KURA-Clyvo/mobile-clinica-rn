@@ -12,7 +12,7 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { useCriarPet } from '@hooks/usePets';
 import { ESPECIES, RACAS, racasPorEspecie } from '@constants/catalogoPets';
-import { formatDateShort } from '@utils/date';
+import { formatDateShort, paraDataLocalSemFuso } from '@utils/date';
 import type { ApiError, PetResponse } from '../../types/api';
 
 // REC-04 — espelha PetCreateValidator.cs (backend-clinica-dotnet, origin/main
@@ -122,7 +122,9 @@ export function PetForm({
       idEspecie: ESPECIES[0]!.id,
       idRaca: RACAS[0]!.id,
       nmPet: '',
-      dtNascimento: new Date(Date.now() - UM_ANO_MS).toISOString(),
+      // REC-04 fix wave (G2, m-2): NUNCA .toISOString() aqui — desloca o dia
+      // em fuso negativo à noite (ver anchor em utils/date.ts).
+      dtNascimento: paraDataLocalSemFuso(new Date(Date.now() - UM_ANO_MS)),
       sgSexo: 'M',
       sgPorte: 'M',
     },
@@ -143,7 +145,8 @@ export function PetForm({
 
   const handleDateChange = (_: unknown, date?: Date) => {
     setShowPicker(false);
-    if (date) setValue('dtNascimento', date.toISOString());
+    // REC-04 fix wave (G2, m-2): idem — local, sem "Z".
+    if (date) setValue('dtNascimento', paraDataLocalSemFuso(date));
   };
 
   const onSubmit = (data: FormValues) => {
