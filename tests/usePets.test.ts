@@ -1,24 +1,26 @@
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { usePets } from '../src/hooks/usePets';
+import { usePets, useCriarPet } from '../src/hooks/usePets';
 import { usePetDetail } from '../src/hooks/usePetDetail';
 import { usePetTimeline } from '../src/hooks/usePetTimeline';
 import * as petsService from '../src/services/pets.service';
-import type { PetResponse, TimelineEventResponse } from '../src/types/api';
+import type { NovoPetInput, PetResponse, TimelineEventResponse } from '../src/types/api';
 
 jest.mock('@services/pets.service', () => ({
   listPets: jest.fn(),
   getPetById: jest.fn(),
   getPetTimeline: jest.fn(),
+  criarPet: jest.fn(),
 }));
 
 const mockListPets = petsService.listPets as jest.Mock;
 const mockGetPetById = petsService.getPetById as jest.Mock;
 const mockGetPetTimeline = petsService.getPetTimeline as jest.Mock;
+const mockCriarPet = petsService.criarPet as jest.Mock;
 
-function makeWrapper() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function makeWrapper(qcCompartilhado?: QueryClient) {
+  const qc = qcCompartilhado ?? new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: qc }, children);
 }
@@ -112,5 +114,60 @@ describe('usePetTimeline', () => {
     const { result } = renderHook(() => usePetTimeline(null), { wrapper: makeWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
     expect(mockGetPetTimeline).not.toHaveBeenCalled();
+  });
+});
+
+// REC-04 — aceite: "o paciente novo aparece na lista sem recarregar:
+// invalidação do cache do React Query testada (mordida: tirar a
+// invalidação)". `usePets` e `useCriarPet` compartilham o MESMO
+// QueryClient aqui de propósito — é a única forma de OBSERVAR uma
+// invalidação de verdade (query ativa, com observer montado, refetcha
+// sozinha quando fica stale; um QueryClient novo por hook não provaria
+// nada, porque cada um teria seu próprio cache isolado).
+const NOVO_PET_INPUT: NovoPetInput = {
+  idTutor: 77,
+  idEspecie: 1,
+  idRaca: 1,
+  nmPet: 'Bidu',
+  dtNascimento: '2023-01-01T00:00:00.000Z',
+  sgSexo: 'M',
+  sgPorte: 'P',
+};
+const NOVO_PET_RESPOSTA: PetResponse = {
+  id: 999,
+  nmPet: 'Bidu',
+  nmEspecie: 'Cão',
+  nmRaca: 'SRD',
+  dtNascimento: NOVO_PET_INPUT.dtNascimento,
+  sgSexo: 'M',
+  sgPorte: 'P',
+  tutores: [{ id: 77, nmTutor: 'Ana Beatriz', dsTelefone: '119999', dsEmail: 'a@b.com' }],
+};
+
+describe('useCriarPet — invalida a lista de pets ao salvar (REC-04)', () => {
+  it('invalida ["pets"], disparando refetch automático da lista já montada (sem recarregar manualmente)', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = makeWrapper(qc);
+
+    mockListPets.mockResolvedValue([]);
+    const listaHook = renderHook(() => usePets(), { wrapper });
+    await waitFor(() => expect(listaHook.result.current.isLoading).toBe(false));
+    expect(mockListPets).toHaveBeenCalledTimes(1);
+
+    mockListPets.mockResolvedValue([NOVO_PET_RESPOSTA]);
+    mockCriarPet.mockResolvedValue(NOVO_PET_RESPOSTA);
+    const mutacaoHook = renderHook(() => useCriarPet(), { wrapper });
+    await act(async () => {
+      mutacaoHook.result.current.mutate(NOVO_PET_INPUT);
+    });
+    await waitFor(() => expect(mutacaoHook.result.current.isSuccess).toBe(true));
+
+    // A invalidação faz a query de `usePets` (ainda montada/observada)
+    // refetchar SOZINHA — sem nenhuma chamada manual de `refetch()` deste
+    // teste. Esta é a mordida: com `invalidateQueries` removido de
+    // `useCriarPet` (usePets.ts), `mockListPets` NUNCA passaria de 1
+    // chamada (documentado em rec-04-report.md, número/EXIT antes e depois
+    // da mutação real).
+    await waitFor(() => expect(mockListPets).toHaveBeenCalledTimes(2));
   });
 });

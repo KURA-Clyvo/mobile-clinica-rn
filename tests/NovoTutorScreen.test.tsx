@@ -75,6 +75,19 @@ function preencherFormularioValido(
   fireEvent.changeText(getByTestId('input-telefone-tutor'), '11987654321');
 }
 
+// REC-04 — depois que o tutor é criado, a tela avança para a etapa "Cadastrar
+// pet" (PetForm) ANTES de mostrar o convite. Espécie/raça/sexo/porte já vêm
+// pré-selecionados (1ª opção de cada — ver PetForm.tsx), só o nome do pet é
+// obrigatório: preencher e submeter é o suficiente pra completar o
+// encadeamento nos testes que precisam chegar até o convite.
+async function preencherEEnviarPetValido(getByTestId: ReturnType<typeof render>['getByTestId']) {
+  await waitFor(() => expect(getByTestId('input-nome-pet')).toBeTruthy());
+  fireEvent.changeText(getByTestId('input-nome-pet'), 'Rex');
+  await act(async () => {
+    fireEvent.press(getByTestId('btn-salvar-pet'));
+  });
+}
+
 describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / não chama o service', () => {
   it('o botão salvar nasce desabilitado e não dispara o cadastro sem o checkbox marcado', async () => {
     const { getByTestId } = wrap(<NovoTutorScreen />);
@@ -106,6 +119,10 @@ describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / nã
     await act(async () => {
       fireEvent.press(botao);
     });
+
+    // REC-04: o convite NÃO aparece ainda — a próxima etapa é "Cadastrar
+    // pet" (encadeamento tutor -> pet -> convite).
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
   });
@@ -146,6 +163,7 @@ describe('NovoTutorScreen — mordida (e): dsLinkConvite null vira explicação,
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-sem-link')).toBeTruthy());
     expect(queryByTestId('convite-qrcode')).toBeNull();
@@ -162,6 +180,7 @@ describe('NovoTutorScreen — mordida (e): dsLinkConvite null vira explicação,
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
     expect(queryByTestId('convite-sem-link')).toBeNull();
@@ -206,6 +225,7 @@ describe('NovoTutorScreen — mordida m7: telefone acima do teto é barrado pelo
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
   });
@@ -222,6 +242,7 @@ describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordi
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
 
@@ -234,5 +255,38 @@ describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordi
     expect(chamada).toBeDefined();
     const [url] = chamada!;
     expect(url).toMatch(/^https:\/\/wa\.me\/5511987654321\?text=/);
+  });
+});
+
+// REC-04 — aceite central do encadeamento: "Convite aparece só no fim do
+// encadeamento, uma vez". As mordidas (c)/(e)/m7/wa.me acima já EXERCITAM a
+// ordem correta (todas fazem: tutor -> pet -> convite), mas nenhuma delas
+// afirma EXPLICITAMENTE que o convite está AUSENTE enquanto a etapa "pet"
+// está em cena — este describe faz essa afirmação de propósito, com mordida
+// própria (mutação real: pular a etapa "pet").
+describe('NovoTutorScreen — REC-04: convite aparece só no FIM do encadeamento (tutor -> pet -> convite), uma vez', () => {
+  it('depois de criar o tutor, mostra o formulário de PET, NUNCA o convite — só depois de salvar o pet é que o convite aparece', async () => {
+    const { getByTestId, queryByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    // ETAPA "PET": o convite ainda NÃO existe nesta árvore.
+    await waitFor(() => expect(getByTestId('input-nome-pet')).toBeTruthy());
+    expect(queryByTestId('convite-qrcode')).toBeNull();
+    expect(queryByTestId('convite-sem-link')).toBeNull();
+
+    fireEvent.changeText(getByTestId('input-nome-pet'), 'Rex');
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-pet'));
+    });
+
+    // ETAPA "CONVITE": só agora aparece, e o formulário de pet sumiu — uma
+    // única exibição, no fim.
+    await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
+    expect(queryByTestId('input-nome-pet')).toBeNull();
   });
 });
