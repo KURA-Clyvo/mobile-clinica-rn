@@ -13,6 +13,8 @@ import {
   CPF_MOCK_DUPLICADO,
   CPF_MOCK_SEM_LINK,
 } from '../src/mocks/tutores.mock';
+import { apiClient } from '../src/services/api/client';
+import type { TutorComInviteWireDto } from '../src/types/api';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => {
@@ -314,5 +316,42 @@ describe('NovoTutorScreen — REC-04 fix wave I-1a: "Pular pet e ver convite" n�
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
     expect(queryByTestId('input-nome-pet')).toBeNull();
+  });
+});
+
+// REC-04 fix wave (G2, I-2): mordida A2 do revisor (g2-rec04.md M9) —
+// trocar o `idTutor` passado ao `PetForm` por OUTRO tutor que EXISTE no
+// mock (900, "Tutor Já Cadastrado" — CPF_MOCK_DUPLICADO) sobrevivia à
+// suíte inteira, 1290/1290. O aceite "mordida no encadeamento" só estava
+// provado no nível do service (pets.service.test.ts), nunca na TELA que
+// decide qual idTutor repassar.
+describe('NovoTutorScreen — REC-04 fix wave I-2: o pet da cadeia vai para o tutor RECÉM-criado, não outro', () => {
+  it('POST /pets sai com idTutor === id devolvido por POST /tutores (nunca 900, o outro tutor válido do mock)', async () => {
+    const postSpy = jest.spyOn(apiClient, 'post');
+    const { getByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    const chamadaTutorIdx = postSpy.mock.calls.findIndex(([url]) => url === '/api/v1/tutores');
+    expect(chamadaTutorIdx).toBeGreaterThanOrEqual(0);
+    const respostaTutor = (await postSpy.mock.results[chamadaTutorIdx]!.value) as {
+      data: TutorComInviteWireDto;
+    };
+    const idTutorCriado = respostaTutor.data.id;
+    // Controle: o tutor recém-criado nunca pode COINCIDIR com o outro tutor
+    // válido do mock (900) — se coincidisse, a mordida A2 do G2 não provaria
+    // nada (o "errado" seria indistinguível do "certo").
+    expect(idTutorCriado).not.toBe(900);
+
+    await preencherEEnviarPetValido(getByTestId);
+
+    const chamadaPet = postSpy.mock.calls.find(([url]) => url === '/api/v1/pets');
+    expect(chamadaPet).toBeDefined();
+    const corpoPet = chamadaPet![1] as { idTutor: number };
+    expect(corpoPet.idTutor).toBe(idTutorCriado);
   });
 });
