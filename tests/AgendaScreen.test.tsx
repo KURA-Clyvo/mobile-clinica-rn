@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import AgendaScreen from '../src/app/(app)/agenda';
@@ -38,9 +38,36 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+// Fix wave G2 (I-1) — `useFocusEffect` real (react-navigation) roda a função
+// no foco e a limpeza no blur; este mock roda a função uma vez no mount (via
+// `useEffect(callback, [])`, mesmo padrão já usado em
+// `tests/touchTargetRegistry.tsx`) E guarda a função de limpeza em
+// `mockFocusEffectCleanups` para os testes simularem BLUR sem depender do
+// roteador real/Drawer (que os outros testes deste arquivo não montam —
+// mesma razão de `tutores/novo.tsx` ter um teste à parte com o roteador
+// real, `NovoTutorScreen.navigation.test.tsx`, fora do escopo desta fix
+// wave). `simulateBlur()` chama e ESVAZIA a lista — unmount real (RNTL)
+// continua limpando por conta própria via o retorno do `useEffect`.
+let mockFocusEffectCleanups: Array<() => void> = [];
+function simulateBlur() {
+  mockFocusEffectCleanups.forEach((cleanup) => cleanup());
+  mockFocusEffectCleanups = [];
+}
+jest.mock('expo-router', () => {
+  const ReactForMock = require('react');
+  return {
+    useRouter: () => ({ push: mockPush }),
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      ReactForMock.useEffect(() => {
+        const cleanup = callback();
+        if (typeof cleanup === 'function') {
+          mockFocusEffectCleanups.push(cleanup);
+        }
+        return cleanup;
+      }, []);
+    },
+  };
+});
 
 // CQ-15: useWindowDimensions é o que useBreakpoint()/ScreenContainer consomem
 // (nunca Dimensions.get(), que não re-renderiza em resize de janela na web).
@@ -126,6 +153,7 @@ const REFETCH_HOJE = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocusEffectCleanups = [];
   REFETCH.mockResolvedValue(undefined);
   REFETCH_HOJE.mockResolvedValue(undefined);
   setViewport(400, 800);
@@ -618,5 +646,155 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     const { getByTestId } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-modo-hoje'));
     expect(getByTestId('empty-agenda')).toBeTruthy();
+  });
+
+  // ─── Fix wave G2 (I-1) — tick local no modo Hoje ─────────────────────────
+  //
+  // G2 mediu (P1/P3, g2-rec12.md): sem tick nem refetchInterval, "Esperando
+  // há N min" e o gate de "Faltou" ficam CONGELADOS no valor do render
+  // anterior — o relógio pode andar 30min que a tela não muda sozinha. As 4
+  // mordidas abaixo (remover o `setInterval`, remover a dependência de
+  // `modo`/`focado`, ou não limpar no unmount/blur) precisam pegar.
+  describe('tick de 30s (I-1)', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('"esperando há" avança sozinho depois de 30 min, sem refetch', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 70, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:50:00' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.getByTestId('espera-70').props.children.join('')).toBe('Esperando há 10 min');
+
+      // Jest "modern" fake timers avançam o relógio JUNTO com o timer (o
+      // mesmo clock por trás de `advanceTimersByTime`) — `setSystemTime`
+      // pula direto pra 10:30; só falta UM tick (30s) pra disparar o
+      // `setInterval` e forçar o re-render (avançar mais 30min aqui
+      // somaria ao pulo, terminando em 11:00, não 10:30 — achado ao medir).
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:30:00'));
+        jest.advanceTimersByTime(30_000);
+      });
+
+      // MORDIDA: sem o tick, este texto continuaria "10 min" (era exatamente
+      // o que a sonda P1 do G2 media).
+      // 40min30s (o tick de 30s soma ao pulo pra 10:30 — precisa de pelo
+      // menos 1 tick pra disparar o setInterval), Math.round arredonda pra
+      // 41 (minutosEsperando, etapaRecepcao.ts).
+      expect(r.getByTestId('espera-70').props.children.join('')).toBe('Esperando há 41 min');
+      // refetch NÃO foi chamado — o número avançou só por re-render local.
+      expect(REFETCH_HOJE).not.toHaveBeenCalled();
+    });
+
+    it('"Faltou" aparece sozinho quando o horário marcado chega, sem re-render externo', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T09:59:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 71, dtInicio: '2026-09-28T10:00:00', dsEtapaRecepcao: 'AGENDADO' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.queryByTestId('btn-faltou-71')).toBeNull();
+
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:05:00'));
+        jest.advanceTimersByTime(30_000);
+      });
+
+      // MORDIDA: sem o tick, o botão continuaria ausente (era a sonda P3).
+      expect(r.getByTestId('btn-faltou-71')).toBeTruthy();
+    });
+
+    it('o intervalo é limpo ao DESMONTAR a tela', () => {
+      jest.useFakeTimers();
+      const clearSpy = jest.spyOn(global, 'clearInterval');
+      mockUseAgendaHoje.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      clearSpy.mockClear();
+
+      r.unmount();
+
+      expect(clearSpy).toHaveBeenCalled();
+    });
+
+    it('o intervalo é limpo ao PERDER O FOCO (react-navigation v7 não desmonta)', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 72, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:50:00' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.getByTestId('espera-72').props.children.join('')).toBe('Esperando há 10 min');
+
+      act(() => {
+        simulateBlur();
+      });
+
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:30:00'));
+        jest.advanceTimersByTime(30 * 60_000);
+      });
+
+      // Sem foco, o intervalo foi limpo — o texto NÃO avança mais.
+      expect(r.getByTestId('espera-72').props.children.join('')).toBe('Esperando há 10 min');
+    });
+
+    // Nota: não dá pra provar isto lendo o texto renderizado — "esperando"
+    // é recomputado do zero em QUALQUER render (inclusive um causado por
+    // outro motivo), então o texto sairia certo mesmo com um intervalo
+    // vazando por trás. A prova real é de CONTAGEM de chamadas.
+    it('trocar para o modo Semana limpa o intervalo do modo Hoje (setInterval/clearInterval)', () => {
+      jest.useFakeTimers();
+      const setSpy = jest.spyOn(global, 'setInterval');
+      const clearSpy = jest.spyOn(global, 'clearInterval');
+      mockUseAgendaHoje.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      setSpy.mockClear();
+      clearSpy.mockClear();
+
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(clearSpy).not.toHaveBeenCalled();
+
+      fireEvent.press(r.getByTestId('btn-modo-semana'));
+      // MORDIDA: sem `modo` na lista de dependências do efeito, esta
+      // chamada não aconteceria (o intervalo continuaria rodando fora do
+      // modo Hoje, gastando ciclo à toa numa tela que fica aberta o dia
+      // todo).
+      expect(clearSpy).toHaveBeenCalledTimes(1);
+    });
   });
 });

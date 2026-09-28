@@ -39,6 +39,14 @@ export function useAgendaHoje() {
     queryKey: ['agenda', 'hoje', dataHoje],
     queryFn: () => getAgenda({ dataInicio: dataHoje, dataFim: dataHoje }),
     staleTime: 30_000,
+    // Fix wave G2 (I-1): "Hoje" é a única visão que a recepção deixa aberta
+    // o dia todo — pega check-in feito em OUTRO aparelho e a mudança de
+    // etapa que outro atendimento causa, sem depender de o operador puxar
+    // pra atualizar. Mesmo precedente de `useLuna.ts:10` (30s); aqui 60s —
+    // a query já tem `staleTime: 30_000` por cima, então 60s é o menor
+    // intervalo que não briga com o cache. NÃO aplicado a `useAgendaSemana`
+    // (ruling do maestro) — a visão Semana não precisa da mesma urgência.
+    refetchInterval: 60_000,
   });
 
   return { data, isLoading, isError, refetch, dataHoje };

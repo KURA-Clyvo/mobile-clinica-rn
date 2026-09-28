@@ -9,7 +9,7 @@ import {
   Image,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStatusAgendamento } from '@hooks/useAgenda';
@@ -593,6 +593,30 @@ export default function AgendaScreen() {
   // existente (a suíte pré-REC-12 nunca pressiona um toggle, então precisa
   // continuar vendo o modo Semana sem precisar de nenhuma ação extra).
   const [modo, setModo] = React.useState<ModoAgenda>('semana');
+
+  // Fix wave G2 (I-1) — a tela "Hoje" fica aberta o dia todo na recepção; sem
+  // isto, "Esperando há N min" e o gate de "Faltou" só recomputavam no
+  // próximo re-render por outro motivo (pull-to-refresh, troca de modo) —
+  // ambos são lidos de `new Date()` a cada render, então um tick que força
+  // re-render já basta, sem duplicar lógica. `focado` segue o padrão já
+  // estabelecido em `tutores/novo.tsx` (react-navigation v7 NÃO desmonta a
+  // tela ao perder o foco — sem isto o tick continuaria rodando com a tela
+  // fora de vista). O intervalo só existe quando `modo === 'hoje'` E a tela
+  // está em foco — os dois viram dependência do efeito, então trocar de modo
+  // ou perder foco LIMPA o intervalo (não só ignora o tick).
+  const [focado, setFocado] = React.useState(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      setFocado(true);
+      return () => setFocado(false);
+    }, []),
+  );
+  const [, forcarTick] = React.useState(0);
+  React.useEffect(() => {
+    if (modo !== 'hoje' || !focado) return undefined;
+    const intervalo = setInterval(() => forcarTick((n) => n + 1), 30_000);
+    return () => clearInterval(intervalo);
+  }, [modo, focado]);
 
   const [semanaBase, setSemanaBase] = React.useState(() => new Date());
   const [selectedDay, setSelectedDay] = React.useState(() => new Date());
