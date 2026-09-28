@@ -26,8 +26,8 @@ function makeWrapper(qcCompartilhado?: QueryClient) {
 }
 
 const MOCK_PETS: PetResponse[] = [
-  { id: 1, nmPet: 'Luna', nmEspecie: 'Cão', nmRaca: 'Labrador', dtNascimento: '2020-01-01T00:00:00.000Z', sgSexo: 'F', sgPorte: 'G', tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'c@e.com' }] },
-  { id: 2, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Husky', dtNascimento: '2021-05-10T00:00:00.000Z', sgSexo: 'M', sgPorte: 'G', tutores: [{ id: 11, nmTutor: 'Ana Silva', dsTelefone: '11999990002', dsEmail: 'ana@e.com' }] },
+  { id: 1, nmPet: 'Luna', nmEspecie: 'Cão', nmRaca: 'Labrador', dtNascimento: '2020-01-01T00:00:00.000Z', sgSexo: 'F', sgPorte: 'G', tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }] },
+  { id: 2, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Husky', dtNascimento: '2021-05-10T00:00:00.000Z', sgSexo: 'M', sgPorte: 'G', tutores: [{ idTutor: 11, nmTutor: 'Ana Silva', dsVinculo: 'PROPRIETARIO', stPrincipal: true }] },
   { id: 3, nmPet: 'Mel', nmEspecie: 'Gato', nmRaca: 'Persa', dtNascimento: '2019-07-22T00:00:00.000Z', sgSexo: 'F', sgPorte: 'M', tutores: [] },
 ];
 
@@ -141,7 +141,7 @@ const NOVO_PET_RESPOSTA: PetResponse = {
   dtNascimento: NOVO_PET_INPUT.dtNascimento,
   sgSexo: 'M',
   sgPorte: 'P',
-  tutores: [{ id: 77, nmTutor: 'Ana Beatriz', dsTelefone: '119999', dsEmail: 'a@b.com' }],
+  tutores: [{ idTutor: 77, nmTutor: 'Ana Beatriz', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 describe('useCriarPet — invalida a lista de pets ao salvar (REC-04)', () => {

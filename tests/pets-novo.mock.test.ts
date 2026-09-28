@@ -69,8 +69,10 @@ describe('mock — POST /api/v1/pets (REC-04, G4b: modo mock não lança)', () =
     expect(pet.nmEspecie).toBe('Cão');
     expect(pet.nmRaca).toBe('Labrador');
     expect(pet.tutores).toHaveLength(1);
-    expect(pet.tutores[0]!.id).toBe(idTutor);
+    expect(pet.tutores[0]!.idTutor).toBe(idTutor);
     expect(pet.tutores[0]!.nmTutor).toBe('Ana Beatriz');
+    expect(pet.tutores[0]!.dsVinculo).toBe('PROPRIETARIO');
+    expect(pet.tutores[0]!.stPrincipal).toBe(true);
   });
 
   // MORDIDA (aceite REC-04): "pet criado sem vínculo ao tutor" do lado do

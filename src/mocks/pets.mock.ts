@@ -15,7 +15,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-03-15T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'G',
-    tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos.mendes@email.com' }],
+    tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     // FT-08: pet COM foto no mock — prova visual dos 2 casos (com/sem foto)
     // no modo mock. Fix wave G2 (G2-6): as URLs abaixo são `picsum.photos` —
     // NÃO reproduzem o formato real da FT-04
@@ -36,7 +36,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2019-07-22T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'G',
-    tutores: [{ id: 11, nmTutor: 'Patrícia Souza', dsTelefone: '11999990002', dsEmail: 'patricia.s@email.com' }],
+    tutores: [{ idTutor: 11, nmTutor: 'Patrícia Souza', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     dsFotoUrl: 'https://picsum.photos/seed/mel/1080',
     dsFotoThumbUrl: 'https://picsum.photos/seed/mel/256',
   },
@@ -48,7 +48,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2021-11-05T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'M',
-    tutores: [{ id: 12, nmTutor: 'Ana Paula Rodrigues', dsTelefone: '11999990003', dsEmail: 'anapaula.r@email.com' }],
+    tutores: [{ idTutor: 12, nmTutor: 'Ana Paula Rodrigues', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 4,
@@ -59,8 +59,11 @@ const PETS: PetResponse[] = [
     sgSexo: 'F',
     sgPorte: 'M',
     tutores: [
-      { id: 13, nmTutor: 'Marcos Oliveira', dsTelefone: '11999990004', dsEmail: 'marcos.oli@email.com' },
-      { id: 14, nmTutor: 'Fernanda Oliveira', dsTelefone: '11999990014', dsEmail: 'feroliveira@email.com' },
+      { idTutor: 13, nmTutor: 'Marcos Oliveira', dsVinculo: 'PROPRIETARIO', stPrincipal: true },
+      // Co-tutor: mesmo shape do TutorVinculoDto real (StPrincipal só é true pro
+      // vínculo principal — AdicionarTutorAsync sempre grava false, ver anchor de
+      // PetService.cs no comentário de PetTutorVinculo, types/api.ts).
+      { idTutor: 14, nmTutor: 'Fernanda Oliveira', dsVinculo: 'CUIDADOR', stPrincipal: false },
     ],
   },
   {
@@ -71,7 +74,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2023-04-30T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'P',
-    tutores: [{ id: 15, nmTutor: 'Beatriz Santos', dsTelefone: '11999990005', dsEmail: 'bia.santos@email.com' }],
+    tutores: [{ idTutor: 15, nmTutor: 'Beatriz Santos', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 6,
@@ -81,7 +84,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-09-12T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'M',
-    tutores: [{ id: 16, nmTutor: 'Juliana Costa', dsTelefone: '11999990006', dsEmail: 'ju.costa@email.com' }],
+    tutores: [{ idTutor: 16, nmTutor: 'Juliana Costa', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 7,
@@ -101,7 +104,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2021-02-14T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'G',
-    tutores: [{ id: 17, nmTutor: 'Pedro Alves', dsTelefone: '11999990007', dsEmail: 'pedro.alves@email.com' }],
+    tutores: [{ idTutor: 17, nmTutor: 'Pedro Alves', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 9,
@@ -111,7 +114,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2022-08-20T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'P',
-    tutores: [{ id: 18, nmTutor: 'Gabriela Ferreira', dsTelefone: '11999990008', dsEmail: 'gabi.f@email.com' }],
+    tutores: [{ idTutor: 18, nmTutor: 'Gabriela Ferreira', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 10,
@@ -121,7 +124,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2019-12-25T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'M',
-    tutores: [{ id: 19, nmTutor: 'Lucas Barbosa', dsTelefone: '11999990009', dsEmail: 'lucas.b@email.com' }],
+    tutores: [{ idTutor: 19, nmTutor: 'Lucas Barbosa', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 11,
@@ -131,7 +134,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-05-10T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'G',
-    tutores: [{ id: 20, nmTutor: 'Rafaela Martins', dsTelefone: '11999990010', dsEmail: 'rafa.m@email.com' }],
+    tutores: [{ idTutor: 20, nmTutor: 'Rafaela Martins', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 12,
@@ -141,7 +144,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2023-01-08T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'P',
-    tutores: [{ id: 21, nmTutor: 'Thiago Nascimento', dsTelefone: '11999990011', dsEmail: 'thiago.n@email.com' }],
+    tutores: [{ idTutor: 21, nmTutor: 'Thiago Nascimento', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
 ];
 
@@ -236,8 +239,17 @@ export async function criar(config: InternalAxiosRequestConfig): Promise<PetResp
     dtNascimento: body.dtNascimento,
     sgSexo: body.sgSexo,
     sgPorte: body.sgPorte,
+    // REC-04 fix wave (G2, I-3): shape REAL do TutorVinculoDto — ver anchor em
+    // types/api.ts::PetTutorVinculo. `stPrincipal`/`dsVinculo` espelham o que
+    // `criarPet` sempre envia (PetForm.tsx: `stPrincipal: true, dsVinculo:
+    // 'PROPRIETARIO'`), não um valor fixo re-adivinhado aqui.
     tutores: [
-      { id: tutor.id, nmTutor: tutor.nmTutor, dsTelefone: tutor.nrTelefone, dsEmail: tutor.dsEmail },
+      {
+        idTutor: tutor.id,
+        nmTutor: tutor.nmTutor,
+        dsVinculo: body.dsVinculo,
+        stPrincipal: body.stPrincipal,
+      },
     ],
   };
   PETS.push(novo);

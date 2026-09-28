@@ -43,7 +43,7 @@ const MOCK_PETS: PetResponse[] = Array.from({ length: 12 }, (_, i) => ({
   dtNascimento: '2020-01-01T00:00:00.000Z',
   sgSexo: 'M' as const,
   sgPorte: 'G' as const,
-  tutores: [{ id: 100 + i, nmTutor: `Tutor${i + 1}`, dsTelefone: '11999990000', dsEmail: `t${i}@e.com` }],
+  tutores: [{ idTutor: 100 + i, nmTutor: `Tutor${i + 1}`, dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 }));
 
 function wrap(ui: React.ReactElement) {

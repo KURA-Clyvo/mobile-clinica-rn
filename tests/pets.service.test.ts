@@ -199,7 +199,7 @@ describe('criarPet — POST /api/v1/pets envia o vínculo ao tutor no MESMO corp
     dtNascimento: INPUT.dtNascimento,
     sgSexo: 'M',
     sgPorte: 'M',
-    tutores: [{ id: 77, nmTutor: 'Ana Beatriz', dsTelefone: '11999990000', dsEmail: 'ana@e.com' }],
+    tutores: [{ idTutor: 77, nmTutor: 'Ana Beatriz', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   };
 
   beforeEach(() => {

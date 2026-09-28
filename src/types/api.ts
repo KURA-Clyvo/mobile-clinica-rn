@@ -131,30 +131,28 @@ export interface AgendamentoResponse {
 }
 
 // ─── Pets ─────────────────────────────────────────────────────
-// 🔴 ACHADO REC-04, NÃO CORRIGIDO NESTA TASK (fora do escopo explícito do
-// aceite — só a tela "Novo pet"/encadeamento): este tipo NÃO bate com o
-// shape real do backend. `PetResponseDto.Tutores` (backend-clinica-dotnet
-// `src/Kura.Application/DTOs/Pet/PetResponseDto.cs:21-27`, `origin/main`
-// `e33da98`, conferido em 2026-09-27 com
-// `git show e33da98:src/Kura.Application/DTOs/Pet/PetResponseDto.cs`) é
-// `TutorVinculoDto{IdTutor,NmTutor,DsVinculo,StPrincipal}` — SEM
-// `dsTelefone`/`dsEmail` (que este `TutorMini` declara) e COM `dsVinculo`/
-// `stPrincipal` (que este `TutorMini` não tem). Em modo REAL,
-// `pacientes/[id].tsx`'s card "Tutores" chama `tutor.dsTelefone`/
-// `tutor.dsEmail`, que não existem na resposta real — renderiza vazio, e
-// `handleCopyPhone` copia `undefined` para o clipboard. O mock
-// (`pets.mock.ts`) replica ESTE tipo (TutorMini), não o real — mesma classe
-// "mock como 2º consumidor" (regra v5), agora do lado ERRADO: mock e UI
-// concordam entre si, os dois divergem do backend. Não corrigido aqui
-// porque a tela de detalhe do pet está fora do fluxo de CRIAÇÃO desta task
-// — registrado para uma próxima task tocar `pacientes/[id].tsx` +
-// `TutorMini` + `pets.mock.ts` juntos (a mudança de tipo, UI e mock tem que
-// ser uma coisa só, não 3 PRs desencontrados).
-export interface TutorMini {
-  id: number;
+// 🟢 CORRIGIDO — REC-04 fix wave (G2, achado I-3, `g2-rec04.md` M13). Este
+// tipo se chamava `TutorMini` e tinha `{id, nmTutor, dsTelefone, dsEmail}` —
+// NÃO batia com o shape real do backend. `PetResponseDto.Tutores`
+// (backend-clinica-dotnet `src/Kura.Application/Services/PetService.cs:
+// 163-168`, `origin/main` `e33da98`, conferido em 2026-09-28 com
+// `git show e33da98:src/Kura.Application/Services/PetService.cs | sed -n
+// '163,168p'`) é `TutorVinculoDto{IdTutor,NmTutor,DsVinculo,StPrincipal}` —
+// SEM `dsTelefone`/`dsEmail`, COM `dsVinculo`/`stPrincipal`. Renomeado para
+// `PetTutorVinculo` (nome que descreve o que o tipo É — um vínculo, não uma
+// ficha de contato) e os 4 campos corrigidos nome a nome. Consumidores
+// atualizados junto (mesmo PR, não 3 desencontrados): `pacientes/[id].tsx`
+// (card "Tutores" — `dsVinculo`/`stPrincipal` em vez de telefone/e-mail
+// inexistentes, `copy-phone` removido) e `receituario/[idPet].tsx` (o
+// número de WhatsApp da receita passa a vir de um fetch dedicado,
+// `getTutorById`, o mesmo padrão já usado por `luna.tsx`/LU-09 — nunca mais
+// de `PetResponse.tutores`). Mock (`pets.mock.ts`) replica o shape REAL
+// agora, 2º consumidor (regra v5).
+export interface PetTutorVinculo {
+  idTutor: number;
   nmTutor: string;
-  dsTelefone: string;
-  dsEmail: string;
+  dsVinculo: string;
+  stPrincipal: boolean;
 }
 
 // FT-08 — âncora da regra 11 (CLAUDE.md do workspace): espelha
@@ -173,7 +171,7 @@ export interface PetResponse {
   dtNascimento: string;
   sgSexo: 'M' | 'F';
   sgPorte: 'P' | 'M' | 'G' | 'GG';
-  tutores: TutorMini[];
+  tutores: PetTutorVinculo[];
   dsFotoUrl?: string | null;
   dsFotoThumbUrl?: string | null;
 }

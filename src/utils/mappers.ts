@@ -1,5 +1,6 @@
 import type {
   PetResponse,
+  PetTutorVinculo,
   AlertaResponse,
   TimelineEventResponse,
   AgendamentoResponse,
@@ -31,17 +32,20 @@ export function racaToPalette(raca: string): PetPalette {
   return 'srd';
 }
 
-export function mapTutorDto(dto: {
-  id: number;
-  nmTutor: string;
-  dsTelefone: string;
-  dsEmail: string;
-}): Tutor {
+// REC-04 fix wave (G2, I-3): `mapTutorDto`/`mapPetDto` não têm NENHUM
+// consumidor real (confirmado por grep — só a própria definição e o teste
+// dedicado, `tests/mappers.test.ts`; nenhuma tela/hook os chama). O
+// parâmetro segue `PetTutorVinculo` (o shape REAL de `PetResponse.tutores`,
+// `types/api.ts`) — telefone/e-mail não vêm mais desse endpoint, então
+// `Tutor.telefone`/`Tutor.email` (types/domain.ts, também sem consumidor
+// real) ficam vazios aqui em vez de inventar um dado que o backend não
+// fornece.
+export function mapTutorDto(dto: PetTutorVinculo): Tutor {
   return {
-    id: dto.id,
+    id: dto.idTutor,
     nome: dto.nmTutor,
-    telefone: dto.dsTelefone,
-    email: dto.dsEmail,
+    telefone: '',
+    email: '',
   };
 }
 

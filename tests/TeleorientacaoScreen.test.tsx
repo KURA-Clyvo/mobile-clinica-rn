@@ -53,7 +53,7 @@ const MOCK_VET = { id: 1, nmVeterinario: 'Dr. Felipe Ferrete', nrCRMV: 'SP-12345
 const MOCK_PET = {
   id: 1, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Labrador',
   dtNascimento: '2020-01-01T00:00:00.000Z', sgSexo: 'M', sgPorte: 'G',
-  tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'c@e.com' }],
+  tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 function wrap(ui: React.ReactElement) {

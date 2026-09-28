@@ -38,6 +38,10 @@ import { formatDateShort, formatDateFull } from '@utils/date';
 import { ROUTES } from '@constants/routes';
 import type { MedicamentoResponse } from '../../../types/api';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
+// REC-04 fix wave (G2, I-3): mesmo padrão de luna.tsx (LU-09, "Responder no
+// WhatsApp") — o telefone do tutor só é buscado NO MOMENTO de abrir o modal,
+// nunca carregado de antemão (LGPD).
+import { getTutorById, telefoneDisponivel } from '@services/tutores.service';
 
 const prescricaoSchema = z.object({
   idMedicamento: z
@@ -198,6 +202,11 @@ export default function ReceituarioScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showSuccess, setShowSuccess] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  // REC-04 fix wave (G2, I-3): o telefone do tutor não vem mais de
+  // `PetResponse.tutores` (PetTutorVinculo não o tem) — busca dedicada, só no
+  // momento de abrir o modal (ver handleAbrirWhatsApp abaixo).
+  const [buscandoTelefoneTutor, setBuscandoTelefoneTutor] = useState(false);
+  const [telefoneTutorWhatsApp, setTelefoneTutorWhatsApp] = useState<string | null>(null);
   const [receituario, setReceituario] = useState<DocumentoResponse | null>(null);
   const [receituarioIndisponivel, setReceituarioIndisponivel] = useState(false);
 
@@ -297,6 +306,32 @@ export default function ReceituarioScreen() {
   };
 
   const tutor = pet?.tutores[0];
+
+  // REC-04 fix wave (G2, I-3): `tutor.dsTelefone` não existe mais
+  // (PetTutorVinculo) — busca dedicada por GET /tutores/{id}, exatamente no
+  // momento em que o operador pede pra enviar (nunca antes: fila/tela nunca
+  // carregam telefone de antemão, LGPD, mesmo padrão de luna.tsx/LU-09).
+  const handleAbrirWhatsApp = async () => {
+    if (!tutor) return;
+    setBuscandoTelefoneTutor(true);
+    try {
+      const tutorDetalhe = await getTutorById(tutor.idTutor);
+      if (!telefoneDisponivel(tutorDetalhe.nrTelefone)) {
+        Alert.alert(
+          'Telefone não cadastrado',
+          'Este tutor não tem telefone cadastrado. Não é possível enviar pelo WhatsApp.',
+        );
+        return;
+      }
+      setTelefoneTutorWhatsApp(tutorDetalhe.nrTelefone);
+      setShowSuccess(false);
+      setShowWhatsApp(true);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível buscar o telefone do tutor.');
+    } finally {
+      setBuscandoTelefoneTutor(false);
+    }
+  };
 
   // FM-01, fix wave pos-G2 — a revisao mediu que SEM esta guarda a tela
   // renderiza o formulario INTEIRO antes de o `useEffect` acima disparar o
@@ -517,7 +552,9 @@ export default function ReceituarioScreen() {
             <KCButton
               variant="primary"
               size="md"
-              onPress={() => { setShowSuccess(false); setShowWhatsApp(true); }}
+              loading={buscandoTelefoneTutor}
+              disabled={buscandoTelefoneTutor}
+              onPress={handleAbrirWhatsApp}
               testID="btn-whatsapp"
             >
               Enviar via WhatsApp
@@ -535,13 +572,13 @@ export default function ReceituarioScreen() {
       </Modal>
 
       {/* WhatsApp Modal */}
-      {petId && tutor && (
+      {petId && tutor && telefoneTutorWhatsApp && (
         <WhatsAppModal
           visible={showWhatsApp}
           onClose={() => { setShowWhatsApp(false); router.back(); }}
           nmPet={pet?.nmPet ?? ''}
           nmTutor={tutor.nmTutor}
-          dsTelefone={tutor.dsTelefone}
+          dsTelefone={telefoneTutorWhatsApp}
           mensagemDefault={
             medSelecionado
               ? `Olá ${tutor.nmTutor}! Segue a prescrição médica do(a) ${pet?.nmPet}.\n\nMedicamento: ${medSelecionado.nmMedicamento}\n\nQualquer dúvida, estamos à disposição.`

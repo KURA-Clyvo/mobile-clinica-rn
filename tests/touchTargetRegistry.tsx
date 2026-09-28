@@ -519,7 +519,7 @@ const PET_FIXTURE: PetResponse = {
   dtNascimento: '2020-03-15T00:00:00.000Z',
   sgSexo: 'M',
   sgPorte: 'G',
-  tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'c@e.com' }],
+  tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 const TIMELINE_EVENTO_FIXTURE: TimelineEventResponse = {
@@ -1104,23 +1104,13 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
+  // REC-04 fix wave (G2, I-3): o `#1` antigo (`copy-phone-{id}`) foi REMOVIDO
+  // do código — `PetTutorVinculo` (shape real) não tem telefone, então o
+  // botão de copiar deixou de existir (ver `pacientes/[id].tsx`, card
+  // "Tutores"). Sem esse `TouchableOpacity`, o `tab-timeline` (antes `#2`)
+  // passa a ser o PRIMEIRO tocável descoberto no arquivo — renumerado pra
+  // `#1`, não deixado como `#2` órfão.
   '(app)/pacientes/[id].tsx::PacienteDetailScreen#1': {
-    category: 'no-explicit-geometry',
-    reason:
-      'Botão de copiar telefone do tutor (`copy-phone-{id}`) não recebe NENHUM `style` — sem ' +
-      'height/minHeight/width/minWidth, só o conteúdo interno (ícone 14px + texto) como área ' +
-      'de toque. Não corrigido nesta task — candidato a follow-up.',
-    verify: () => {
-      mockUsePetDetailReturn.mockReturnValue({ data: PET_FIXTURE, isLoading: false, isError: false });
-      mockUsePetTimelineReturn.mockReturnValue({ data: [], isLoading: false });
-      const { getByTestId } = wrap(<PacienteDetailScreen />);
-      return expectSemGeometriaExplicita(
-        flat(getByTestId(`copy-phone-${PET_FIXTURE.tutores[0]!.id}`).props.style),
-      );
-    },
-  },
-
-  '(app)/pacientes/[id].tsx::PacienteDetailScreen#2': {
     category: 'no-explicit-geometry',
     reason:
       'Abas Timeline/Vacinas/Docs (`tab-{key}`) — `styles.tab: { flex:1, paddingVertical:12, ' +

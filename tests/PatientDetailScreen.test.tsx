@@ -1,10 +1,9 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import PatientDetailScreen from '../src/app/(app)/pacientes/[id]';
 import { useAuthStore } from '../src/store/authStore';
-import * as Clipboard from 'expo-clipboard';
 import type { PetResponse, TimelineEventResponse } from '../src/types/api';
 import { layout } from '../src/theme/tokens';
 
@@ -77,7 +76,13 @@ const MOCK_PET: PetResponse = {
   dtNascimento: '2020-03-15T00:00:00.000Z',
   sgSexo: 'M',
   sgPorte: 'G',
-  tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos@e.com' }],
+  // REC-04 fix wave (G2, I-3): shape REAL de PetResponse.tutores
+  // (PetTutorVinculo — idTutor/nmTutor/dsVinculo/stPrincipal). O shape
+  // ANTIGO (id/dsTelefone/dsEmail) não compila mais contra o tipo — é
+  // exatamente essa quebra de compilação que fecha a mordida do G2 ("teste
+  // que falha com o shape antigo"), sem precisar simular em runtime um
+  // shape que o próprio tipo agora proíbe.
+  tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 const MOCK_EVENTS: TimelineEventResponse[] = [
@@ -170,12 +175,34 @@ describe('PatientDetailScreen', () => {
     expect(getByTestId('btn-tele')).toBeTruthy();
   });
 
-  it('calls Clipboard.setStringAsync on tutor phone tap', async () => {
-    const { getByTestId } = wrap(<PatientDetailScreen />);
-    fireEvent.press(getByTestId('copy-phone-10'));
-    await waitFor(() => {
-      expect(Clipboard.setStringAsync).toHaveBeenCalledWith('11999990001');
+  // REC-04 fix wave (G2, I-3): "copiar telefone" foi REMOVIDO — o card
+  // "Tutores" agora mostra só o que o backend REALMENTE devolve (nome,
+  // vínculo, "Principal" quando `stPrincipal`), nunca telefone/e-mail
+  // (PetTutorVinculo não os tem — ver anchor em types/api.ts).
+  it('mostra o vínculo do tutor (dsVinculo traduzido) e o chip "Principal" quando stPrincipal', () => {
+    const { getByTestId, getByText } = wrap(<PatientDetailScreen />);
+    expect(getByTestId('tutor-vinculo-10')).toBeTruthy();
+    expect(getByText('Proprietário(a)')).toBeTruthy();
+    expect(getByText('Principal')).toBeTruthy();
+  });
+
+  it('não renderiza NENHUM alvo de toque "copy-phone" (removido junto com o campo)', () => {
+    const { queryByTestId } = wrap(<PatientDetailScreen />);
+    expect(queryByTestId('copy-phone-10')).toBeNull();
+  });
+
+  it('CONTROLE — tutor SEM stPrincipal não mostra o chip "Principal"', () => {
+    mockUsePetDetail.mockReturnValue({
+      data: {
+        ...MOCK_PET,
+        tutores: [{ idTutor: 20, nmTutor: 'Fernanda Oliveira', dsVinculo: 'CUIDADOR', stPrincipal: false }],
+      },
+      isLoading: false,
+      isError: false,
     });
+    const { getByText, queryByText } = wrap(<PatientDetailScreen />);
+    expect(getByText('Cuidador(a)')).toBeTruthy();
+    expect(queryByText('Principal')).toBeNull();
   });
 
   it('switches to Vacinas tab on tab press', () => {

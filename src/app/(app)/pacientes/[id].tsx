@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -36,6 +35,17 @@ const PORTE_LABEL: Record<string, string> = {
   M: 'Médio',
   G: 'Grande',
   GG: 'Extra Grande',
+};
+
+// REC-04 fix wave (G2, I-3): tradução do `dsVinculo` real (TUTOR_PET.
+// DS_VINCULO — TASK-60, backend-clinica-dotnet). `PetForm.tsx` só produz
+// "PROPRIETARIO" hoje (criação); "CUIDADOR" é o default de
+// `AdicionarTutorPetDto` (co-tutor, endpoint não wire-ado nesta task — ver
+// rec-04-report.md). Vínculo desconhecido cai no próprio valor cru, nunca
+// esconde a informação.
+const VINCULO_LABEL: Record<string, string> = {
+  PROPRIETARIO: 'Proprietário(a)',
+  CUIDADOR: 'Cuidador(a)',
 };
 
 const TIPO_MAP: Record<
@@ -303,10 +313,10 @@ export default function PacienteDetailScreen() {
     );
   }
 
-  const handleCopyPhone = async (phone: string) => {
-    await Clipboard.setStringAsync(phone);
-    Alert.alert('', 'Telefone copiado');
-  };
+  // REC-04 fix wave (G2, I-3): "copiar telefone" foi removido — o shape REAL
+  // de `PetResponse.tutores` (`PetTutorVinculo`) não tem `dsTelefone`/
+  // `dsEmail` (ver anchor em types/api.ts). O card mostra o que EXISTE de
+  // verdade: nome + vínculo (dsVinculo) + destaque de tutor principal.
 
   // FT-07 — sobe a foto do pet. `useUploadFotoPet` (usePetDetail.ts) cuida
   // de gerar as 2 variantes (256/1080, WebP) via `utils/fotoPet.ts` e
@@ -478,7 +488,8 @@ export default function PacienteDetailScreen() {
         ) : (
           pet.tutores.map((tutor, idx) => (
             <View
-              key={tutor.id}
+              key={tutor.idTutor}
+              testID={`tutor-vinculo-${tutor.idTutor}`}
               style={{
                 flexDirection: 'row',
                 paddingVertical: 10,
@@ -492,20 +503,14 @@ export default function PacienteDetailScreen() {
                   {tutor.nmTutor}
                 </Text>
                 <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
-                  {tutor.dsEmail}
+                  {VINCULO_LABEL[tutor.dsVinculo] ?? tutor.dsVinculo}
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => handleCopyPhone(tutor.dsTelefone)}
-                testID={`copy-phone-${tutor.id}`}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <KCIcon name="share" size={14} color={colors.primary} />
-                  <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary }}>
-                    {tutor.dsTelefone}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              {tutor.stPrincipal && (
+                <KCChip tone="ocean" testID={`chip-principal-${tutor.idTutor}`}>
+                  Principal
+                </KCChip>
+              )}
             </View>
           ))
         )}
