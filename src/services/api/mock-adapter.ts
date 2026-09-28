@@ -34,7 +34,10 @@ const ROUTES: [RegExp, MockHandler][] = [
   // `/pets\/\d+$/` (que exige terminar em dígito) por construção.
   [/\/pets\/\d+\/foto$/, petsMock.uploadFoto],
   [/\/pets\/\d+$/, petsMock.byId],
-  [/\/pets$/, petsMock.list],
+  // REC-04: GET lista (pré-existente) | POST cadastra + vincula tutor —
+  // mesma URL, despachado por método dentro de `petsMock.colecao` (mesmo
+  // padrão de usuarios-clinica.mock.ts::colecao, comentário abaixo).
+  [/\/pets$/, petsMock.colecao],
   [/\/eventos-clinicos\/consultas$/, eventosMock.criarConsulta],
   [/\/eventos-clinicos\/prescricoes$/, eventosMock.criarPrescricao],
   [/\/eventos-clinicos\/\d+\/transcricao$/, eventosMock.enviarTranscricao],
@@ -63,7 +66,10 @@ const ROUTES: [RegExp, MockHandler][] = [
   // LU-09: GET /api/v1/tutores/{id} — busca de telefone para "Responder no WhatsApp".
   [/\/tutores\/\d+$/, tutoresMock.byId],
   // REC-03: POST /api/v1/tutores — cadastro de novo tutor + convite.
-  [/\/tutores$/, tutoresMock.criar],
+  // REC-04: GET /api/v1/tutores?busca= — busca de "tutor existente"
+  // (pacientes/novo.tsx). Mesma URL, despachado por método dentro de
+  // `tutoresMock.colecao` (mesmo padrão de usuarios-clinica.mock.ts::colecao).
+  [/\/tutores$/, tutoresMock.colecao],
   // TASK-71 (FIX_6): criarOuObterSala (POST) e obterSala (GET) batem no mesmo
   // endpoint — o handler despacha por config.method (ver teleconsulta.mock.ts::sala).
   [/\/teleconsulta\/\d+\/sala$/, teleconsultaMock.sala],

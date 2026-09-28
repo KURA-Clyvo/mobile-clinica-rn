@@ -29,6 +29,10 @@ export const ROUTES = {
     // REC-03: src/app/(app)/tutores/novo.tsx. Ponto de entrada: botão "Novo
     // tutor" em pacientes/index.tsx.
     tutorNovo: '/tutores/novo' as Href,
+    // REC-04: src/app/(app)/pacientes/novo.tsx — "Adicionar pet a partir de
+    // um tutor existente" (busca + formulário de pet). Ponto de entrada:
+    // botão "+ Novo" em pacientes/index.tsx (antes só um Alert).
+    pacienteNovo: '/pacientes/novo' as Href,
     // Idem: src/app/(app)/consulta/[idPet].tsx.
     consulta: (idPet: number) => `/consulta/${idPet}` as Href,
     // idAgendamento é opcional: sem ele (entrada ad-hoc via ficha do pet) a tela não

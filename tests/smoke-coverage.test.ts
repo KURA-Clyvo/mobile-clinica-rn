@@ -35,6 +35,41 @@ import { SMOKE_COVERAGE_REGISTRY } from '../src/smokeCoverage/registry';
 
 const SERVICE_DIR = path.join(__dirname, '..', 'src', 'services');
 
+// REC-04 (g2-rec05.md, achado m-regex) — teste DEDICADO do regex de
+// `extrairNomesDeCheck`, independente de DevOps-Cloud estar clonado ao lado
+// (ao contrário da metade 2 do describe abaixo, que só roda com o repo
+// irmão presente). Prova as DUAS formas que a alternação precisa reconhecer
+// simultaneamente — `_upload_foto` (FT-10) e `_mascarando_token` (REC-04) —
+// porque a correção deste ciclo foi ACRESCENTAR à alternação existente, não
+// substituí-la; um teste que só provasse `_mascarando_token` não pegaria
+// uma futura regressão que trocasse a união por só a forma nova.
+describe('extrairNomesDeCheck — regex reconhece as formas de chamar_* (m-regex, g2-rec05.md)', () => {
+  const SCRIPT_FIXTURE = [
+    'chamar "pets/listar"',
+    'chamar_apikey "luna/triagens/relatorio (GET, JWT clinica)"',
+    'chamar_idempotency "eventos-clinicos/consultas (dsObservacao vazio)"',
+    'chamar_upload_foto "pets/{id}/foto (POST, upload thumb+media)"',
+    'chamar_mascarando_token "tutores/POST (sem nrTelefone…)"',
+  ].join('\n');
+
+  it('reconhece chamar/chamar_apikey/chamar_idempotency (formas pré-existentes)', () => {
+    const nomes = extrairNomesDeCheck(SCRIPT_FIXTURE);
+    expect(nomes.has('pets/listar')).toBe(true);
+    expect(nomes.has('luna/triagens/relatorio (GET, JWT clinica)')).toBe(true);
+    expect(nomes.has('eventos-clinicos/consultas (dsObservacao vazio)')).toBe(true);
+  });
+
+  it('reconhece chamar_upload_foto (FT-10) — não pode ser removida ao acrescentar chamar_mascarando_token', () => {
+    const nomes = extrairNomesDeCheck(SCRIPT_FIXTURE);
+    expect(nomes.has('pets/{id}/foto (POST, upload thumb+media)')).toBe(true);
+  });
+
+  it('reconhece chamar_mascarando_token (REC-04/REC-05) — a forma nova desta task', () => {
+    const nomes = extrairNomesDeCheck(SCRIPT_FIXTURE);
+    expect(nomes.has('tutores/POST (sem nrTelefone…)')).toBe(true);
+  });
+});
+
 describe('smoke-coverage — detector de lacuna do smoke-contratos.sh (TASK-81)', () => {
   const consumidores = discoverNetworkConsumers(SERVICE_DIR);
   const chavesDescobertas = new Set(consumidores.map((c) => c.key));

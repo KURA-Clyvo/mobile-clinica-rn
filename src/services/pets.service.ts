@@ -1,6 +1,12 @@
 import { Platform } from 'react-native';
 import { apiClient } from './api/client';
-import type { PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
+import type {
+  NovoPetInput,
+  PetCreateWireDto,
+  PetFotoResponse,
+  PetResponse,
+  TimelineEventResponse,
+} from '../types/api';
 import type { FotoVarianteGerada } from '../utils/fotoPet';
 
 export async function listPets(filtro?: string): Promise<PetResponse[]> {
@@ -21,6 +27,35 @@ export async function getPetById(id: number): Promise<PetResponse> {
 
 export async function getPetTimeline(id: number): Promise<TimelineEventResponse[]> {
   const { data } = await apiClient.get<TimelineEventResponse[]>(`/api/v1/pets/${id}/timeline`);
+  return data;
+}
+
+// ─── REC-04: cadastro de pet + vínculo ao tutor ─────────────────
+// POST /api/v1/pets -> 201, PetResponseDto (PetCreateDto -> PetService.
+// CreateAsync, backend-clinica-dotnet origin/main e33da98). O vínculo
+// tutor-pet é gravado NA MESMA chamada (`idTutor` no corpo, TutorPet
+// inserido no mesmo `_uow.CommitAsync()` do Pet — ver anchor em
+// types/api.ts::PetCreateWireDto). `idTutor` é o QUE FAZ deste pet um pet
+// VINCULADO — omiti-lo (ou mandar um id inexistente) faz o backend
+// devolver 404 "Tutor {id} não encontrado" (PetService.cs:55-56), nunca
+// cria o pet órfão. `stPrincipal: true`/`dsVinculo: 'PROPRIETARIO'`
+// fixos: este fluxo (tela "Novo pet") sempre registra o PRIMEIRO/principal
+// tutor do pet — um co-tutor adicional usaria `POST /pets/{id}/tutores`
+// (AdicionarTutorPetDto), endpoint que esta task decidiu NÃO wire-ar (ver
+// rec-04-report.md).
+export async function criarPet(input: NovoPetInput): Promise<PetResponse> {
+  const body: PetCreateWireDto = {
+    idEspecie: input.idEspecie,
+    idRaca: input.idRaca,
+    nmPet: input.nmPet.trim(),
+    dtNascimento: input.dtNascimento,
+    sgSexo: input.sgSexo,
+    sgPorte: input.sgPorte,
+    idTutor: input.idTutor,
+    stPrincipal: true,
+    dsVinculo: 'PROPRIETARIO',
+  };
+  const { data } = await apiClient.post<PetResponse>('/api/v1/pets', body);
   return data;
 }
 

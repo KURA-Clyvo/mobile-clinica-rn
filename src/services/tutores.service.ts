@@ -7,6 +7,7 @@ import type {
   TutorCreateWireDto,
   TutorComInviteWireDto,
   InviteReemitidoWireDto,
+  TutorBuscaWireDto,
   ApiError,
 } from '../types/api';
 import { somenteDigitos, paraEnvioServidor } from '../utils/telefone';
@@ -96,6 +97,19 @@ export async function reemitirConvite(
     dtExpiracao: data.invite.dtExpiracao,
     dsLinkConvite: data.dsLinkConvite,
   };
+}
+
+// REC-04 — "Adicionar pet a partir de um tutor existente" (pacientes/novo.tsx).
+// GET /api/v1/tutores?busca= (TutoresController.cs:29-35 -> ITutorService.
+// SearchAsync) — busca textual por nome OU CPF, idempotente, sem side effect.
+// Sem parâmetro (`busca` vazio/ausente) o backend devolve TODOS os tutores
+// ativos; o CHAMADOR desta função decide quando vale a pena chamar (ver
+// useBuscarTutores — gate de 2+ caracteres, evita listar tudo a cada tecla).
+export async function buscarTutores(busca: string): Promise<TutorBuscaWireDto[]> {
+  const { data } = await apiClient.get<TutorBuscaWireDto[]>('/api/v1/tutores', {
+    params: busca.trim() ? { busca: busca.trim() } : undefined,
+  });
+  return data;
 }
 
 function mapConviteDeCriacao(data: TutorComInviteWireDto, whatsapp: string): ConviteTutor {

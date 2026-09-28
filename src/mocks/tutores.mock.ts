@@ -5,6 +5,7 @@ import type {
   TutorComInviteWireDto,
   InviteReemitidoWireDto,
   InviteWireDto,
+  TutorBuscaWireDto,
 } from '../types/api';
 
 // LU-09: shape de FIO (TutorDetalheApiResponse — TutorResponseDto real) para a ação
@@ -250,6 +251,51 @@ export async function criar(
     invite,
     dsLinkConvite: semLinkConvite ? null : linkConvite(invite.nrToken),
   };
+}
+
+// REC-04 — exportado para `pets.mock.ts::criar` resolver o nome/telefone/
+// e-mail do tutor vinculado ao montar a resposta de `POST /pets` (o mock
+// precisa do MESMO dado que o backend real ecoaria via JOIN — ver
+// `PetService.BuildResponseAsync`). Devolve `undefined` quando o id não
+// existe no store — o chamador decide o que fazer (404, mesma semântica de
+// `PetService.CreateAsync` recusando `idTutor` desconhecido).
+export function buscarTutorArmazenadoPorId(id: number): TutorArmazenado | undefined {
+  return getStoreTutores().find((t) => t.id === id);
+}
+
+// REC-04 — GET /api/v1/tutores?busca= (TutoresController.cs:29-35), usado
+// pela busca de "tutor existente" em pacientes/novo.tsx. Filtro textual
+// simples por nome OU CPF (case-insensitive), mesmo critério informal do
+// `ITutorService.SearchAsync` real (substring, não fuzzy). Sem `busca`
+// (string vazia/ausente), devolve todo o store — mesmo comportamento do
+// backend real sem query param.
+export async function buscar(config: InternalAxiosRequestConfig): Promise<TutorBuscaWireDto[]> {
+  const busca = ((config.params as { busca?: string } | undefined)?.busca ?? '').trim().toLowerCase();
+  const store = getStoreTutores();
+  const resultado = busca
+    ? store.filter((t) => t.nmTutor.toLowerCase().includes(busca) || t.nrCpf.includes(busca))
+    : store;
+  return resultado.map((t) => ({
+    id: t.id,
+    nmTutor: t.nmTutor,
+    nrCpf: t.nrCpf,
+    dsEmail: t.dsEmail,
+    nrTelefone: t.nrTelefone,
+    stAtiva: t.stAtiva,
+  }));
+}
+
+// GET /api/v1/tutores$ | POST /api/v1/tutores$ — mesma URL, 2 métodos
+// (mesmo padrão de usuarios-clinica.mock.ts::colecao, ver comentário de
+// ordem em mock-adapter.ts). GET busca (LISTAGEM, REC-04), POST cadastra
+// (REC-03, já existia como `criar` antes desta rota GET nascer).
+export async function colecao(
+  config: InternalAxiosRequestConfig,
+): Promise<TutorBuscaWireDto[] | TutorComInviteWireDto> {
+  if ((config.method ?? 'get').toUpperCase() === 'POST') {
+    return criar(config);
+  }
+  return buscar(config);
 }
 
 // POST /api/v1/tutores/{id}/convite.

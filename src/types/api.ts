@@ -131,6 +131,25 @@ export interface AgendamentoResponse {
 }
 
 // ─── Pets ─────────────────────────────────────────────────────
+// 🔴 ACHADO REC-04, NÃO CORRIGIDO NESTA TASK (fora do escopo explícito do
+// aceite — só a tela "Novo pet"/encadeamento): este tipo NÃO bate com o
+// shape real do backend. `PetResponseDto.Tutores` (backend-clinica-dotnet
+// `src/Kura.Application/DTOs/Pet/PetResponseDto.cs:21-27`, `origin/main`
+// `e33da98`, conferido em 2026-09-27 com
+// `git show e33da98:src/Kura.Application/DTOs/Pet/PetResponseDto.cs`) é
+// `TutorVinculoDto{IdTutor,NmTutor,DsVinculo,StPrincipal}` — SEM
+// `dsTelefone`/`dsEmail` (que este `TutorMini` declara) e COM `dsVinculo`/
+// `stPrincipal` (que este `TutorMini` não tem). Em modo REAL,
+// `pacientes/[id].tsx`'s card "Tutores" chama `tutor.dsTelefone`/
+// `tutor.dsEmail`, que não existem na resposta real — renderiza vazio, e
+// `handleCopyPhone` copia `undefined` para o clipboard. O mock
+// (`pets.mock.ts`) replica ESTE tipo (TutorMini), não o real — mesma classe
+// "mock como 2º consumidor" (regra v5), agora do lado ERRADO: mock e UI
+// concordam entre si, os dois divergem do backend. Não corrigido aqui
+// porque a tela de detalhe do pet está fora do fluxo de CRIAÇÃO desta task
+// — registrado para uma próxima task tocar `pacientes/[id].tsx` +
+// `TutorMini` + `pets.mock.ts` juntos (a mudança de tipo, UI e mock tem que
+// ser uma coisa só, não 3 PRs desencontrados).
 export interface TutorMini {
   id: number;
   nmTutor: string;
@@ -171,6 +190,62 @@ export interface PetFotoResponse {
   idPet: number;
   dsFotoChave: string;
   dtFotoAtualizacao: string;
+}
+
+// ─── Novo pet + vínculo ao tutor (REC-04) ──────────────────────
+// POST /api/v1/pets -> PetCreateDto (backend-clinica-dotnet
+// src/Kura.Application/DTOs/Pet/PetCreateDto.cs, origin/main e33da98,
+// conferido em 2026-09-27 com
+// `git show e33da98:src/Kura.Application/DTOs/Pet/PetCreateDto.cs`).
+// `IdTutor` é OBRIGATÓRIO (long, não long?) — o vínculo tutor-pet é
+// gravado NA MESMA transação da criação do pet (PetService.CreateAsync,
+// :53-87 do mesmo commit — insere `Pet` e `TutorPet` juntos, um só
+// `_uow.CommitAsync()`). ⚠️ Achado desta task: `POST /pets/{id}/tutores`
+// (AdicionarTutorPetDto) NÃO é o segundo passo deste fluxo — é um
+// endpoint DIFERENTE, para adicionar um tutor ADICIONAL/co-tutor a um pet
+// que JÁ EXISTE (`PetService.AdicionarTutorAsync`, StPrincipal sempre
+// false). Ver rec-04-report.md para a decisão de não usá-lo nesta task
+// (sem tela de ficha/lista de tutor onde esse gatilho pudesse morar).
+export interface PetCreateWireDto {
+  idEspecie: number;
+  idRaca: number;
+  idVeterinarioResp?: number | null;
+  nmPet: string;
+  // ISO 8601 — DtNascimento do .NET é DateTime, aceita string ISO no corpo.
+  dtNascimento: string;
+  sgSexo: 'M' | 'F';
+  sgPorte: 'P' | 'M' | 'G';
+  idTutor: number;
+  stPrincipal: boolean;
+  dsVinculo: string;
+}
+
+// Tipo de UI (o que a tela "Novo pet" produz) — idTutor/nomeTutor vêm do
+// CONTEXTO (tutor recém-criado na cadeia, ou tutor existente escolhido por
+// busca), nunca de um campo editável do formulário.
+export interface NovoPetInput {
+  idTutor: number;
+  idEspecie: number;
+  idRaca: number;
+  nmPet: string;
+  dtNascimento: string;
+  sgSexo: 'M' | 'F';
+  sgPorte: 'P' | 'M' | 'G';
+}
+
+// GET /api/v1/tutores?busca= -> TutorResponseDto[] (backend-clinica-dotnet
+// src/Kura.Application/DTOs/Tutor/TutorResponseDto.cs, origin/main
+// e33da98) — usado pela busca de "tutor existente" (REC-04,
+// pacientes/novo.tsx). Mesmo shape de TutorDetalheApiResponse (LU-09), tipo
+// próprio porque o CONSUMIDOR é diferente (lista de candidatos, não ficha
+// única) e pode precisar crescer de forma independente.
+export interface TutorBuscaWireDto {
+  id: number;
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  stAtiva: boolean;
 }
 
 export interface TimelineEventResponse {

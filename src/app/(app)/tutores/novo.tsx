@@ -24,6 +24,7 @@ import { ROUTES } from '@constants/routes';
 import { useCriarTutor, useReemitirConvite } from '@hooks/useTutores';
 import { mensagemErroCadastroTutor, mensagemErroReemissaoConvite } from '@services/tutores.service';
 import { mascararTelefone, somenteDigitos, linkWhatsApp } from '@utils/telefone';
+import { PetForm } from '@components/domain/PetForm';
 import type { ApiError, ConviteTutor } from '../../../types/api';
 
 // REC-03 — texto do aviso de privacidade: NÃO EXISTE em lugar nenhum do
@@ -127,6 +128,9 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     semLinkTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
     acoes: { width: '100%', gap: 10 },
+    // ─── Etapa "Cadastrar pet" (REC-04) ───
+    petHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+    petHeaderTexto: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
   });
 
 export default function NovoTutorScreen() {
@@ -134,7 +138,14 @@ export default function NovoTutorScreen() {
   const styles = makeStyles(colors);
   const router = useRouter();
 
-  const [convite, setConvite] = useState<ConviteTutor | null>(null);
+  // REC-04: a cadeia agora é tutor -> pet -> convite (o convite só aparece
+  // no FIM do encadeamento, uma vez). `conviteReservado` guarda o resultado
+  // da criação/reemissão do tutor assim que ele chega, mas SÓ é EXIBIDO
+  // (etapa==='convite') depois que o pet é salvo — `etapa==='pet'` no meio
+  // renderiza o formulário de pet, não o QR.
+  type Etapa = 'form' | 'pet' | 'convite';
+  const [etapa, setEtapa] = useState<Etapa>('form');
+  const [conviteReservado, setConviteReservado] = useState<ConviteTutor | null>(null);
 
   const { mutate: criar, isPending: salvando } = useCriarTutor();
   const { mutate: reemitir, isPending: reemitindo } = useReemitirConvite();
@@ -186,18 +197,34 @@ export default function NovoTutorScreen() {
       emFocoRef.current = true;
       return () => {
         emFocoRef.current = false;
-        setConvite(null);
+        // REC-04: zera a cadeia inteira (tutor + pet + convite), não só o
+        // convite — sem isto, reentrar no meio de um encadeamento
+        // abandonado (ex.: operador saiu na etapa "pet") reabriria a etapa
+        // "pet" de um tutor que não está mais no estado, órfã.
+        setEtapa('form');
+        setConviteReservado(null);
         reset();
       };
     }, [reset]),
   );
 
-  // G2b (m8): ponto único onde os 2 `onSuccess` (criar/reemitir) decidem se
-  // aplicam o resultado — nunca aplicar quando a tela já perdeu o foco
-  // (resposta tardia chegando depois do operador já ter saído).
-  const aplicarConviteSeEmFoco = (resultado: ConviteTutor) => {
+  // G2b (m8): ponto único onde os `onSuccess` de criar/reemitir tutor
+  // decidem se aplicam o resultado — nunca aplicar quando a tela já perdeu
+  // o foco (resposta tardia chegando depois do operador já ter saído).
+  //
+  // REC-04: a criação do tutor AVANÇA a etapa (form -> pet); a reemissão de
+  // convite NÃO avança etapa nenhuma (só é chamável de dentro da própria
+  // etapa 'convite', via "Gerar novo convite") — por isso são 2 funções, não
+  // uma reaproveitada com um parâmetro a mais.
+  const aplicarCriacaoTutorSeEmFoco = (resultado: ConviteTutor) => {
     if (!emFocoRef.current) return;
-    setConvite(resultado);
+    setConviteReservado(resultado);
+    setEtapa('pet');
+  };
+
+  const aplicarReemissaoSeEmFoco = (resultado: ConviteTutor) => {
+    if (!emFocoRef.current) return;
+    setConviteReservado(resultado);
   };
 
   const onSubmit = (data: FormValues) => {
@@ -218,7 +245,7 @@ export default function NovoTutorScreen() {
         aceitouAvisoPrivacidade: data.aceitouAvisoPrivacidade,
       },
       {
-        onSuccess: (resultado) => aplicarConviteSeEmFoco(resultado),
+        onSuccess: (resultado) => aplicarCriacaoTutorSeEmFoco(resultado),
         // `err: unknown` (não o `Error` inferido por padrão pelo `useMutation`) —
         // mesmo padrão de usuarios/index.tsx::handleErro: aceitar `unknown` é
         // compatível com o slot `onError` de qualquer TError (contravariância de
@@ -234,11 +261,15 @@ export default function NovoTutorScreen() {
   };
 
   const handleGerarNovoConvite = () => {
-    if (!convite) return;
+    if (!conviteReservado) return;
     reemitir(
-      { idTutor: convite.idTutor, nomeTutor: convite.nomeTutor, whatsapp: convite.whatsapp },
       {
-        onSuccess: (resultado) => aplicarConviteSeEmFoco(resultado),
+        idTutor: conviteReservado.idTutor,
+        nomeTutor: conviteReservado.nomeTutor,
+        whatsapp: conviteReservado.whatsapp,
+      },
+      {
+        onSuccess: (resultado) => aplicarReemissaoSeEmFoco(resultado),
         // m1 (G2): mensagem genérica pra QUALQUER status ≠ 400, também na
         // reemissão — antes mostrava `err.message` cru (ex.: "Tutor id 42 já
         // possui conta…", 409), texto técnico e nunca pensado pra tela.
@@ -256,34 +287,61 @@ export default function NovoTutorScreen() {
     `Olá ${nomeTutor}! Aqui está o link para você baixar o app da clínica e acompanhar seu pet: ${link}`;
 
   const handleEnviarWhatsApp = () => {
-    if (!convite?.dsLinkConvite) return;
+    if (!conviteReservado?.dsLinkConvite) return;
     Linking.openURL(
-      linkWhatsApp(convite.whatsapp, mensagemConvite(convite.nomeTutor, convite.dsLinkConvite)),
+      linkWhatsApp(
+        conviteReservado.whatsapp,
+        mensagemConvite(conviteReservado.nomeTutor, conviteReservado.dsLinkConvite),
+      ),
     );
   };
 
   const handleCopiarLink = async () => {
-    if (!convite?.dsLinkConvite) return;
-    await Clipboard.setStringAsync(convite.dsLinkConvite);
+    if (!conviteReservado?.dsLinkConvite) return;
+    await Clipboard.setStringAsync(conviteReservado.dsLinkConvite);
     Alert.alert('Copiado', 'Link do convite copiado para a área de transferência.');
   };
 
+  // REC-04 — etapa "Cadastrar pet": entre a criação do tutor e a exibição do
+  // convite. `conviteReservado` já existe neste ponto (foi guardado por
+  // `aplicarCriacaoTutorSeEmFoco`) mas NÃO é renderizado ainda — é só
+  // contexto (idTutor/nomeTutor) pro PetForm. O convite só aparece depois
+  // que `onSuccess` do PetForm dispara `setEtapa('convite')`.
+  if (etapa === 'pet' && conviteReservado) {
+    return (
+      <ScreenContainer keyboardShouldPersistTaps="handled">
+        <View style={styles.petHeaderRow}>
+          <KCIcon name="check" size={20} color={colors.success} />
+          <Text style={styles.petHeaderTexto}>Tutor cadastrado! Agora, o primeiro pet</Text>
+        </View>
+        <PetForm
+          idTutor={conviteReservado.idTutor}
+          nomeTutor={conviteReservado.nomeTutor}
+          onSuccess={() => setEtapa('convite')}
+          onError={(mensagem) => Alert.alert('Não foi possível cadastrar o pet', mensagem)}
+        />
+      </ScreenContainer>
+    );
+  }
+
   // ─── Tela de convite (estado local — NUNCA uma rota separada, o QR não ───
-  // pode ser cacheado nem reaberto por "voltar" do navegador).
-  if (convite) {
+  // pode ser cacheado nem reaberto por "voltar" do navegador). REC-04: só
+  // alcançável depois da etapa "pet" (etapa==='convite'), nunca direto da
+  // criação do tutor.
+  if (etapa === 'convite' && conviteReservado) {
     return (
       <ScreenContainer>
         <View style={styles.conviteCentro}>
           <KCIcon name="check" size={40} color={colors.success} />
-          <Text style={styles.conviteNome}>{convite.nomeTutor} foi cadastrado(a)!</Text>
+          <Text style={styles.conviteNome}>{conviteReservado.nomeTutor} foi cadastrado(a)!</Text>
           <Text style={styles.conviteSub}>
             Compartilhe o convite abaixo para o tutor baixar o app e criar a conta dele.
           </Text>
 
-          {convite.dsLinkConvite ? (
+          {conviteReservado.dsLinkConvite ? (
             <>
               <View style={styles.qrWrapper} testID="convite-qrcode">
-                <QRCode value={convite.dsLinkConvite} size={180} />
+                <QRCode value={conviteReservado.dsLinkConvite} size={180} />
               </View>
               <View style={styles.acoes}>
                 <KCButton

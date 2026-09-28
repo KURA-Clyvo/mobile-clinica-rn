@@ -1,5 +1,7 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import type { PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
+import type { PetCreateWireDto, PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
+import { ESPECIES, RACAS } from '../constants/catalogoPets';
+import { buscarTutorArmazenadoPorId } from './tutores.mock';
 
 const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000).toISOString();
@@ -155,6 +157,104 @@ const TIMELINES: Record<number, TimelineEventResponse[]> = {
     { idEventoClinico: 1008, nmTipo: 'VACINA', dtEvento: daysAgo(365), dsObservacao: 'Antirrábica aplicada.', nmVeterinario: 'Dr. Felipe Ferrete' },
   ],
 };
+
+function rejeitar(status: number, code: string, message: string): Promise<never> {
+  return Promise.reject({ status, code, message });
+}
+
+function rejeitarValidacao(message: string, details: Record<string, string[]>): Promise<never> {
+  return Promise.reject({ status: 400, code: 'VALIDACAO', message, details });
+}
+
+function parseBody<T>(config: InternalAxiosRequestConfig): T {
+  return (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as T;
+}
+
+let _proximoIdPet = 100;
+
+/**
+ * REC-04 — POST /api/v1/pets (2º consumidor do shape de fio, regra v5):
+ * espelha `PetCreateValidator.cs` (backend-clinica-dotnet, origin/main
+ * e33da98) e o comportamento de `PetService.CreateAsync` — em especial, o
+ * VÍNCULO ao tutor é o que torna este pet "cadastrado com sucesso": um
+ * `idTutor` ausente/inexistente rejeita com 404, exatamente como o real
+ * (`EntidadeNaoEncontradaException("Tutor", dto.IdTutor)`), NUNCA cria o
+ * pet órfão. É este 404 que a mordida "pet criado sem vínculo" do brief
+ * exercita do lado do teste de service (mutar `criarPet` para omitir
+ * `idTutor` do corpo faz este handler achar `body.idTutor === undefined`,
+ * `buscarTutorArmazenadoPorId(undefined)` não acha ninguém, rejeita).
+ */
+export async function criar(config: InternalAxiosRequestConfig): Promise<PetResponse> {
+  const body = parseBody<PetCreateWireDto>(config);
+
+  if (!body.idEspecie || body.idEspecie <= 0) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      IdEspecie: ["'Id Especie' deve ser maior que '0'."],
+    });
+  }
+  if (!body.idRaca || body.idRaca <= 0) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      IdRaca: ["'Id Raca' deve ser maior que '0'."],
+    });
+  }
+  if (!body.nmPet || !body.nmPet.trim()) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      NmPet: ["'Nm Pet' não pode estar vazio."],
+    });
+  }
+  if (body.dtNascimento && new Date(body.dtNascimento).getTime() > Date.now()) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      DtNascimento: ["'DtNascimento' não pode ser uma data futura."],
+    });
+  }
+  if (body.sgSexo !== 'M' && body.sgSexo !== 'F') {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      SgSexo: ["'Sg Sexo' deve ser 'M' ou 'F'."],
+    });
+  }
+  if (!['P', 'M', 'G'].includes(body.sgPorte)) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      SgPorte: ["'Sg Porte' deve ser 'P', 'M' ou 'G'."],
+    });
+  }
+
+  // O VÍNCULO: sem tutor real, sem pet criado — mesmo comportamento do
+  // PetService.CreateAsync real (404, ver JSDoc acima).
+  const tutor = buscarTutorArmazenadoPorId(body.idTutor);
+  if (!tutor) {
+    return rejeitar(404, 'NOT_FOUND', `Tutor com id ${body.idTutor} não encontrado`);
+  }
+
+  const especie = ESPECIES.find((e) => e.id === body.idEspecie);
+  const raca = RACAS.find((r) => r.id === body.idRaca);
+
+  const novo: PetResponse = {
+    id: _proximoIdPet++,
+    nmPet: body.nmPet.trim(),
+    nmEspecie: especie?.nome ?? `Espécie ${body.idEspecie}`,
+    nmRaca: raca?.nome ?? `Raça ${body.idRaca}`,
+    dtNascimento: body.dtNascimento,
+    sgSexo: body.sgSexo,
+    sgPorte: body.sgPorte,
+    tutores: [
+      { id: tutor.id, nmTutor: tutor.nmTutor, dsTelefone: tutor.nrTelefone, dsEmail: tutor.dsEmail },
+    ],
+  };
+  PETS.push(novo);
+  return novo;
+}
+
+// GET /api/v1/pets$ | POST /api/v1/pets$ — mesma URL, 2 métodos (mesmo
+// padrão de usuarios-clinica.mock.ts::colecao — ver ordem em
+// mock-adapter.ts). GET lista (pré-existente), POST cadastra (REC-04).
+export async function colecao(
+  config: InternalAxiosRequestConfig,
+): Promise<PetResponse[] | PetResponse> {
+  if ((config.method ?? 'get').toUpperCase() === 'POST') {
+    return criar(config);
+  }
+  return list(config);
+}
 
 export async function list(_config: InternalAxiosRequestConfig): Promise<PetResponse[]> {
   return PETS;
