@@ -6,7 +6,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import NovoPacienteScreen from '../src/app/(app)/pacientes/novo';
-import { __resetTutoresParaTeste, CPF_MOCK_DUPLICADO } from '../src/mocks/tutores.mock';
+import { __resetTutoresParaTeste } from '../src/mocks/tutores.mock';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => {
