@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import AgendaScreen from '../src/app/(app)/agenda';
 import { getMondayOf, addDays } from '../src/utils/date';
-import { layout } from '../src/theme/tokens';
+import { layout, lightColors } from '../src/theme/tokens';
 
 const mockAtualizarStatusMutate = jest.fn();
 // REC-12: useAgendaHoje/useCheckinAgendamento são chamados INCONDICIONALMENTE
@@ -510,6 +510,76 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     fireEvent.press(getByTestId('btn-modo-hoje'));
     expect(queryByTestId('espera-30')).toBeNull();
     expect(getByTestId('etapa-30')).toBeTruthy();
+  });
+
+  // Fix wave G2 (I-2, morde M2): a G2 mediu que o teste ACIMA não morde —
+  // `CONFIRMADO` sem `dtCheckin` já esconderia "esperando há" por FALTA de
+  // horário, não por checar a etapa (`etapa === 'CHEGOU' && a.dtCheckin ?`
+  // vira `a.dtCheckin ?` e a suíte continuava 1357/1357). Este teste usa
+  // `dtCheckin` PREENCHIDO numa etapa que NÃO é CHEGOU — cenário realista
+  // (FINALIZADO sempre tem `dtCheckin` de quando o paciente chegou) — só
+  // ele distingue "olha o dtCheckin" de "olha a etapa E o dtCheckin".
+  it('"esperando há" NÃO aparece em FINALIZADO mesmo com dtCheckin preenchido (morde M2)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 80,
+          dsEtapaRecepcao: 'FINALIZADO',
+          dtCheckin: '2026-09-28T08:00:00',
+          dtInicioAtendimento: '2026-09-28T08:10:00',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('espera-80')).toBeNull();
+    expect(getByTestId('etapa-80')).toBeTruthy();
+  });
+
+  // Fix wave G2 (I-2, morde M1): a G2 mediu que "mostra a urgência" só
+  // afirmava o rótulo fixo "Triagem da Luna" — `origemTone(a.dsOrigem, a.
+  // dsNivelUrgenciaOrigem)` virando `origemTone(a.dsOrigem, null)` mantinha
+  // a suíte 1357/1357 (a cor nunca era comparada). Este teste renderiza DUAS
+  // linhas com urgências DIFERENTES (ALTA/MEDIA) e compara a cor RESOLVIDA
+  // do chip (`borderColor`/`backgroundColor`, os mesmos tokens de
+  // `luna.tsx`: clay para ALTA, amber para MEDIA) — se as duas saírem
+  // iguais (ou iguais ao tom neutro `mute`), a mordida M1 pega aqui.
+  it('o selo TRIAGEM_LUNA muda de COR conforme o nível de urgência (morde M1)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 81,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'ALTA',
+        }),
+        agendamentoHoje({
+          id: 82,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'MEDIA',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+
+    const estiloAlta = StyleSheet.flatten(getByTestId('origem-81').props.style) as {
+      borderColor?: string;
+    };
+    const estiloMedia = StyleSheet.flatten(getByTestId('origem-82').props.style) as {
+      borderColor?: string;
+    };
+
+    expect(estiloAlta.borderColor).toBe(lightColors.clay);
+    expect(estiloMedia.borderColor).toBe(lightColors.amber);
+    expect(estiloAlta.borderColor).not.toBe(estiloMedia.borderColor);
   });
 
   // A-6: "nenhum KPI agregado". Uma tela com várias linhas nunca pode exibir
