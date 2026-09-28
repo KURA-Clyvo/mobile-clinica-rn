@@ -8,9 +8,11 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { PetForm } from '@components/domain/PetForm';
+import { ConviteTutorView } from '@components/domain/ConviteTutorView';
 import { ROUTES } from '@constants/routes';
-import { useBuscarTutores } from '@hooks/useTutores';
-import type { TutorBuscaWireDto } from '../../../types/api';
+import { useBuscarTutores, useReemitirConvite } from '@hooks/useTutores';
+import { mensagemErroReemissaoConvite } from '@services/tutores.service';
+import type { ApiError, ConviteTutor, TutorBuscaWireDto } from '../../../types/api';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -45,14 +47,33 @@ const makeStyles = (colors: typeof lightColors) =>
     tutorSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
     sucessoCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
     sucessoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
+    // REC-04 fix wave (G2, I-1b) — mesmo estilo de "sem link" de ConviteTutorView,
+    // reaproveitado aqui por ser o MESMO tom (aviso informativo, não erro).
+    semContaBox: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.bgSunk,
+      borderRadius: 10,
+      padding: 14,
+      gap: 6,
+    },
+    semContaTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19, textAlign: 'center' },
   });
 
 /**
  * REC-04 — "Adicionar pet a partir de um tutor existente". Entrada: botão
  * "+ Novo" de pacientes/index.tsx (que antes só mostrava um Alert
  * "funcionalidade em breve"). Diferente da cadeia tutor->pet->convite de
- * tutores/novo.tsx (tutor RECÉM-criado, com convite pendente), aqui o tutor
- * JÁ tem conta — não há convite pra mostrar no fim, só o pet salvo.
+ * tutores/novo.tsx (tutor RECÉM-criado, com convite pendente), aqui o pet é
+ * de um tutor que JÁ EXISTE no cadastro — mas "já existe" não é o mesmo que
+ * "já tem conta no app" (a conta só nasce quando o tutor aceita o convite;
+ * fix wave G2, achado I-1 — a frase anterior desta doc, "aqui o tutor JÁ tem
+ * conta", era uma premissa FALSA). Por isso, depois de salvar o pet, a tela
+ * oferece "Gerar convite" (REC-02, `POST /tutores/{id}/convite`) — 201
+ * mostra o convite normalmente (reaproveitando `ConviteTutorView`, mesmo
+ * componente da cadeia de tutores/novo.tsx); 409 informa que o tutor JÁ tem
+ * conta de verdade (a única fonte confiável dessa informação é o próprio
+ * servidor, nunca uma suposição da tela).
  *
  * Não existe tela de "ficha"/lista de tutor neste app (medido: `find
  * src/app -iname "*tutor*"` só acha `tutores/novo.tsx`) — por isso a busca
@@ -71,6 +92,13 @@ export default function NovoPacienteScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [buscaDebounced, setBuscaDebounced] = useState('');
 
+  // REC-04 fix wave (G2, I-1b): "Gerar convite" depois do pet salvo.
+  // `convite` != null -> mostra o convite (201, ConviteTutorView).
+  // `mensagemSemConta` != null -> 409 real do servidor ("já tem conta").
+  const [convite, setConvite] = useState<ConviteTutor | null>(null);
+  const [mensagemSemConta, setMensagemSemConta] = useState<string | null>(null);
+  const { mutate: reemitir, isPending: gerandoConvite } = useReemitirConvite();
+
   const { data: tutores = [], isLoading } = useBuscarTutores(buscaDebounced);
 
   // Mesmo espírito do C-1 da REC-03 (tutores/novo.tsx): zera tudo ao perder
@@ -82,6 +110,8 @@ export default function NovoPacienteScreen() {
         setBuscaDebounced('');
         setTutorSelecionado(null);
         setSalvo(false);
+        setConvite(null);
+        setMensagemSemConta(null);
       };
     }, []),
   );
@@ -92,12 +122,61 @@ export default function NovoPacienteScreen() {
     debounceRef.current = setTimeout(() => setBuscaDebounced(texto.trim()), 300);
   };
 
+  // REC-04 fix wave (G2, I-1b): "Gerar convite" — 201 mostra o convite
+  // (ConviteTutorView), 409 é o tutor JÁ ter conta de verdade (mensagem
+  // própria, não um Alert — é uma informação boa, não um erro), qualquer
+  // outro status é genérico (mesmo padrão de mensagemErroReemissaoConvite,
+  // regra m1 herdada da REC-03: nunca `err.message` cru fora do 400).
+  const handleGerarConvite = () => {
+    if (!tutorSelecionado) return;
+    reemitir(
+      {
+        idTutor: tutorSelecionado.id,
+        nomeTutor: tutorSelecionado.nmTutor,
+        whatsapp: tutorSelecionado.nrTelefone,
+      },
+      {
+        onSuccess: (resultado) => setConvite(resultado),
+        onError: (err: unknown) => {
+          const apiError = err as ApiError;
+          if (apiError.status === 409) {
+            setMensagemSemConta('Este tutor já tem conta no app — não precisa de convite.');
+            return;
+          }
+          Alert.alert('Não foi possível gerar o convite', mensagemErroReemissaoConvite(apiError));
+        },
+      },
+    );
+  };
+
+  if (convite) {
+    return <ConviteTutorView convite={convite} onConviteAtualizado={setConvite} />;
+  }
+
   if (salvo) {
     return (
       <ScreenContainer>
         <View style={styles.sucessoCentro}>
           <KCIcon name="check" size={40} color={colors.success} />
           <Text style={styles.sucessoTexto}>Pet cadastrado com sucesso!</Text>
+
+          {mensagemSemConta ? (
+            <View style={styles.semContaBox} testID="sem-conta-aviso">
+              <Text style={styles.semContaTexto}>{mensagemSemConta}</Text>
+            </View>
+          ) : (
+            <KCButton
+              variant="ghost"
+              loading={gerandoConvite}
+              disabled={gerandoConvite}
+              onPress={handleGerarConvite}
+              accessibilityLabel="Gerar convite para o tutor baixar o app"
+              testID="btn-gerar-convite"
+            >
+              Gerar convite
+            </KCButton>
+          )}
+
           <KCButton
             variant="secondary"
             onPress={() => router.push(ROUTES.app.pacientes)}

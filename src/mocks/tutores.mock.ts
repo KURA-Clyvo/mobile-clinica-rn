@@ -56,13 +56,24 @@ interface TutorArmazenado {
   // dsLinkConvite: null — replica o caso em que o backend não conseguiu
   // gerar o link (ex.: WEBHOOK_PUBLIC_URL ausente).
   semLinkConvite: boolean;
+  // REC-04 fix wave (G2, I-1b): réplica de `TutorService.
+  // ReemitirConviteAsync` (backend-clinica-dotnet, `e33da98`,
+  // `TutorService.cs:258-261`) — tutor que JÁ concluiu o onboarding
+  // (CONTA_TUTOR existe, tabela Java, só leitura do lado .NET) não pode
+  // reemitir convite: `TutorComContaExistenteException` -> 409
+  // (`ExceptionHandlerMiddleware.cs:116`). Tutores CRIADOS por `criar()`
+  // nunca nascem com conta (onboarding é sempre um passo futuro, separado)
+  // — só o seed abaixo simula o caso.
+  temConta: boolean;
 }
 
-// CPFs fictícios, nunca reais — reservados para os dois cenários que a
-// mordida obrigatória do brief precisa reproduzir sem tocar em HTTP real:
-// duplicado (409) e "link não configurado" (dsLinkConvite: null).
+// CPFs fictícios, nunca reais — reservados para os cenários que os aceites
+// obrigatórios precisam reproduzir sem tocar em HTTP real: duplicado (409
+// no CADASTRO), "link não configurado" (dsLinkConvite: null), e tutor que
+// já tem conta (409 na REEMISSÃO — REC-04, I-1b).
 export const CPF_MOCK_DUPLICADO = '11122233344';
 export const CPF_MOCK_SEM_LINK = '00099988877';
+export const CPF_MOCK_COM_CONTA = '22233344455';
 
 function buildTutoresArmazenados(): TutorArmazenado[] {
   return [
@@ -74,6 +85,19 @@ function buildTutoresArmazenados(): TutorArmazenado[] {
       nrTelefone: '11999998888',
       stAtiva: true,
       semLinkConvite: false,
+      temConta: false,
+    },
+    // REC-04 fix wave (G2, I-1b) — achável pela busca de "tutor existente"
+    // (pacientes/novo.tsx) para exercitar "Gerar convite" -> 409.
+    {
+      id: 901,
+      nmTutor: 'Tutor Com Conta Ativa',
+      nrCpf: CPF_MOCK_COM_CONTA,
+      dsEmail: 'com.conta@example.com',
+      nrTelefone: '11999997777',
+      stAtiva: true,
+      semLinkConvite: false,
+      temConta: true,
     },
   ];
 }
@@ -237,6 +261,9 @@ export async function criar(
     nrTelefone: telefoneNormalizado,
     stAtiva: true,
     semLinkConvite,
+    // Onboarding é sempre um passo FUTURO e separado — um tutor recém-criado
+    // pela recepção nunca nasce com conta.
+    temConta: false,
   };
   store.push(novo);
 
@@ -308,6 +335,13 @@ export async function reemitirConvite(
 
   if (!item) {
     return rejeitar(404, 'NOT_FOUND', `Tutor ${id} não encontrado`);
+  }
+
+  // REC-04 fix wave (G2, I-1b) — réplica de `TutorService.
+  // ReemitirConviteAsync:258-261` (anchor completo no comentário de
+  // `TutorArmazenado.temConta`): tutor com conta já concluída não reemite.
+  if (item.temConta) {
+    return rejeitar(409, 'TUTOR_COM_CONTA', `Tutor ${id} já possui conta.`);
   }
 
   const invite = novoInvite('WHATSAPP');
