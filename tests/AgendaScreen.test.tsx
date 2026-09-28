@@ -354,3 +354,269 @@ describe('AgendaScreen — ScreenContainer adoption (CQ-15)', () => {
     expect(flatStyle.paddingHorizontal).toBe(0);
   });
 });
+
+// ─── REC-12 — modo "Hoje" da agenda ─────────────────────────────────────────
+import { Alert } from 'react-native';
+jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+function agendamentoHoje(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: 30,
+    dtInicio: '2026-09-28T09:00:00.000Z',
+    nrDuracaoMinutos: 30,
+    sgStatus: 'AGENDADA',
+    dsStatusOrigem: 'AGENDADO',
+    nrVersion: 1,
+    pet: { id: 10, nmPet: 'Amora', nmEspecie: 'Cão', nmRaca: 'SRD' },
+    tutor: { id: 20, nmTutor: 'Beatriz Lopes', dsTelefone: '11999990001' },
+    veterinario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345' },
+    dsOrigem: 'PORTAL',
+    dsEtapaRecepcao: 'AGENDADO',
+    ...overrides,
+  };
+}
+
+describe('AgendaScreen — modo Hoje (REC-12)', () => {
+  beforeEach(() => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+  });
+
+  it('default é o modo Semana — a suíte pré-existente continua vendo o comportamento de sempre', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    expect(getByTestId('btn-prev-week')).toBeTruthy();
+    expect(queryByTestId('agenda-hoje-lista')).toBeNull();
+  });
+
+  it('alternar para "Hoje" troca a lista exibida', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje()],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('btn-prev-week')).toBeNull();
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
+    expect(getByTestId('agenda-hoje-card')).toBeTruthy();
+  });
+
+  // A-3: "a etapa de recepção é derivada NO SERVIDOR — o app só exibe".
+  // MORDIDA: se o app recalculasse a etapa a partir de dsStatus/timestamps em
+  // vez de ler `dsEtapaRecepcao` puro, esta fixture (CANCELADO com dtCheckin
+  // preenchido — combinação que só aconteceria por dado inconsistente, mas
+  // que prova exatamente QUAL fonte o app usa) mostraria "Chegou" em vez de
+  // "Cancelado".
+  it('mostra a etapa EXATA que veio do servidor, mesmo quando os timestamps sugerem outra coisa', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          dsEtapaRecepcao: 'CANCELADO',
+          dtCheckin: '2026-09-28T08:00:00',
+          dtInicioAtendimento: '2026-09-28T08:10:00',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('etapa-30')).toBeTruthy();
+    expect(queryByText('Cancelado')).toBeTruthy();
+    expect(queryByText('Chegou')).toBeNull();
+  });
+
+  // A-6: tempo de espera é POR LINHA e usa dtCheckin como origem — dois
+  // check-ins DIFERENTES no MESMO instante de render produzem textos
+  // DIFERENTES. Se a implementação usasse outro relógio (ex.: o instante em
+  // que o card montou) as duas linhas mostrariam o MESMO valor (~0min).
+  it('"esperando há N min" usa dtCheckin como origem — duas linhas com checkins diferentes mostram minutos diferentes', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+    try {
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({
+            id: 31,
+            dsEtapaRecepcao: 'CHEGOU',
+            dtCheckin: '2026-09-28T09:50:00', // 10 min atrás
+          }),
+          agendamentoHoje({
+            id: 32,
+            dsEtapaRecepcao: 'CHEGOU',
+            dtCheckin: '2026-09-28T09:00:00', // 60 min atrás
+          }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      expect(getByTestId('espera-31').props.children.join('')).toBe('Esperando há 10 min');
+      expect(getByTestId('espera-32').props.children.join('')).toBe('Esperando há 60 min');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('"esperando há" só aparece para etapa CHEGOU, não para as outras', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'CONFIRMADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('espera-30')).toBeNull();
+    expect(getByTestId('etapa-30')).toBeTruthy();
+  });
+
+  // A-6: "nenhum KPI agregado". Uma tela com várias linhas nunca pode exibir
+  // média/taxa/percentual/ocupação — só dado por linha.
+  it('sem KPI agregado — nenhuma média/taxa/percentual aparece com múltiplas linhas', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({ id: 40, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:00:00' }),
+        agendamentoHoje({ id: 41, dsEtapaRecepcao: 'FINALIZADO' }),
+        agendamentoHoje({ id: 42, dsEtapaRecepcao: 'NAO_COMPARECEU' }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
+    expect(queryByText(/médi[ao]/i)).toBeNull();
+    expect(queryByText(/taxa/i)).toBeNull();
+    expect(queryByText(/ocupação/i)).toBeNull();
+    expect(queryByText(/%/)).toBeNull();
+  });
+
+  it('selo de origem TRIAGEM_LUNA mostra a urgência; PORTAL mostra "App do tutor"', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 50,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'ALTA',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('origem-50')).toBeTruthy();
+    expect(queryByText('Triagem da Luna')).toBeTruthy();
+  });
+
+  it('botão "Chegou" chama checkinAgendamento com id e nrVersion corretos', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'AGENDADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-chegou-30'));
+    expect(mockCheckinMutate).toHaveBeenCalledWith(
+      { idAgendamento: 30, nrVersion: 1 },
+      expect.objectContaining({ onSettled: expect.any(Function), onError: expect.any(Function) }),
+    );
+  });
+
+  // Mordida real do mordida "409 vira aviso e recarrega": simula o servidor
+  // devolvendo 409 pro clique de "Chegou" e confirma que o app avisa (não
+  // fica em silêncio). O "recarrega" está provado à parte, no nível do hook
+  // (useAgenda.test.ts::useCheckinAgendamento — onSettled invalida a query
+  // TAMBÉM no erro), porque aqui o hook está mockado por inteiro.
+  it('409 no "Chegou" mostra aviso de agendamento desatualizado', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'AGENDADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-chegou-30'));
+
+    const [, callbacks] = mockCheckinMutate.mock.calls[0];
+    callbacks.onError({ status: 409, message: 'stale' });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Agendamento desatualizado',
+      expect.stringContaining('recarregada'),
+    );
+  });
+
+  it('botão "Faltou" chama atualizarStatusAgendamento com NAO_COMPARECEU', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      // etapa AGENDADO + horário 2h atrás -> mostrarFaltou = true.
+      data: [
+        agendamentoHoje({
+          dtInicio: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+          dsEtapaRecepcao: 'AGENDADO',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-faltou-30'));
+    expect(mockAtualizarStatusMutate).toHaveBeenCalledWith(
+      { idAgendamento: 30, dsStatus: 'NAO_COMPARECEU', nrVersion: 1 },
+      expect.objectContaining({ onSettled: expect.any(Function), onError: expect.any(Function) }),
+    );
+  });
+
+  it('"Abrir prontuário" navega para consulta/[idPet] com idAgendamento', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje()],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-abrir-prontuario-30'));
+    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=30');
+  });
+
+  it('estado vazio do modo Hoje usa o mesmo KCEmptyState da Semana', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('empty-agenda')).toBeTruthy();
+  });
+});
