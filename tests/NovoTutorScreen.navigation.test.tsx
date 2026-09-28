@@ -145,6 +145,14 @@ describe('NovoTutorScreen — mordida C-1 (Critical, G2): "Voltar" + reentrar n�
     await act(async () => {
       fireEvent.press(screen.getByTestId('btn-salvar-tutor'));
     });
+
+    // REC-04: entre o tutor e o convite, a etapa "Cadastrar pet" — o
+    // convite só aparece depois de salvá-la.
+    await waitFor(() => expect(screen.getByTestId('input-nome-pet')).toBeTruthy());
+    fireEvent.changeText(screen.getByTestId('input-nome-pet'), 'Rex');
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('btn-salvar-pet'));
+    });
     await waitFor(() => expect(screen.getByTestId('convite-qrcode')).toBeTruthy());
 
     // 3) "Voltar" — m3: vai pra /pacientes explicitamente (não mais /dashboard, que era o
@@ -154,9 +162,13 @@ describe('NovoTutorScreen — mordida C-1 (Critical, G2): "Voltar" + reentrar n�
 
     // 4) reentra em "Novo tutor" — MORDIDA: sem o fix (useFocusEffect zerando convite+form no
     // blur), isto reabriria o QR/token do tutor ANTERIOR em vez de um formulário vazio.
+    // REC-04: a limpeza agora também precisa zerar a ETAPA (form/pet/convite) — sem isso,
+    // reentrar reabriria a etapa "pet" (input-nome-pet) de um tutor que não existe mais no
+    // estado, órfã, em vez do formulário de tutor vazio.
     fireEvent.press(screen.getByTestId('novo'));
     await waitFor(() => expect(screen.queryByTestId('input-nome-tutor')).toBeTruthy());
     expect(screen.queryByTestId('convite-qrcode')).toBeNull();
+    expect(screen.queryByTestId('input-nome-pet')).toBeNull();
     expect(screen.getByTestId('input-nome-tutor').props.value).toBe('');
     expect(screen.getByTestId('input-cpf-tutor').props.value).toBe('');
   });
@@ -221,7 +233,11 @@ describe('NovoTutorScreen — mordida m8 (Minor, G2b): sucesso fora de foco não
     });
 
     // Reentra em "Novo tutor" — MORDIDA: sem a checagem de foco no onSuccess, o convite do
-    // tutor que acabou de ser salvo reaparece aqui (QR do tutor "fantasma").
+    // tutor que acabou de ser salvo reaparece aqui (QR do tutor "fantasma"). REC-04: com a
+    // cadeia tutor->pet->convite, a checagem de foco vive em
+    // `aplicarCriacaoTutorSeEmFoco` (novo.tsx) — sem ela, a resposta tardia empurraria a tela
+    // pra etapa "pet" (não mais direto pro convite) mesmo fora de foco; por isso os dois
+    // testIDs são checados, não só o do convite.
     act(() => {
       router.navigate('/pacientes');
     });
@@ -231,10 +247,11 @@ describe('NovoTutorScreen — mordida m8 (Minor, G2b): sucesso fora de foco não
     });
 
     expect(screen.queryByTestId('convite-qrcode')).toBeNull();
+    expect(screen.queryByTestId('input-nome-pet')).toBeNull();
     expect(screen.getByTestId('input-nome-tutor')).toBeTruthy();
   });
 
-  it('CONTROLE POSITIVO — a mesma mutação em voo, resolvida SEM sair da tela, mostra o QR normalmente', async () => {
+  it('CONTROLE POSITIVO — a mesma mutação em voo, resolvida SEM sair da tela, avança pra etapa "pet" normalmente', async () => {
     montarComAgenda();
     fireEvent.press(screen.getByTestId('novo'));
 
@@ -250,7 +267,11 @@ describe('NovoTutorScreen — mordida m8 (Minor, G2b): sucesso fora de foco não
       for (let i = 0; i < 50; i++) await Promise.resolve();
     });
 
-    // Prova que o instrumento ENXERGA o onSuccess chegando: sem sair da tela, o QR aparece.
-    expect(screen.queryByTestId('convite-qrcode')).toBeTruthy();
+    // Prova que o instrumento ENXERGA o onSuccess chegando: sem sair da tela, a etapa avança.
+    // REC-04: o destino de um `onSuccess` aplicado é a etapa "pet" (PetForm), não mais
+    // direto o convite — o convite só aparece depois que o pet também for salvo (ver
+    // NovoTutorScreen.test.tsx, describe "REC-04").
+    expect(screen.queryByTestId('input-nome-pet')).toBeTruthy();
+    expect(screen.queryByTestId('convite-qrcode')).toBeNull();
   });
 });
