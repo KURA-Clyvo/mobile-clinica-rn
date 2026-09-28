@@ -290,3 +290,29 @@ describe('NovoTutorScreen — REC-04: convite aparece só no FIM do encadeamento
     expect(queryByTestId('input-nome-pet')).toBeNull();
   });
 });
+
+// REC-04 fix wave (G2, I-1a): "Sair entre o tutor e o pet deixa o tutor no
+// servidor SEM pet e SEM caminho para o convite" — a sonda do revisor
+// (g2-rec04.md M5) mediu que o único jeito de sair da etapa "pet" era
+// abandonar (sidebar), e o tutor ficava órfão de convite pra sempre (a
+// reemissão só é alcançável DENTRO da etapa 'convite'). "Pular pet e ver
+// convite" fecha esse beco sem saída.
+describe('NovoTutorScreen — REC-04 fix wave I-1a: "Pular pet e ver convite" não perde o convite do tutor recém-criado', () => {
+  it('pressionar "Pular pet e ver convite" mostra o convite do tutor, sem exigir o pet', async () => {
+    const { getByTestId, queryByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    await waitFor(() => expect(getByTestId('btn-pular-pet')).toBeTruthy());
+    expect(queryByTestId('convite-qrcode')).toBeNull();
+
+    fireEvent.press(getByTestId('btn-pular-pet'));
+
+    await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
+    expect(queryByTestId('input-nome-pet')).toBeNull();
+  });
+});
