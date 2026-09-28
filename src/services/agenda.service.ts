@@ -16,13 +16,15 @@ import { translateStatusAgendamento } from '../utils/statusAgendamento';
 // FONTE:   backend-clinica-dotnet
 //          src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs:10-41
 //          (classe `AgendamentoItemDto`)
-// COMMIT:  099ee3f86744af6996e819e704546dc7b0280029
-//          (branch `feat/rec-11-eventos-recepcao`, ainda não em `main`)
-// CONFERIDO EM: 2026-09-28 — bate linha a linha com a fonte nesse commit.
+// COMMIT:  242be7d509f6… (`main`)
+// CONFERIDO EM: 2026-09-28 — bate linha a linha com a fonte nesse commit (G2,
+// `g2-rec12.md` F1: `git diff 099ee3f origin/main --stat -- AgendaResponseDto.cs`
+// devolveu vazio — o código citado pelo pin de `099ee3f` já estava idêntico em
+// `main`; só a nota "ainda não em main" ficou desatualizada, corrigida aqui).
 //
 // COMO RECONFERIR:
 //   git -C ../backend-clinica-dotnet show \
-//     099ee3f:src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs | sed -n '10,41p'
+//     242be7d:src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs | sed -n '10,41p'
 //
 // Serialização em camelCase (System.Text.Json default do ASP.NET Core, sem
 // `JsonNamingPolicy` custom — confirmado por grep no `Program.cs`, mesma
@@ -39,19 +41,28 @@ export interface AgendamentoItemApiDto {
   dsStatus: string;
   nrVersion: number;
 
-  // REC-09 (fecha o E21) — todos opcionais no wire, `long?`/`string?` no
-  // lado .NET. `dsEtapaRecepcao` é a única SEMPRE preenchida (função total
-  // no servidor, A-3) — ver AgendamentoResponse.dsEtapaRecepcao (types/
-  // api.ts) para por que ela não é opcional no tipo app-facing.
-  idPet?: number;
-  idTutor?: number;
-  dtCheckin?: string;
-  dtInicioAtendimento?: string;
-  dsOrigem?: string;
-  dsNivelUrgenciaOrigem?: string;
-  dsRespostaConfirmacao?: string;
+  // REC-09 (fecha o E21) — todos opcionais no wire, `long?`/`string?`/
+  // `DateTime?` no lado .NET. `dsEtapaRecepcao` é a única SEMPRE preenchida
+  // (função total no servidor, A-3) — ver AgendamentoResponse.dsEtapaRecepcao
+  // (types/api.ts) para por que ela não é opcional no tipo app-facing.
+  //
+  // Fix wave G2 (m-1): `System.Text.Json` serializa estes campos como `null`
+  // literal quando ausentes (sem `DefaultIgnoreCondition` no `Program.cs`),
+  // nunca omite a chave — `?: T` só cobre `undefined`, então o tipo mentia
+  // sobre o que chega de verdade. `?: T | null` cobre os dois: `undefined`
+  // (conveniência de fixture de teste, que nunca chega pela rede real) E
+  // `null` (o que a rede REALMENTE manda). Todo consumidor já tratava os
+  // dois igual (`dto.idPet ?? 0`, `a.dtCheckin ? …`) — mudança só de tipo,
+  // sem mudança de comportamento (G2 confirmou "hoje inofensivo").
+  idPet?: number | null;
+  idTutor?: number | null;
+  dtCheckin?: string | null;
+  dtInicioAtendimento?: string | null;
+  dsOrigem?: string | null;
+  dsNivelUrgenciaOrigem?: string | null;
+  dsRespostaConfirmacao?: string | null;
   dsEtapaRecepcao: string;
-  dsFotoThumbUrl?: string;
+  dsFotoThumbUrl?: string | null;
 }
 
 export interface AgendaApiResponseDto {
@@ -158,13 +169,18 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     dsObservacao: undefined,
 
     // REC-09/REC-12 — campos da tela "Hoje" da recepção (A-3, A-6, A-7).
-    dtCheckin: dto.dtCheckin,
-    dtInicioAtendimento: dto.dtInicioAtendimento,
-    dsOrigem: dto.dsOrigem,
-    dsNivelUrgenciaOrigem: dto.dsNivelUrgenciaOrigem,
-    dsRespostaConfirmacao: dto.dsRespostaConfirmacao,
+    // Fix wave G2 (m-1): o wire DTO agora é `T | null` (o que a rede
+    // REALMENTE manda — ver comentário no tipo acima); `AgendamentoResponse`
+    // (tipo app-facing, types/api.ts) continua só `T | undefined` de
+    // propósito — o mapper é a camada anticorrupção certa pra colapsar
+    // `null` em `undefined`, não espalhar `| null` pro app inteiro.
+    dtCheckin: dto.dtCheckin ?? undefined,
+    dtInicioAtendimento: dto.dtInicioAtendimento ?? undefined,
+    dsOrigem: dto.dsOrigem ?? undefined,
+    dsNivelUrgenciaOrigem: dto.dsNivelUrgenciaOrigem ?? undefined,
+    dsRespostaConfirmacao: dto.dsRespostaConfirmacao ?? undefined,
     dsEtapaRecepcao: dto.dsEtapaRecepcao,
-    dsFotoThumbUrl: dto.dsFotoThumbUrl,
+    dsFotoThumbUrl: dto.dsFotoThumbUrl ?? undefined,
   };
 }
 
@@ -200,10 +216,11 @@ export async function atualizarStatusAgendamento(
 // REC-12 — check-in (tela "Hoje" da recepção). Rota ABSOLUTA, mesmo padrão
 // de atualizarStatusAgendamento acima. FONTE: backend-clinica-dotnet
 // src/Kura.Api/Controllers/AgendaController.cs:97-106 (`[HttpPost("~/api/
-// v1/agendamentos/{id:long}/checkin")]`), commit 099ee3f (branch
-// `feat/rec-11-eventos-recepcao`) — reconferir com
-// `git -C ../backend-clinica-dotnet show 099ee3f:src/Kura.Api/Controllers/
-// AgendaController.cs | sed -n '97,106p'`.
+// v1/agendamentos/{id:long}/checkin")]`), commit 242be7d509f6… (`main`,
+// conferido em 2026-09-28 — fix wave G2, m-2: era `099ee3f`/"branch, ainda
+// não em main", hoje é falso, o mesmo conteúdo está em `main`) — reconferir
+// com `git -C ../backend-clinica-dotnet show 242be7d:src/Kura.Api/
+// Controllers/AgendaController.cs | sed -n '97,106p'`.
 //
 // 🔴 m-7 (g2-rec09.md): a resposta deste endpoint (como a do PATCH de
 // status) NÃO tem foto/urgência — `AtualizarStatusAsync`/`CheckinAsync`

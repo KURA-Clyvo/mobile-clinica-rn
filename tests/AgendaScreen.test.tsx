@@ -599,7 +599,9 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     const { getByTestId, queryByText } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-modo-hoje'));
     expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
-    expect(queryByText(/médi[ao]/i)).toBeNull();
+    // Fix wave G2 (m-5): `/médi[ao]/i` (acento OBRIGATÓRIO) não pega "medio"/
+    // "media" sem acento — `/m[eé]di[ao]/i` cobre as duas grafias.
+    expect(queryByText(/m[eé]di[ao]/i)).toBeNull();
     expect(queryByText(/taxa/i)).toBeNull();
     expect(queryByText(/ocupação/i)).toBeNull();
     expect(queryByText(/%/)).toBeNull();

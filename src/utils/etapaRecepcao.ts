@@ -2,7 +2,8 @@ import type { ChipTone } from '@components/primitives/KCChip';
 
 // REC-12 (KURA_BACKLOG_RECEPCAO.md) — a etapa de recepção (A-3) é DERIVADA NO
 // SERVIDOR (AgendaService.CalcularEtapaRecepcao, backend-clinica-dotnet,
-// origin/feat/rec-11-eventos-recepcao @ 099ee3f) e chega pronta em
+// `main` @ 242be7d — fix wave G2, m-2: re-ancorado, era 099ee3f/branch) e
+// chega pronta em
 // `AgendamentoResponse.dsEtapaRecepcao`. Este arquivo só TRADUZ o valor
 // pronto para rótulo/cor — nunca recalcula a partir de status+timestamps
 // (seria uma 2ª cópia da regra de precedência, a mesma classe de
