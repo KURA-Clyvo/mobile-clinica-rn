@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useAgendaSemana,
@@ -311,6 +311,32 @@ describe('useAgendaHoje (REC-12)', () => {
 
     await result.current.refetch();
     expect(mockGetAgenda).toHaveBeenCalledTimes(2);
+  });
+
+  // Fix wave G2 (I-1): a tela "Hoje" fica aberta o dia todo — sem
+  // `refetchInterval`, check-in feito em OUTRO aparelho só aparece quando
+  // alguém puxar a lista manualmente. Prova por COMPORTAMENTO (a query
+  // refaz sozinha), não por leitura de opção passada ao `useQuery`.
+  it('refaz a busca sozinha depois de 60s, sem chamar refetch() manualmente', async () => {
+    jest.useFakeTimers();
+    try {
+      mockGetAgenda.mockResolvedValue([]);
+      const { result } = renderHook(() => useAgendaHoje(), { wrapper: makeWrapper() });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(mockGetAgenda).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+
+      // MORDIDA: sem `refetchInterval: 60_000` em useAgendaHoje, esta
+      // chamada nunca chegaria a 2 — ficaria travada em 1 até um refetch()
+      // manual (pull-to-refresh).
+      await waitFor(() => expect(mockGetAgenda).toHaveBeenCalledTimes(2));
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 
