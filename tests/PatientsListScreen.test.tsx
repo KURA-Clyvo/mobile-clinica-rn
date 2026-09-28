@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
@@ -135,28 +135,21 @@ describe('PatientsListScreen', () => {
     jest.useRealTimers();
   });
 
-  it('tapping "+ Novo" communicates unavailability instead of a silent no-op', () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-
+  // REC-04: o Alert "funcionalidade em breve" foi substituído por navegação real —
+  // ver tests/NovoPacienteScreen.test.tsx para o fluxo completo (busca de tutor +
+  // formulário de pet) que vive atrás deste botão agora.
+  it('tapping "+ Novo" navigates to the real "novo paciente" flow (REC-04)', () => {
     const { getByTestId } = wrap(<PacientesScreen />);
     fireEvent.press(getByTestId('btn-novo-paciente'));
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Cadastro de paciente',
-      'Funcionalidade em breve — ainda não é possível cadastrar um novo paciente por aqui.',
-    );
-    expect(logSpy).not.toHaveBeenCalled();
-
-    logSpy.mockRestore();
-    alertSpy.mockRestore();
+    expect(mockPush).toHaveBeenCalledWith('/pacientes/novo');
   });
 
-  it('"+ Novo" CTA exposes an accessible label explaining unavailability', () => {
+  it('"+ Novo" CTA exposes an accessible label describing the real action (REC-04)', () => {
     const { getByTestId } = wrap(<PacientesScreen />);
     const cta = getByTestId('btn-novo-paciente');
     expect(cta.props.accessibilityRole).toBe('button');
-    expect(cta.props.accessibilityLabel).toBe('Novo paciente — funcionalidade em breve');
+    expect(cta.props.accessibilityLabel).toBe('Novo paciente');
   });
 });
 
