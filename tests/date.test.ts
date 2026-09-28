@@ -1,4 +1,29 @@
-import { firstName, HONORIFICOS, calcularIntervaloPeriodo } from '../src/utils/date';
+import { firstName, HONORIFICOS, calcularIntervaloPeriodo, paraDataLocalSemFuso } from '../src/utils/date';
+
+// REC-04 fix wave (G2, m-2 — g2-rec04.md M4): `paraDataLocalSemFuso` existe
+// pra NUNCA reproduzir o deslocamento de `toISOString()` (UTC) em campos
+// `DateTime` do .NET sem componente de fuso. Máquina desta sessão confirmada
+// em UTC-3 (`new Date().getTimezoneOffset()` === 180, medido pelo G2 e
+// reconferido aqui) — mesmo fuso do achado.
+describe('paraDataLocalSemFuso — REC-04 fix wave (m-2)', () => {
+  it('22h30 locais não viram o dia seguinte (mordida do bug: toISOString viraria)', () => {
+    const data = new Date(2025, 8, 27, 22, 30); // 27/set/2025, 22:30 local
+    // Controle: a forma ANTIGA (toISOString) de fato desloca o dia nesta máquina —
+    // se este controle falhar, a mordida abaixo não prova nada (armadilha v16).
+    expect(data.toISOString()).toBe('2025-09-28T01:30:00.000Z');
+    expect(paraDataLocalSemFuso(data)).toBe('2025-09-27T00:00:00');
+  });
+
+  it('0h30 locais (virada) continuam no dia certo', () => {
+    const data = new Date(2025, 8, 28, 0, 30);
+    expect(paraDataLocalSemFuso(data)).toBe('2025-09-28T00:00:00');
+  });
+
+  it('meio-dia não é afetado (controle — nenhum deslocamento em horário "seguro")', () => {
+    const data = new Date(2025, 8, 27, 12, 0);
+    expect(paraDataLocalSemFuso(data)).toBe('2025-09-27T00:00:00');
+  });
+});
 
 // ─── E26 — "Boa noite, Dr." na primeira tela pós-login ─────────────────────
 //

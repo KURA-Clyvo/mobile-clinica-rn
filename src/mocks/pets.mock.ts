@@ -1,5 +1,7 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import type { PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
+import type { PetCreateWireDto, PetFotoResponse, PetResponse, TimelineEventResponse } from '../types/api';
+import { ESPECIES, RACAS } from '../constants/catalogoPets';
+import { buscarTutorArmazenadoPorId } from './tutores.mock';
 
 const now = new Date();
 const daysAgo = (d: number) => new Date(now.getTime() - d * 24 * 60 * 60 * 1000).toISOString();
@@ -13,7 +15,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-03-15T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'G',
-    tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos.mendes@email.com' }],
+    tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     // FT-08: pet COM foto no mock — prova visual dos 2 casos (com/sem foto)
     // no modo mock. Fix wave G2 (G2-6): as URLs abaixo são `picsum.photos` —
     // NÃO reproduzem o formato real da FT-04
@@ -34,7 +36,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2019-07-22T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'G',
-    tutores: [{ id: 11, nmTutor: 'Patrícia Souza', dsTelefone: '11999990002', dsEmail: 'patricia.s@email.com' }],
+    tutores: [{ idTutor: 11, nmTutor: 'Patrícia Souza', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     dsFotoUrl: 'https://picsum.photos/seed/mel/1080',
     dsFotoThumbUrl: 'https://picsum.photos/seed/mel/256',
   },
@@ -46,7 +48,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2021-11-05T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'M',
-    tutores: [{ id: 12, nmTutor: 'Ana Paula Rodrigues', dsTelefone: '11999990003', dsEmail: 'anapaula.r@email.com' }],
+    tutores: [{ idTutor: 12, nmTutor: 'Ana Paula Rodrigues', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 4,
@@ -57,8 +59,11 @@ const PETS: PetResponse[] = [
     sgSexo: 'F',
     sgPorte: 'M',
     tutores: [
-      { id: 13, nmTutor: 'Marcos Oliveira', dsTelefone: '11999990004', dsEmail: 'marcos.oli@email.com' },
-      { id: 14, nmTutor: 'Fernanda Oliveira', dsTelefone: '11999990014', dsEmail: 'feroliveira@email.com' },
+      { idTutor: 13, nmTutor: 'Marcos Oliveira', dsVinculo: 'PROPRIETARIO', stPrincipal: true },
+      // Co-tutor: mesmo shape do TutorVinculoDto real (StPrincipal só é true pro
+      // vínculo principal — AdicionarTutorAsync sempre grava false, ver anchor de
+      // PetService.cs no comentário de PetTutorVinculo, types/api.ts).
+      { idTutor: 14, nmTutor: 'Fernanda Oliveira', dsVinculo: 'CUIDADOR', stPrincipal: false },
     ],
   },
   {
@@ -69,7 +74,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2023-04-30T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'P',
-    tutores: [{ id: 15, nmTutor: 'Beatriz Santos', dsTelefone: '11999990005', dsEmail: 'bia.santos@email.com' }],
+    tutores: [{ idTutor: 15, nmTutor: 'Beatriz Santos', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 6,
@@ -79,7 +84,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-09-12T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'M',
-    tutores: [{ id: 16, nmTutor: 'Juliana Costa', dsTelefone: '11999990006', dsEmail: 'ju.costa@email.com' }],
+    tutores: [{ idTutor: 16, nmTutor: 'Juliana Costa', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 7,
@@ -99,7 +104,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2021-02-14T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'G',
-    tutores: [{ id: 17, nmTutor: 'Pedro Alves', dsTelefone: '11999990007', dsEmail: 'pedro.alves@email.com' }],
+    tutores: [{ idTutor: 17, nmTutor: 'Pedro Alves', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 9,
@@ -109,7 +114,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2022-08-20T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'P',
-    tutores: [{ id: 18, nmTutor: 'Gabriela Ferreira', dsTelefone: '11999990008', dsEmail: 'gabi.f@email.com' }],
+    tutores: [{ idTutor: 18, nmTutor: 'Gabriela Ferreira', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 10,
@@ -119,7 +124,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2019-12-25T00:00:00.000Z',
     sgSexo: 'M',
     sgPorte: 'M',
-    tutores: [{ id: 19, nmTutor: 'Lucas Barbosa', dsTelefone: '11999990009', dsEmail: 'lucas.b@email.com' }],
+    tutores: [{ idTutor: 19, nmTutor: 'Lucas Barbosa', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 11,
@@ -129,7 +134,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2020-05-10T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'G',
-    tutores: [{ id: 20, nmTutor: 'Rafaela Martins', dsTelefone: '11999990010', dsEmail: 'rafa.m@email.com' }],
+    tutores: [{ idTutor: 20, nmTutor: 'Rafaela Martins', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
   {
     id: 12,
@@ -139,7 +144,7 @@ const PETS: PetResponse[] = [
     dtNascimento: '2023-01-08T00:00:00.000Z',
     sgSexo: 'F',
     sgPorte: 'P',
-    tutores: [{ id: 21, nmTutor: 'Thiago Nascimento', dsTelefone: '11999990011', dsEmail: 'thiago.n@email.com' }],
+    tutores: [{ idTutor: 21, nmTutor: 'Thiago Nascimento', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
 ];
 
@@ -155,6 +160,113 @@ const TIMELINES: Record<number, TimelineEventResponse[]> = {
     { idEventoClinico: 1008, nmTipo: 'VACINA', dtEvento: daysAgo(365), dsObservacao: 'Antirrábica aplicada.', nmVeterinario: 'Dr. Felipe Ferrete' },
   ],
 };
+
+function rejeitar(status: number, code: string, message: string): Promise<never> {
+  return Promise.reject({ status, code, message });
+}
+
+function rejeitarValidacao(message: string, details: Record<string, string[]>): Promise<never> {
+  return Promise.reject({ status: 400, code: 'VALIDACAO', message, details });
+}
+
+function parseBody<T>(config: InternalAxiosRequestConfig): T {
+  return (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as T;
+}
+
+let _proximoIdPet = 100;
+
+/**
+ * REC-04 — POST /api/v1/pets (2º consumidor do shape de fio, regra v5):
+ * espelha `PetCreateValidator.cs` (backend-clinica-dotnet, origin/main
+ * e33da98) e o comportamento de `PetService.CreateAsync` — em especial, o
+ * VÍNCULO ao tutor é o que torna este pet "cadastrado com sucesso": um
+ * `idTutor` ausente/inexistente rejeita com 404, exatamente como o real
+ * (`EntidadeNaoEncontradaException("Tutor", dto.IdTutor)`), NUNCA cria o
+ * pet órfão. É este 404 que a mordida "pet criado sem vínculo" do brief
+ * exercita do lado do teste de service (mutar `criarPet` para omitir
+ * `idTutor` do corpo faz este handler achar `body.idTutor === undefined`,
+ * `buscarTutorArmazenadoPorId(undefined)` não acha ninguém, rejeita).
+ */
+export async function criar(config: InternalAxiosRequestConfig): Promise<PetResponse> {
+  const body = parseBody<PetCreateWireDto>(config);
+
+  if (!body.idEspecie || body.idEspecie <= 0) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      IdEspecie: ["'Id Especie' deve ser maior que '0'."],
+    });
+  }
+  if (!body.idRaca || body.idRaca <= 0) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      IdRaca: ["'Id Raca' deve ser maior que '0'."],
+    });
+  }
+  if (!body.nmPet || !body.nmPet.trim()) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      NmPet: ["'Nm Pet' não pode estar vazio."],
+    });
+  }
+  if (body.dtNascimento && new Date(body.dtNascimento).getTime() > Date.now()) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      DtNascimento: ["'DtNascimento' não pode ser uma data futura."],
+    });
+  }
+  if (body.sgSexo !== 'M' && body.sgSexo !== 'F') {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      SgSexo: ["'Sg Sexo' deve ser 'M' ou 'F'."],
+    });
+  }
+  if (!['P', 'M', 'G'].includes(body.sgPorte)) {
+    return rejeitarValidacao('Um ou mais campos são inválidos.', {
+      SgPorte: ["'Sg Porte' deve ser 'P', 'M' ou 'G'."],
+    });
+  }
+
+  // O VÍNCULO: sem tutor real, sem pet criado — mesmo comportamento do
+  // PetService.CreateAsync real (404, ver JSDoc acima).
+  const tutor = buscarTutorArmazenadoPorId(body.idTutor);
+  if (!tutor) {
+    return rejeitar(404, 'NOT_FOUND', `Tutor com id ${body.idTutor} não encontrado`);
+  }
+
+  const especie = ESPECIES.find((e) => e.id === body.idEspecie);
+  const raca = RACAS.find((r) => r.id === body.idRaca);
+
+  const novo: PetResponse = {
+    id: _proximoIdPet++,
+    nmPet: body.nmPet.trim(),
+    nmEspecie: especie?.nome ?? `Espécie ${body.idEspecie}`,
+    nmRaca: raca?.nome ?? `Raça ${body.idRaca}`,
+    dtNascimento: body.dtNascimento,
+    sgSexo: body.sgSexo,
+    sgPorte: body.sgPorte,
+    // REC-04 fix wave (G2, I-3): shape REAL do TutorVinculoDto — ver anchor em
+    // types/api.ts::PetTutorVinculo. `stPrincipal`/`dsVinculo` espelham o que
+    // `criarPet` sempre envia (PetForm.tsx: `stPrincipal: true, dsVinculo:
+    // 'PROPRIETARIO'`), não um valor fixo re-adivinhado aqui.
+    tutores: [
+      {
+        idTutor: tutor.id,
+        nmTutor: tutor.nmTutor,
+        dsVinculo: body.dsVinculo,
+        stPrincipal: body.stPrincipal,
+      },
+    ],
+  };
+  PETS.push(novo);
+  return novo;
+}
+
+// GET /api/v1/pets$ | POST /api/v1/pets$ — mesma URL, 2 métodos (mesmo
+// padrão de usuarios-clinica.mock.ts::colecao — ver ordem em
+// mock-adapter.ts). GET lista (pré-existente), POST cadastra (REC-04).
+export async function colecao(
+  config: InternalAxiosRequestConfig,
+): Promise<PetResponse[] | PetResponse> {
+  if ((config.method ?? 'get').toUpperCase() === 'POST') {
+    return criar(config);
+  }
+  return list(config);
+}
 
 export async function list(_config: InternalAxiosRequestConfig): Promise<PetResponse[]> {
   return PETS;

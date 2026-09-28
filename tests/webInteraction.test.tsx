@@ -549,7 +549,7 @@ describe('sítios de consumo — onFocus/onBlur e onMouseEnter/onMouseLeave apli
       dtNascimento: '2020-03-15T00:00:00.000Z',
       sgSexo: 'M',
       sgPorte: 'G',
-      tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'c@e.com' }],
+      tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     };
     comPlataformaWeb(() => {
       const { getByRole, UNSAFE_getByType } = wrap(<PetListItem pet={pet} onPress={() => {}} />);

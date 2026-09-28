@@ -13,6 +13,8 @@ import {
   CPF_MOCK_DUPLICADO,
   CPF_MOCK_SEM_LINK,
 } from '../src/mocks/tutores.mock';
+import { apiClient } from '../src/services/api/client';
+import type { TutorComInviteWireDto } from '../src/types/api';
 
 const mockBack = jest.fn();
 jest.mock('expo-router', () => {
@@ -75,6 +77,19 @@ function preencherFormularioValido(
   fireEvent.changeText(getByTestId('input-telefone-tutor'), '11987654321');
 }
 
+// REC-04 — depois que o tutor é criado, a tela avança para a etapa "Cadastrar
+// pet" (PetForm) ANTES de mostrar o convite. Espécie/raça/sexo/porte já vêm
+// pré-selecionados (1ª opção de cada — ver PetForm.tsx), só o nome do pet é
+// obrigatório: preencher e submeter é o suficiente pra completar o
+// encadeamento nos testes que precisam chegar até o convite.
+async function preencherEEnviarPetValido(getByTestId: ReturnType<typeof render>['getByTestId']) {
+  await waitFor(() => expect(getByTestId('input-nome-pet')).toBeTruthy());
+  fireEvent.changeText(getByTestId('input-nome-pet'), 'Rex');
+  await act(async () => {
+    fireEvent.press(getByTestId('btn-salvar-pet'));
+  });
+}
+
 describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / não chama o service', () => {
   it('o botão salvar nasce desabilitado e não dispara o cadastro sem o checkbox marcado', async () => {
     const { getByTestId } = wrap(<NovoTutorScreen />);
@@ -106,6 +121,10 @@ describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / nã
     await act(async () => {
       fireEvent.press(botao);
     });
+
+    // REC-04: o convite NÃO aparece ainda — a próxima etapa é "Cadastrar
+    // pet" (encadeamento tutor -> pet -> convite).
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
   });
@@ -146,6 +165,7 @@ describe('NovoTutorScreen — mordida (e): dsLinkConvite null vira explicação,
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-sem-link')).toBeTruthy());
     expect(queryByTestId('convite-qrcode')).toBeNull();
@@ -162,6 +182,7 @@ describe('NovoTutorScreen — mordida (e): dsLinkConvite null vira explicação,
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
     expect(queryByTestId('convite-sem-link')).toBeNull();
@@ -206,6 +227,7 @@ describe('NovoTutorScreen — mordida m7: telefone acima do teto é barrado pelo
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
   });
@@ -222,6 +244,7 @@ describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordi
     await act(async () => {
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
+    await preencherEEnviarPetValido(getByTestId);
 
     await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
 
@@ -234,5 +257,101 @@ describe('NovoTutorScreen — "Enviar pelo WhatsApp" usa link normalizado (mordi
     expect(chamada).toBeDefined();
     const [url] = chamada!;
     expect(url).toMatch(/^https:\/\/wa\.me\/5511987654321\?text=/);
+  });
+});
+
+// REC-04 — aceite central do encadeamento: "Convite aparece só no fim do
+// encadeamento, uma vez". As mordidas (c)/(e)/m7/wa.me acima já EXERCITAM a
+// ordem correta (todas fazem: tutor -> pet -> convite), mas nenhuma delas
+// afirma EXPLICITAMENTE que o convite está AUSENTE enquanto a etapa "pet"
+// está em cena — este describe faz essa afirmação de propósito, com mordida
+// própria (mutação real: pular a etapa "pet").
+describe('NovoTutorScreen — REC-04: convite aparece só no FIM do encadeamento (tutor -> pet -> convite), uma vez', () => {
+  it('depois de criar o tutor, mostra o formulário de PET, NUNCA o convite — só depois de salvar o pet é que o convite aparece', async () => {
+    const { getByTestId, queryByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    // ETAPA "PET": o convite ainda NÃO existe nesta árvore.
+    await waitFor(() => expect(getByTestId('input-nome-pet')).toBeTruthy());
+    expect(queryByTestId('convite-qrcode')).toBeNull();
+    expect(queryByTestId('convite-sem-link')).toBeNull();
+
+    fireEvent.changeText(getByTestId('input-nome-pet'), 'Rex');
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-pet'));
+    });
+
+    // ETAPA "CONVITE": só agora aparece, e o formulário de pet sumiu — uma
+    // única exibição, no fim.
+    await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
+    expect(queryByTestId('input-nome-pet')).toBeNull();
+  });
+});
+
+// REC-04 fix wave (G2, I-1a): "Sair entre o tutor e o pet deixa o tutor no
+// servidor SEM pet e SEM caminho para o convite" — a sonda do revisor
+// (g2-rec04.md M5) mediu que o único jeito de sair da etapa "pet" era
+// abandonar (sidebar), e o tutor ficava órfão de convite pra sempre (a
+// reemissão só é alcançável DENTRO da etapa 'convite'). "Pular pet e ver
+// convite" fecha esse beco sem saída.
+describe('NovoTutorScreen — REC-04 fix wave I-1a: "Pular pet e ver convite" não perde o convite do tutor recém-criado', () => {
+  it('pressionar "Pular pet e ver convite" mostra o convite do tutor, sem exigir o pet', async () => {
+    const { getByTestId, queryByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    await waitFor(() => expect(getByTestId('btn-pular-pet')).toBeTruthy());
+    expect(queryByTestId('convite-qrcode')).toBeNull();
+
+    fireEvent.press(getByTestId('btn-pular-pet'));
+
+    await waitFor(() => expect(getByTestId('convite-qrcode')).toBeTruthy());
+    expect(queryByTestId('input-nome-pet')).toBeNull();
+  });
+});
+
+// REC-04 fix wave (G2, I-2): mordida A2 do revisor (g2-rec04.md M9) —
+// trocar o `idTutor` passado ao `PetForm` por OUTRO tutor que EXISTE no
+// mock (900, "Tutor Já Cadastrado" — CPF_MOCK_DUPLICADO) sobrevivia à
+// suíte inteira, 1290/1290. O aceite "mordida no encadeamento" só estava
+// provado no nível do service (pets.service.test.ts), nunca na TELA que
+// decide qual idTutor repassar.
+describe('NovoTutorScreen — REC-04 fix wave I-2: o pet da cadeia vai para o tutor RECÉM-criado, não outro', () => {
+  it('POST /pets sai com idTutor === id devolvido por POST /tutores (nunca 900, o outro tutor válido do mock)', async () => {
+    const postSpy = jest.spyOn(apiClient, 'post');
+    const { getByTestId } = wrap(<NovoTutorScreen />);
+
+    preencherFormularioValido(getByTestId);
+    fireEvent.press(getByTestId('checkbox-aviso-privacidade'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-tutor'));
+    });
+
+    const chamadaTutorIdx = postSpy.mock.calls.findIndex(([url]) => url === '/api/v1/tutores');
+    expect(chamadaTutorIdx).toBeGreaterThanOrEqual(0);
+    const respostaTutor = (await postSpy.mock.results[chamadaTutorIdx]!.value) as {
+      data: TutorComInviteWireDto;
+    };
+    const idTutorCriado = respostaTutor.data.id;
+    // Controle: o tutor recém-criado nunca pode COINCIDIR com o outro tutor
+    // válido do mock (900) — se coincidisse, a mordida A2 do G2 não provaria
+    // nada (o "errado" seria indistinguível do "certo").
+    expect(idTutorCriado).not.toBe(900);
+
+    await preencherEEnviarPetValido(getByTestId);
+
+    const chamadaPet = postSpy.mock.calls.find(([url]) => url === '/api/v1/pets');
+    expect(chamadaPet).toBeDefined();
+    const corpoPet = chamadaPet![1] as { idTutor: number };
+    expect(corpoPet.idTutor).toBe(idTutorCriado);
   });
 });

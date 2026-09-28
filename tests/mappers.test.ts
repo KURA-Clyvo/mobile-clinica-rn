@@ -21,7 +21,7 @@ const petFixture: PetResponse = {
   dtNascimento: '2020-03-15T00:00:00.000Z',
   sgSexo: 'M',
   sgPorte: 'G',
-  tutores: [{ id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001', dsEmail: 'carlos@email.com' }],
+  tutores: [{ idTutor: 10, nmTutor: 'Carlos Mendes', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 const alertaFixture: AlertaResponse = {

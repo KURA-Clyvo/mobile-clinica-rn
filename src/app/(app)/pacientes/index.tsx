@@ -7,7 +7,6 @@ import {
   RefreshControl,
   StyleSheet,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
@@ -211,23 +210,15 @@ export default function PacientesScreen() {
         >
           Novo tutor
         </KCButton>
-        {/* TASK-83: não existe fluxo de cadastro de paciente nesta tela — o endpoint
-            `POST /api/v1/pets` existe no .NET, mas construir a UI (formulário, seleção
-            de tutor, validação) é funcionalidade nova fora do escopo deste fix (D1 do
-            FIX_7, CRUD incompleto do app da clínica). Por isso o botão não finge uma
-            ação: segue o mesmo padrão já usado em "Convidar membro"
-            (`settings.tsx`) — permanece tocável e explica a indisponibilidade em vez
-            de falhar em silêncio. */}
+        {/* REC-04: fluxo real — "Adicionar pet a partir de um tutor existente"
+            (busca de tutor + formulário de pet, `pacientes/novo.tsx`). Substitui o
+            Alert "funcionalidade em breve" da TASK-83 (FIX_7) — POST /api/v1/pets
+            construído nesta task. */}
         <KCButton
           variant="primary"
           size="md"
-          onPress={() =>
-            Alert.alert(
-              'Cadastro de paciente',
-              'Funcionalidade em breve — ainda não é possível cadastrar um novo paciente por aqui.',
-            )
-          }
-          accessibilityLabel="Novo paciente — funcionalidade em breve"
+          onPress={() => router.push(ROUTES.app.pacienteNovo)}
+          accessibilityLabel="Novo paciente"
           testID="btn-novo-paciente"
         >
           + Novo

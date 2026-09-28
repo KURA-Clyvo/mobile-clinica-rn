@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert, StyleSheet } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
@@ -58,6 +58,16 @@ jest.mock('@hooks/useEventosClinicos', () => ({
   useBaixarReceituario: jest.fn(),
 }));
 
+// REC-04 fix wave (G2, I-3): `PetResponse.tutores` (PetTutorVinculo) não tem
+// telefone — a tela busca por `getTutorById` no momento de abrir o WhatsApp
+// (mesmo padrão de luna.tsx/LU-09). `telefoneDisponivel` é lógica pura,
+// mantida REAL (`jest.requireActual`) — só `getTutorById` é mockado.
+const mockGetTutorById = jest.fn();
+jest.mock('@services/tutores.service', () => ({
+  ...jest.requireActual('@services/tutores.service'),
+  getTutorById: (id: number) => mockGetTutorById(id),
+}));
+
 const mockWhatsAppModal = jest.fn();
 jest.mock('@components/domain/WhatsAppModal', () => ({
   WhatsAppModal: (props: { visible: boolean }) => {
@@ -97,7 +107,7 @@ const MOCK_PET = {
   dtNascimento: '2020-01-01T00:00:00.000Z',
   sgSexo: 'M',
   sgPorte: 'G',
-  tutores: [{ id: 10, nmTutor: 'Carlos', dsTelefone: '11999990001', dsEmail: 'c@e.com' }],
+  tutores: [{ idTutor: 10, nmTutor: 'Carlos', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
 };
 
 const MOCK_MEDS = {
@@ -144,6 +154,9 @@ beforeEach(() => {
       opts?.onSuccess?.(MOCK_DOCUMENTO),
   );
   mockUseBaixarReceituario.mockReturnValue({ mutate: mockMutateBaixarReceituario, isPending: false });
+  // REC-04 fix wave (G2, I-3): GET /tutores/{id} real — devolve o mesmo
+  // telefone que o fixture antigo cravava direto em `tutores[0].dsTelefone`.
+  mockGetTutorById.mockResolvedValue({ id: 10, nmTutor: 'Carlos', nrTelefone: '11999990001' });
 });
 
 function emitirReceitaComSucesso(idEventoClinico = 100) {
@@ -300,16 +313,24 @@ describe('ReceituarioScreen', () => {
     fireEvent.changeText(getByTestId('field-duracao'), '7');
     fireEvent.press(getByTestId('btn-emitir'));
     await waitFor(() => getByTestId('btn-whatsapp'));
-    fireEvent.press(getByTestId('btn-whatsapp'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-whatsapp'));
+    });
     await waitFor(() => {
       expect(getByTestId('whatsapp-modal')).toBeTruthy();
     });
+    expect(mockGetTutorById).toHaveBeenCalledWith(10);
   });
 
   // LU-09 (E16): `tipo` saiu da prop de WhatsAppModal — não existe no contrato real
   // da Luna e não tinha uso de UI dentro do modal. O que esta tela precisa garantir
   // continua sendo o telefone do tutor certo chegando ao modal.
-  it('passes the tutor phone to WhatsAppModal', async () => {
+  //
+  // REC-04 fix wave (G2, I-3): o telefone não vem mais de `pet.tutores[0]` —
+  // `getTutorById` (GET /tutores/{id}) só é chamado ao PRESSIONAR o botão
+  // (LGPD, mesmo padrão de luna.tsx/LU-09), então este teste precisa
+  // pressionar e aguardar a resposta antes de inspecionar as props do modal.
+  it('passes the tutor phone (from GET /tutores/{id}) to WhatsAppModal', async () => {
     emitirReceitaComSucesso();
     const { getByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
@@ -318,6 +339,10 @@ describe('ReceituarioScreen', () => {
     fireEvent.changeText(getByTestId('field-duracao'), '7');
     fireEvent.press(getByTestId('btn-emitir'));
     await waitFor(() => getByTestId('btn-whatsapp'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-whatsapp'));
+    });
+    await waitFor(() => expect(getByTestId('whatsapp-modal')).toBeTruthy());
 
     expect(mockWhatsAppModal).toHaveBeenCalledWith(
       expect.objectContaining({ dsTelefone: '11999990001' }),
@@ -327,6 +352,32 @@ describe('ReceituarioScreen', () => {
       unknown
     >;
     expect('tipo' in props).toBe(false);
+  });
+
+  // MORDIDA (aceite REC-04, I-3): sem telefone real disponível (sentinela
+  // "Não informado" — mesmo padrão de tutores.service.ts::telefoneDisponivel),
+  // o modal NUNCA abre — evita mandar {para: "Não informado"} pra Luna
+  // (502, Twilio rejeita o destinatário).
+  it('sem telefone disponível, avisa e NÃO abre o modal do WhatsApp', async () => {
+    mockGetTutorById.mockResolvedValue({ id: 10, nmTutor: 'Carlos', nrTelefone: 'Não informado' });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    emitirReceitaComSucesso();
+    const { getByTestId, queryByTestId } = wrap(<ReceituarioScreen />);
+    fireEvent.changeText(getByTestId('search-med'), 'amox');
+    fireEvent.press(getByTestId('med-item-1'));
+    fireEvent.changeText(getByTestId('field-posologia'), '1 comprimido a cada 12h');
+    fireEvent.changeText(getByTestId('field-duracao'), '7');
+    fireEvent.press(getByTestId('btn-emitir'));
+    await waitFor(() => getByTestId('btn-whatsapp'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-whatsapp'));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Telefone não cadastrado',
+      expect.stringContaining('não tem telefone cadastrado'),
+    );
+    expect(queryByTestId('whatsapp-modal')).toBeNull();
   });
 
   it('gera o receituário em PDF ao emitir a receita e mostra a confirmação', async () => {

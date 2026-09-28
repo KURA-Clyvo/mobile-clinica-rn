@@ -131,11 +131,28 @@ export interface AgendamentoResponse {
 }
 
 // ─── Pets ─────────────────────────────────────────────────────
-export interface TutorMini {
-  id: number;
+// 🟢 CORRIGIDO — REC-04 fix wave (G2, achado I-3, `g2-rec04.md` M13). Este
+// tipo se chamava `TutorMini` e tinha `{id, nmTutor, dsTelefone, dsEmail}` —
+// NÃO batia com o shape real do backend. `PetResponseDto.Tutores`
+// (backend-clinica-dotnet `src/Kura.Application/Services/PetService.cs:
+// 163-168`, `origin/main` `e33da98`, conferido em 2026-09-28 com
+// `git show e33da98:src/Kura.Application/Services/PetService.cs | sed -n
+// '163,168p'`) é `TutorVinculoDto{IdTutor,NmTutor,DsVinculo,StPrincipal}` —
+// SEM `dsTelefone`/`dsEmail`, COM `dsVinculo`/`stPrincipal`. Renomeado para
+// `PetTutorVinculo` (nome que descreve o que o tipo É — um vínculo, não uma
+// ficha de contato) e os 4 campos corrigidos nome a nome. Consumidores
+// atualizados junto (mesmo PR, não 3 desencontrados): `pacientes/[id].tsx`
+// (card "Tutores" — `dsVinculo`/`stPrincipal` em vez de telefone/e-mail
+// inexistentes, `copy-phone` removido) e `receituario/[idPet].tsx` (o
+// número de WhatsApp da receita passa a vir de um fetch dedicado,
+// `getTutorById`, o mesmo padrão já usado por `luna.tsx`/LU-09 — nunca mais
+// de `PetResponse.tutores`). Mock (`pets.mock.ts`) replica o shape REAL
+// agora, 2º consumidor (regra v5).
+export interface PetTutorVinculo {
+  idTutor: number;
   nmTutor: string;
-  dsTelefone: string;
-  dsEmail: string;
+  dsVinculo: string;
+  stPrincipal: boolean;
 }
 
 // FT-08 — âncora da regra 11 (CLAUDE.md do workspace): espelha
@@ -154,7 +171,7 @@ export interface PetResponse {
   dtNascimento: string;
   sgSexo: 'M' | 'F';
   sgPorte: 'P' | 'M' | 'G' | 'GG';
-  tutores: TutorMini[];
+  tutores: PetTutorVinculo[];
   dsFotoUrl?: string | null;
   dsFotoThumbUrl?: string | null;
 }
@@ -171,6 +188,62 @@ export interface PetFotoResponse {
   idPet: number;
   dsFotoChave: string;
   dtFotoAtualizacao: string;
+}
+
+// ─── Novo pet + vínculo ao tutor (REC-04) ──────────────────────
+// POST /api/v1/pets -> PetCreateDto (backend-clinica-dotnet
+// src/Kura.Application/DTOs/Pet/PetCreateDto.cs, origin/main e33da98,
+// conferido em 2026-09-27 com
+// `git show e33da98:src/Kura.Application/DTOs/Pet/PetCreateDto.cs`).
+// `IdTutor` é OBRIGATÓRIO (long, não long?) — o vínculo tutor-pet é
+// gravado NA MESMA transação da criação do pet (PetService.CreateAsync,
+// :53-87 do mesmo commit — insere `Pet` e `TutorPet` juntos, um só
+// `_uow.CommitAsync()`). ⚠️ Achado desta task: `POST /pets/{id}/tutores`
+// (AdicionarTutorPetDto) NÃO é o segundo passo deste fluxo — é um
+// endpoint DIFERENTE, para adicionar um tutor ADICIONAL/co-tutor a um pet
+// que JÁ EXISTE (`PetService.AdicionarTutorAsync`, StPrincipal sempre
+// false). Ver rec-04-report.md para a decisão de não usá-lo nesta task
+// (sem tela de ficha/lista de tutor onde esse gatilho pudesse morar).
+export interface PetCreateWireDto {
+  idEspecie: number;
+  idRaca: number;
+  idVeterinarioResp?: number | null;
+  nmPet: string;
+  // ISO 8601 — DtNascimento do .NET é DateTime, aceita string ISO no corpo.
+  dtNascimento: string;
+  sgSexo: 'M' | 'F';
+  sgPorte: 'P' | 'M' | 'G';
+  idTutor: number;
+  stPrincipal: boolean;
+  dsVinculo: string;
+}
+
+// Tipo de UI (o que a tela "Novo pet" produz) — idTutor/nomeTutor vêm do
+// CONTEXTO (tutor recém-criado na cadeia, ou tutor existente escolhido por
+// busca), nunca de um campo editável do formulário.
+export interface NovoPetInput {
+  idTutor: number;
+  idEspecie: number;
+  idRaca: number;
+  nmPet: string;
+  dtNascimento: string;
+  sgSexo: 'M' | 'F';
+  sgPorte: 'P' | 'M' | 'G';
+}
+
+// GET /api/v1/tutores?busca= -> TutorResponseDto[] (backend-clinica-dotnet
+// src/Kura.Application/DTOs/Tutor/TutorResponseDto.cs, origin/main
+// e33da98) — usado pela busca de "tutor existente" (REC-04,
+// pacientes/novo.tsx). Mesmo shape de TutorDetalheApiResponse (LU-09), tipo
+// próprio porque o CONSUMIDOR é diferente (lista de candidatos, não ficha
+// única) e pode precisar crescer de forma independente.
+export interface TutorBuscaWireDto {
+  id: number;
+  nmTutor: string;
+  nrCpf: string;
+  dsEmail: string;
+  nrTelefone: string;
+  stAtiva: boolean;
 }
 
 export interface TimelineEventResponse {

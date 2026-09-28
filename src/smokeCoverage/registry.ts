@@ -153,11 +153,35 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'este endpoint. Sem check hoje; candidato a follow-up em DevOps-Cloud junto do item ' +
       'acima.',
   },
+  // REC-04 — GET /api/v1/tutores?busca= (busca de "tutor existente",
+  // pacientes/novo.tsx). Idempotente, sem side effect, mas
+  // `smoke-contratos.sh` não tem check pra este verbo/rota hoje — grep
+  // confirmado (`grep -n 'api/v1/tutores"' DevOps-Cloud/scripts/smoke-contratos.sh`,
+  // repo irmão clonado ao lado nesta sessão): as 3 ocorrências existentes são
+  // todas `POST /api/v1/tutores` (`:312`/`:481`/`:571`, listadas acima),
+  // nenhuma `GET`. Estender é mudança em DevOps-Cloud, fora do escopo desta
+  // task (que só toca mobile-clinica-rn).
+  'tutores.service.ts::buscarTutores': {
+    naoCoberto:
+      'GET /api/v1/tutores?busca= (TutoresController.cs:29-35) — idempotente, sem side ' +
+      'effect, candidato natural a smoke-contratos.sh (mesmo perfil de pets/listar), mas o ' +
+      'script real só tem checks POST /api/v1/tutores hoje (grep confirmado — ver acima), ' +
+      'nenhum GET. Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo ' +
+      'desta task.',
+  },
 
   // pets.service.ts
   'pets.service.ts::listPets': { coberto: 'pets/listar' },
   'pets.service.ts::getPetById': { coberto: 'pets/{id} (GET detalhe, contexto clinica)' },
   'pets.service.ts::getPetTimeline': { coberto: 'pets/timeline (GET, nao mais 500)' },
+  // REC-04 — POST /api/v1/pets (cadastro de pet + vínculo ao tutor). O
+  // check `setup/pets` já existe em smoke-contratos.sh (`:334`, usado como
+  // FIXTURE para outros checks do script) e exercita EXATAMENTE o mesmo
+  // contrato que `criarPet` envia (mesmos 9 campos, mesma ordem de chaves —
+  // conferido lado a lado com o payload deste service). Não é "check
+  // dedicado a esta função", mas o CONTRATO que ele prova bater é
+  // idêntico — `coberto`, não `naoCoberto`.
+  'pets.service.ts::criarPet': { coberto: 'setup/pets' },
   // FT-07 (KURA_BACKLOG_FOTO_PET.md) — POST /api/v1/pets/{id}/foto é novo neste
   // ciclo. `anexarParteFoto` toca rede via `fetch(...)` no ramo web (busca a
   // blob: URL do arquivo já manipulado antes de anexar ao FormData) — não é uma

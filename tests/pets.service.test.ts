@@ -12,9 +12,9 @@ jest.mock('@services/api/client', () => ({
 
 import { Platform } from 'react-native';
 import { apiClient } from '../src/services/api/client';
-import { uploadFoto } from '../src/services/pets.service';
+import { criarPet, uploadFoto } from '../src/services/pets.service';
 import type { FotoVarianteGerada } from '../src/utils/fotoPet';
-import type { PetFotoResponse } from '../src/types/api';
+import type { NovoPetInput, PetFotoResponse, PetResponse } from '../src/types/api';
 
 const mockApiPost = apiClient.post as jest.Mock;
 const plataformaOriginal = Platform.OS;
@@ -167,5 +167,63 @@ describe('uploadFoto — web (FormData precisa de Blob de verdade)', () => {
     expect(revokeSpy).toHaveBeenCalledWith(THUMB.uri);
     expect(revokeSpy).toHaveBeenCalledWith(MEDIA.uri);
     revokeSpy.mockRestore();
+  });
+});
+
+// REC-04 — POST /api/v1/pets (PetCreateDto -> PetResponseDto,
+// backend-clinica-dotnet origin/main e33da98, ver types/api.ts::
+// PetCreateWireDto). O que faz este pet ser "vinculado" ao tutor É o campo
+// `idTutor` do corpo — não há uma 2ª chamada de rede pro vínculo (a
+// atomicidade da criação já está confirmada na fonte, PetService.
+// CreateAsync:53-87). A MORDIDA do aceite ("pet criado sem vínculo ao tutor
+// ⇒ teste vermelho, mute a chamada do vínculo") é exercitada aqui como:
+// mutar `criarPet` para OMITIR `idTutor` do corpo enviado faz este teste
+// falhar — é essa omissão que, do lado do servidor real (e do mock, ver
+// tests/pets-novo.mock.test.ts), produziria um pet sem vínculo algum
+// (404 "Tutor não encontrado" antes de a linha existir).
+describe('criarPet — POST /api/v1/pets envia o vínculo ao tutor no MESMO corpo', () => {
+  const INPUT: NovoPetInput = {
+    idTutor: 77,
+    idEspecie: 1,
+    idRaca: 1,
+    nmPet: 'Rex',
+    dtNascimento: '2022-01-01T00:00:00.000Z',
+    sgSexo: 'M',
+    sgPorte: 'M',
+  };
+  const RESPOSTA: PetResponse = {
+    id: 500,
+    nmPet: 'Rex',
+    nmEspecie: 'Cão',
+    nmRaca: 'Labrador',
+    dtNascimento: INPUT.dtNascimento,
+    sgSexo: 'M',
+    sgPorte: 'M',
+    tutores: [{ idTutor: 77, nmTutor: 'Ana Beatriz', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiPost.mockResolvedValue({ data: RESPOSTA });
+  });
+
+  it('chama POST /api/v1/pets com idTutor no corpo (o vínculo) e devolve o pet criado', async () => {
+    const resultado = await criarPet(INPUT);
+
+    expect(mockApiPost).toHaveBeenCalledTimes(1);
+    expect(mockApiPost.mock.calls[0]![0]).toBe('/api/v1/pets');
+    const corpo = mockApiPost.mock.calls[0]![1] as Record<string, unknown>;
+    expect(corpo.idTutor).toBe(77);
+    expect(corpo.stPrincipal).toBe(true);
+    expect(corpo.dsVinculo).toBe('PROPRIETARIO');
+    expect(resultado).toEqual(RESPOSTA);
+    // MORDIDA (aceite REC-04, "pet criado sem vínculo ao tutor ⇒ teste
+    // vermelho, mute a chamada do vínculo"): esta MESMA asserção
+    // (`corpo.idTutor`) é o detector — mutar `criarPet` (pets.service.ts)
+    // pra omitir `idTutor: input.idTutor,` do corpo faz este teste falhar
+    // (`corpo.idTutor` vira `undefined`). Mordida real feita e restaurada
+    // nesta sessão (git diff --stat confirmado antes/depois) — número/EXIT
+    // documentados em rec-04-report.md, não duplicados aqui como 2º teste
+    // idêntico.
   });
 });

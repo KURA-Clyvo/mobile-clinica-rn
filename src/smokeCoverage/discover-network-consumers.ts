@@ -689,14 +689,27 @@ export function discoverNetworkConsumers(serviceDir: string): ConsumerFn[] {
 }
 
 /**
- * Extrai os nomes de check reais (1º argumento de `chamar`/`chamar_apikey`/
- * `chamar_idempotency`/`chamar_upload_foto`) de um `smoke-contratos.sh` já lido em
- * memória — é o que fecha o laço da metade "coberto: <nome>" do registry contra o
- * script de verdade, em vez de confiar que o nome citado no registry ainda existe.
+ * Extrai os nomes de check reais (1º argumento de
+ * `chamar`/`chamar_apikey`/`chamar_idempotency`/`chamar_upload_foto`/
+ * `chamar_mascarando_token`) de um `smoke-contratos.sh` já lido em memória —
+ * é o que fecha o laço da metade "coberto: <nome>" do registry contra o
+ * script de verdade, em vez de confiar que o nome citado no registry ainda
+ * existe.
+ *
+ * REC-04 (g2-rec05.md, achado m-regex): `_mascarando_token` ACRESCENTADO à
+ * alternação existente — nunca substituir. A receita original do
+ * implementador da REC-05 tinha sido escrita sobre um checkout LOCAL
+ * defasado do `mobile-clinica-rn` (sem `_upload_foto`, que entrou em
+ * `ae0869a`); copiada literalmente, ela removeria `_upload_foto` da
+ * alternação e quebraria a entrada `coberto` de `uploadFoto`
+ * (`pets.service.ts::uploadFoto`, `SMOKE_COVERAGE_REGISTRY`) — medido pelo
+ * revisor (`g2-rec05.md` §F7, sonda Node comparando as 3 formas do regex
+ * contra os 20 nomes `coberto:` do registry). A união abaixo reconhece as
+ * DUAS formas.
  */
 export function extrairNomesDeCheck(conteudoScript: string): Set<string> {
   const nomes = new Set<string>();
-  const regex = /^chamar(?:_apikey|_idempotency|_upload_foto)?\s+"((?:[^"\\]|\\.)*)"/gm;
+  const regex = /^chamar(?:_apikey|_idempotency|_upload_foto|_mascarando_token)?\s+"((?:[^"\\]|\\.)*)"/gm;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(conteudoScript)) !== null) {
     const nome = m[1];
