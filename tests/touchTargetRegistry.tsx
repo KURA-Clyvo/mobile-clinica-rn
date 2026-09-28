@@ -123,6 +123,7 @@ import type {
   UsuarioClinicaResponse,
   VeterinarioResponse,
   ServicoPrecoResponse,
+  TutorBuscaWireDto,
 } from '../src/types/api';
 // Achado 2 (fix wave 2b): as 7 telas de `src/app/` que entraram na
 // descoberta nesta rodada — importadas aqui, no MESMO arquivo dos mocks
@@ -150,6 +151,16 @@ import RegisterScreen from '../src/app/register';
 // FM-02/FM-05/FM-08 acima: entrada própria no registry abaixo, ou o gate de
 // cobertura falha.
 import NovoTutorScreen from '../src/app/(app)/tutores/novo';
+// REC-04 — 1 tela nova (`(app)/pacientes/novo.tsx`) + 1 componente novo
+// (`PetForm.tsx`, compartilhado por ela e por tutores/novo.tsx). Mesmo dever
+// dos blocos acima: entrada própria no registry, ou o gate de cobertura
+// falha. `PetForm` é testado ISOLADO (não só via as telas que o embutem)
+// porque o walker conta por OCORRÊNCIA NO ARQUIVO — os touchables de
+// `PetForm.tsx` são descobertos uma vez, no arquivo onde vivem, e cobri-los
+// via `PetForm` isolado é mais direto que renderizar a árvore inteira de
+// `NovoPacienteScreen`/`NovoTutorScreen` só pra alcançar o mesmo elemento.
+import NovoPacienteScreen from '../src/app/(app)/pacientes/novo';
+import { PetForm } from '../src/components/domain/PetForm';
 
 // --- Mocks compartilhados — só o necessário pra renderizar AppHeader/
 // NavDrawer/WhatsAppModal fora do app real. Padrões copiados dos testes que
@@ -263,7 +274,15 @@ const mockUsePetsReturn = jest.fn(() => ({
   isLoading: false,
   refetch: jest.fn(),
 }));
-jest.mock('@hooks/usePets', () => ({ usePets: () => mockUsePetsReturn() }));
+// REC-04: `useCriarPet` (usePets.ts) é o que `PetForm.tsx` consome — sem
+// exportá-lo aqui, renderizar PetForm (isolado ou embutido em
+// NovoPacienteScreen/NovoTutorScreen) quebra com "useCriarPet is not a
+// function", mesmo padrão já documentado acima pra useFocusEffect/etc.
+const mockMutateCriarPet = jest.fn();
+jest.mock('@hooks/usePets', () => ({
+  usePets: () => mockUsePetsReturn(),
+  useCriarPet: () => ({ mutate: mockMutateCriarPet, isPending: false }),
+}));
 
 const mockUseAgendaSemanaReturn = jest.fn(() => ({
   data: [] as AgendamentoResponse[],
@@ -324,9 +343,16 @@ jest.mock('@hooks/useUsuariosClinica', () => ({
 // o service. `(app)/tutores/novo.tsx` importa os 2.
 const mockMutateCriarTutor = jest.fn();
 const mockMutateReemitirConvite = jest.fn();
+// REC-04: `useBuscarTutores` é o que `(app)/pacientes/novo.tsx` consome pra
+// busca de "tutor existente" — mesmo motivo de `useCriarPet` acima.
+const mockUseBuscarTutoresReturn = jest.fn(() => ({
+  data: [] as TutorBuscaWireDto[],
+  isLoading: false,
+}));
 jest.mock('@hooks/useTutores', () => ({
   useCriarTutor: () => ({ mutate: mockMutateCriarTutor, isPending: false }),
   useReemitirConvite: () => ({ mutate: mockMutateReemitirConvite, isPending: false }),
+  useBuscarTutores: () => mockUseBuscarTutoresReturn(),
 }));
 
 // FM-05 — mesmo padrão do bloco FM-02 acima: mocka-se o HOOK, não o
@@ -1589,6 +1615,93 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       return expectSemGeometriaExplicita(
         flat(getByTestId('checkbox-aviso-privacidade').props.style),
       );
+    },
+  },
+
+  // REC-04 — 1 tocável novo em `PetForm.tsx` (compartilhado por
+  // tutores/novo.tsx e pacientes/novo.tsx): o gatilho do date picker. Os 4
+  // grupos de `<KCChip onPress=...>` (espécie/raça/sexo/porte) NÃO aparecem
+  // aqui — LIMITAÇÃO PRÉ-EXISTENTE do walker, não nova: `coletarAliasesCondicionais`
+  // só reconhece o alias `Container` DENTRO de `KCChip.tsx` (onde ele é
+  // declarado); qualquer outro arquivo que CONSOME `<KCChip onPress=...>`
+  // (este, `receituario/[idPet].tsx::chip-medicamento-selecionado`,
+  // `luna.tsx`, etc.) fica invisível, porque a tag JSX é literalmente
+  // "KCChip", que não está em `INTERACTIVE_TAGS` nem no alias-set daquele
+  // arquivo. Confirmado com precedente: `ReceituarioScreen` só tem `#1`
+  // (`med-item`) e `#2` (`date-picker-trigger`) neste registry — nenhuma
+  // entrada cobre `chip-medicamento-selecionado`, mesmo caso.
+  'PetForm.tsx::PetForm#1': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'date-picker-trigger-pet',
+    reason:
+      'Gatilho do date picker (`date-picker-trigger-pet`) — `dateRow: { flexDirection:"row", ' +
+      'alignItems:"center", justifyContent:"space-between", borderWidth:1, borderRadius:10, ' +
+      'padding:12 }`, sem height/minHeight/width/minWidth. Mesmo padrão de ' +
+      '`ReceituarioScreen#2` (`date-picker-trigger`, campo homônimo). Não corrigido — ' +
+      'candidato a follow-up conjunto.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <PetForm idTutor={1} nomeTutor="Ana Beatriz" onSuccess={() => {}} />,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('date-picker-trigger-pet').props.style));
+    },
+  },
+
+  // REC-04 — 3 tocáveis novos em `(app)/pacientes/novo.tsx::NovoPacienteScreen`
+  // (a tela em si — o formulário de pet embutido, quando um tutor é
+  // selecionado, é `PetForm.tsx`, já coberto acima; a tela de sucesso só usa
+  // `KCButton`, sem tocável novo).
+  '(app)/pacientes/novo.tsx::NovoPacienteScreen#1': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'btn-voltar-selecao-tutor',
+    reason:
+      'Botão de voltar (`btn-voltar-selecao-tutor`, da etapa "tutor selecionado" pra "busca") ' +
+      'não recebe `style` nenhum. Mesmo padrão de `NovoTutorScreen#1`/`PacientesScreen#1` (ícone ' +
+      'solto, sem geometria declarada). Não corrigido — candidato a follow-up.',
+    verify: () => {
+      mockUseBuscarTutoresReturn.mockReturnValue({
+        data: [{ id: 42, nmTutor: 'Ana Beatriz', nrCpf: '1', dsEmail: 'a@b.com', nrTelefone: '1', stAtiva: true }],
+        isLoading: false,
+      });
+      const { getByTestId } = wrap(<NovoPacienteScreen />);
+      fireEvent.changeText(getByTestId('search-tutor-existente'), 'ana');
+      fireEvent.press(getByTestId('tutor-item-42'));
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-selecao-tutor').props.style));
+    },
+  },
+
+  '(app)/pacientes/novo.tsx::NovoPacienteScreen#2': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'btn-voltar-novo-paciente',
+    reason:
+      'Botão de voltar do cabeçalho da tela de busca (`btn-voltar-novo-paciente`) — mesmo ' +
+      'padrão do `#1` acima, sem `style`. Não corrigido — candidato a follow-up.',
+    verify: () => {
+      mockUseBuscarTutoresReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getByTestId } = wrap(<NovoPacienteScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-novo-paciente').props.style));
+    },
+  },
+
+  '(app)/pacientes/novo.tsx::NovoPacienteScreen#3': {
+    category: 'no-explicit-geometry',
+    // Sem `expectedTestId`: o testID real é um TEMPLATE STRING
+    // (`` `tutor-item-${item.id}` ``), que `testIdDoElemento` (o walker) não
+    // resolve — só reconhece literal de string, mesmo caso de
+    // `ReceituarioScreen#1` (`med-item-{id}`) logo abaixo.
+    reason:
+      'Item da lista de tutores encontrados (`tutor-item-{id}`) — `tutorItem: { ' +
+      'paddingHorizontal:12, paddingVertical:12, borderBottomWidth:1 }`, sem height/minHeight/' +
+      'width/minWidth. Mesmo padrão de `ReceituarioScreen#1` (`med-item-{id}`, mesma forma de ' +
+      'lista de busca). Não corrigido — candidato a follow-up.',
+    verify: () => {
+      mockUseBuscarTutoresReturn.mockReturnValue({
+        data: [{ id: 42, nmTutor: 'Ana Beatriz', nrCpf: '1', dsEmail: 'a@b.com', nrTelefone: '1', stAtiva: true }],
+        isLoading: false,
+      });
+      const { getByTestId } = wrap(<NovoPacienteScreen />);
+      fireEvent.changeText(getByTestId('search-tutor-existente'), 'ana');
+      return expectSemGeometriaExplicita(flat(getByTestId('tutor-item-42').props.style));
     },
   },
 };
