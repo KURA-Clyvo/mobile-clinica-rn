@@ -6,14 +6,11 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  Linking,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import * as Clipboard from 'expo-clipboard';
-import QRCode from 'react-native-qrcode-svg';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -21,10 +18,11 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { ROUTES } from '@constants/routes';
-import { useCriarTutor, useReemitirConvite } from '@hooks/useTutores';
-import { mensagemErroCadastroTutor, mensagemErroReemissaoConvite } from '@services/tutores.service';
-import { mascararTelefone, somenteDigitos, linkWhatsApp } from '@utils/telefone';
+import { useCriarTutor } from '@hooks/useTutores';
+import { mensagemErroCadastroTutor } from '@services/tutores.service';
+import { mascararTelefone, somenteDigitos } from '@utils/telefone';
 import { PetForm } from '@components/domain/PetForm';
+import { ConviteTutorView } from '@components/domain/ConviteTutorView';
 import type { ApiError, ConviteTutor } from '../../../types/api';
 
 // REC-03 — texto do aviso de privacidade: NÃO EXISTE em lugar nenhum do
@@ -107,27 +105,9 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     checkboxLabel: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text },
     errorText: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger },
-    // ─── Tela de convite ───
-    conviteCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
-    conviteNome: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
-    conviteSub: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMute, textAlign: 'center' },
-    qrWrapper: {
-      padding: 16,
-      backgroundColor: '#FFFFFF',
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    semLinkBox: {
-      borderWidth: 1,
-      borderColor: colors.warning,
-      backgroundColor: colors.warningBg,
-      borderRadius: 10,
-      padding: 14,
-      gap: 6,
-    },
-    semLinkTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
-    acoes: { width: '100%', gap: 10 },
+    // Estilos da tela de convite (QR/wa.me/copiar link) foram EXTRAÍDOS para
+    // ConviteTutorView.tsx (fix wave G2, I-1) — reaproveitado também por
+    // pacientes/novo.tsx, não duplicado.
     // ─── Etapa "Cadastrar pet" (REC-04) ───
     petHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     petHeaderTexto: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
@@ -148,7 +128,6 @@ export default function NovoTutorScreen() {
   const [conviteReservado, setConviteReservado] = useState<ConviteTutor | null>(null);
 
   const { mutate: criar, isPending: salvando } = useCriarTutor();
-  const { mutate: reemitir, isPending: reemitindo } = useReemitirConvite();
 
   const {
     control,
@@ -208,23 +187,16 @@ export default function NovoTutorScreen() {
     }, [reset]),
   );
 
-  // G2b (m8): ponto único onde os `onSuccess` de criar/reemitir tutor
-  // decidem se aplicam o resultado — nunca aplicar quando a tela já perdeu
-  // o foco (resposta tardia chegando depois do operador já ter saído).
-  //
-  // REC-04: a criação do tutor AVANÇA a etapa (form -> pet); a reemissão de
-  // convite NÃO avança etapa nenhuma (só é chamável de dentro da própria
-  // etapa 'convite', via "Gerar novo convite") — por isso são 2 funções, não
-  // uma reaproveitada com um parâmetro a mais.
+  // G2b (m8): ponto onde `onSuccess` da criação do tutor decide se aplica o
+  // resultado — nunca aplicar quando a tela já perdeu o foco (resposta
+  // tardia chegando depois do operador já ter saído). REC-04: avança a
+  // etapa (form -> pet). A reemissão de convite (dentro da etapa 'convite',
+  // via `ConviteTutorView`) tem seu PRÓPRIO estado/foco — vive naquele
+  // componente, não aqui.
   const aplicarCriacaoTutorSeEmFoco = (resultado: ConviteTutor) => {
     if (!emFocoRef.current) return;
     setConviteReservado(resultado);
     setEtapa('pet');
-  };
-
-  const aplicarReemissaoSeEmFoco = (resultado: ConviteTutor) => {
-    if (!emFocoRef.current) return;
-    setConviteReservado(resultado);
   };
 
   const onSubmit = (data: FormValues) => {
@@ -260,48 +232,6 @@ export default function NovoTutorScreen() {
     );
   };
 
-  const handleGerarNovoConvite = () => {
-    if (!conviteReservado) return;
-    reemitir(
-      {
-        idTutor: conviteReservado.idTutor,
-        nomeTutor: conviteReservado.nomeTutor,
-        whatsapp: conviteReservado.whatsapp,
-      },
-      {
-        onSuccess: (resultado) => aplicarReemissaoSeEmFoco(resultado),
-        // m1 (G2): mensagem genérica pra QUALQUER status ≠ 400, também na
-        // reemissão — antes mostrava `err.message` cru (ex.: "Tutor id 42 já
-        // possui conta…", 409), texto técnico e nunca pensado pra tela.
-        onError: (err: unknown) => {
-          Alert.alert(
-            'Não foi possível gerar novo convite',
-            mensagemErroReemissaoConvite(err as ApiError),
-          );
-        },
-      },
-    );
-  };
-
-  const mensagemConvite = (nomeTutor: string, link: string) =>
-    `Olá ${nomeTutor}! Aqui está o link para você baixar o app da clínica e acompanhar seu pet: ${link}`;
-
-  const handleEnviarWhatsApp = () => {
-    if (!conviteReservado?.dsLinkConvite) return;
-    Linking.openURL(
-      linkWhatsApp(
-        conviteReservado.whatsapp,
-        mensagemConvite(conviteReservado.nomeTutor, conviteReservado.dsLinkConvite),
-      ),
-    );
-  };
-
-  const handleCopiarLink = async () => {
-    if (!conviteReservado?.dsLinkConvite) return;
-    await Clipboard.setStringAsync(conviteReservado.dsLinkConvite);
-    Alert.alert('Copiado', 'Link do convite copiado para a área de transferência.');
-  };
-
   // REC-04 — etapa "Cadastrar pet": entre a criação do tutor e a exibição do
   // convite. `conviteReservado` já existe neste ponto (foi guardado por
   // `aplicarCriacaoTutorSeEmFoco`) mas NÃO é renderizado ainda — é só
@@ -320,80 +250,34 @@ export default function NovoTutorScreen() {
           onSuccess={() => setEtapa('convite')}
           onError={(mensagem) => Alert.alert('Não foi possível cadastrar o pet', mensagem)}
         />
+        {/* REC-04 fix wave (G2, I-1): antes desta correção não havia como sair
+            desta etapa sem abandonar o tutor recém-criado SEM convite algum
+            (o tutor fica no servidor, mas a única forma de reemitir o convite
+            — POST /tutores/{id}/convite, REC-02 — não tinha gatilho de UI
+            alcançável fora da etapa 'convite' de um tutor RECÉM-criado). O
+            tutor já está cadastrado nesta etapa — "pular" o pet não perde
+            nada que ainda não estivesse perdido; só destrava o convite. */}
+        <KCButton
+          variant="ghost"
+          onPress={() => setEtapa('convite')}
+          accessibilityLabel="Pular cadastro do pet e ver o convite do tutor"
+          testID="btn-pular-pet"
+        >
+          Pular pet e ver convite
+        </KCButton>
       </ScreenContainer>
     );
   }
 
   // ─── Tela de convite (estado local — NUNCA uma rota separada, o QR não ───
   // pode ser cacheado nem reaberto por "voltar" do navegador). REC-04: só
-  // alcançável depois da etapa "pet" (etapa==='convite'), nunca direto da
-  // criação do tutor.
+  // alcançável depois da etapa "pet" (etapa==='convite') — pelo pet salvo OU
+  // por "Pular pet e ver convite" (fix wave G2, I-1) — nunca direto da
+  // criação do tutor. Conteúdo/lógica em ConviteTutorView.tsx (compartilhado
+  // com pacientes/novo.tsx, não duplicado).
   if (etapa === 'convite' && conviteReservado) {
     return (
-      <ScreenContainer>
-        <View style={styles.conviteCentro}>
-          <KCIcon name="check" size={40} color={colors.success} />
-          <Text style={styles.conviteNome}>{conviteReservado.nomeTutor} foi cadastrado(a)!</Text>
-          <Text style={styles.conviteSub}>
-            Compartilhe o convite abaixo para o tutor baixar o app e criar a conta dele.
-          </Text>
-
-          {conviteReservado.dsLinkConvite ? (
-            <>
-              <View style={styles.qrWrapper} testID="convite-qrcode">
-                <QRCode value={conviteReservado.dsLinkConvite} size={180} />
-              </View>
-              <View style={styles.acoes}>
-                <KCButton
-                  variant="primary"
-                  onPress={handleEnviarWhatsApp}
-                  accessibilityLabel="Enviar convite pelo WhatsApp"
-                  testID="btn-enviar-whatsapp"
-                >
-                  Enviar pelo WhatsApp
-                </KCButton>
-                <KCButton
-                  variant="secondary"
-                  onPress={handleCopiarLink}
-                  accessibilityLabel="Copiar link do convite"
-                  testID="btn-copiar-link"
-                >
-                  Copiar link
-                </KCButton>
-              </View>
-            </>
-          ) : (
-            <View style={styles.semLinkBox} testID="convite-sem-link">
-              <Text style={styles.semLinkTexto}>
-                O link do convite ainda não está configurado neste ambiente. Assim que
-                estiver disponível, gere um novo convite para obter o QR Code e o link
-                de compartilhamento.
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.acoes}>
-            <KCButton
-              variant="ghost"
-              loading={reemitindo}
-              disabled={reemitindo}
-              onPress={handleGerarNovoConvite}
-              accessibilityLabel="Gerar novo convite"
-              testID="btn-gerar-novo-convite"
-            >
-              Gerar novo convite
-            </KCButton>
-            <KCButton
-              variant="secondary"
-              onPress={() => router.push(ROUTES.app.pacientes)}
-              accessibilityLabel="Voltar para pacientes"
-              testID="btn-voltar-pacientes"
-            >
-              Voltar
-            </KCButton>
-          </View>
-        </View>
-      </ScreenContainer>
+      <ConviteTutorView convite={conviteReservado} onConviteAtualizado={setConviteReservado} />
     );
   }
 
