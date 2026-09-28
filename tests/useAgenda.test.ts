@@ -1,17 +1,24 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useAgendaSemana, useAtualizarStatusAgendamento } from '../src/hooks/useAgenda';
+import {
+  useAgendaSemana,
+  useAtualizarStatusAgendamento,
+  useAgendaHoje,
+  useCheckinAgendamento,
+} from '../src/hooks/useAgenda';
 import * as agendaService from '../src/services/agenda.service';
-import { getMondayOf, addDays, isSameDay, formatDateISO } from '../src/utils/date';
+import { getMondayOf, addDays, formatDateISO } from '../src/utils/date';
 
 jest.mock('@services/agenda.service', () => ({
   getAgenda: jest.fn(),
   atualizarStatusAgendamento: jest.fn(),
+  checkinAgendamento: jest.fn(),
 }));
 
 const mockGetAgenda = agendaService.getAgenda as jest.Mock;
 const mockAtualizarStatus = agendaService.atualizarStatusAgendamento as jest.Mock;
+const mockCheckin = agendaService.checkinAgendamento as jest.Mock;
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -220,5 +227,135 @@ describe('useAtualizarStatusAgendamento', () => {
       nrVersion: 3,
       dsObservacao: 'tutor avisou por telefone',
     });
+  });
+});
+
+// ─── REC-12: useAgendaHoje ──────────────────────────────────────────────────
+//
+// m-1 (g2-rec08.md): "um cliente que mande toISOString() (ou offset -03:00)
+// depois das 21h BRT cai no dia seguinte". A regra do brief da REC-12 é
+// explícita: dataInicio/dataFim da agenda "Hoje" TÊM que vir de
+// `formatDateISO` (getters LOCAIS: getFullYear/getMonth/getDate), nunca de
+// `toISOString()` (sempre UTC). O teste abaixo prova isso por MORDIDA REAL,
+// não por leitura de código: escolhe um instante em que o dia civil LOCAL e o
+// dia civil UTC DIVERGEM DE VERDADE nesta máquina (medido em runtime via
+// `getTimezoneOffset()`, não hardcoded "BRT" — o `jest.config.js` seta
+// `TZ=America/Sao_Paulo`, mas o `CLAUDE.md` deste projeto documenta que o
+// Node NO WINDOWS ignora nomes IANA em `TZ`, então o offset real de quem
+// rodar este teste pode não ser -03:00) e confirma que `getAgenda` recebe a
+// data LOCAL, não a UTC divergente.
+describe('useAgendaHoje (REC-12)', () => {
+  const MOCK_HOJE = { ...MOCK_APPOINTMENT, dsEtapaRecepcao: 'AGENDADO' as const };
+
+  it('chama getAgenda com dataInicio === dataFim === formatDateISO(new Date()) — nunca toISOString()', async () => {
+    // Constrói um instante onde o dia LOCAL e o dia UTC divergem de verdade,
+    // qualquer que seja o offset real desta execução (positivo, negativo, ou
+    // — só neste caso raro — não há divergência possível, e o teste avisa em
+    // vez de fingir ter provado algo).
+    const offsetMin = new Date().getTimezoneOffset(); // UTC - local, em minutos
+    if (offsetMin === 0) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[useAgendaHoje] offset local é 0 (UTC) nesta execução — não há como forçar ' +
+          'divergência dia local != dia UTC; o teste de horário-limite não pôde medir nada aqui.',
+      );
+      return;
+    }
+    const hoje = new Date();
+    // offset > 0 (local ATRÁS de UTC, ex.: BRT): 23:30 local vira o dia SEGUINTE em UTC.
+    // offset < 0 (local À FRENTE de UTC, ex.: JST): 00:30 local vira o dia ANTERIOR em UTC.
+    const instanteLimite =
+      offsetMin > 0
+        ? new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 30, 0)
+        : new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 0, 30, 0);
+
+    // Controle positivo: confirma que a divergência é REAL antes de confiar
+    // no resto do teste — sem isto, um "passou" seria indistinguível de
+    // "nunca havia risco de errar".
+    const diaLocal = formatDateISO(instanteLimite);
+    const diaUtc = instanteLimite.toISOString().slice(0, 10);
+    expect(diaLocal).not.toBe(diaUtc);
+
+    jest.useFakeTimers().setSystemTime(instanteLimite);
+    try {
+      mockGetAgenda.mockResolvedValue([MOCK_HOJE]);
+      const { result } = renderHook(() => useAgendaHoje(), { wrapper: makeWrapper() });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // MORDIDA: se a implementação usasse `new Date().toISOString().slice(0,10)`
+      // em vez de `formatDateISO(new Date())`, esta asserção falharia — ela
+      // receberia `diaUtc`, não `diaLocal`.
+      expect(mockGetAgenda).toHaveBeenCalledWith({ dataInicio: diaLocal, dataFim: diaLocal });
+      expect(result.current.dataHoje).toBe(diaLocal);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('devolve os agendamentos de hoje depois de carregar', async () => {
+    mockGetAgenda.mockResolvedValue([MOCK_HOJE]);
+    const { result } = renderHook(() => useAgendaHoje(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('refetch chama getAgenda de novo', async () => {
+    mockGetAgenda.mockResolvedValue([]);
+    const { result } = renderHook(() => useAgendaHoje(), { wrapper: makeWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await result.current.refetch();
+    expect(mockGetAgenda).toHaveBeenCalledTimes(2);
+  });
+});
+
+// ─── REC-12: useCheckinAgendamento ──────────────────────────────────────────
+describe('useCheckinAgendamento', () => {
+  const VARS = { idAgendamento: 18, nrVersion: 2 };
+
+  it('encaminha idAgendamento e nrVersion ao service', async () => {
+    mockCheckin.mockResolvedValue({ ...MOCK_APPOINTMENT, dsEtapaRecepcao: 'CHEGOU' });
+    const { wrapper } = makeWrapperComCliente();
+
+    const { result } = renderHook(() => useCheckinAgendamento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockCheckin).toHaveBeenCalledWith(18, { nrVersion: 2 });
+  });
+
+  it('invalida a agenda (prefixo compartilhado com useAgendaHoje) no SUCESSO', async () => {
+    mockCheckin.mockResolvedValue(MOCK_APPOINTMENT);
+    const { qc, wrapper } = makeWrapperComCliente();
+    // Query key REAL de useAgendaHoje — prova que o prefixo compartilhado
+    // ('agenda') de fato invalida a visão "Hoje", não só a Semana.
+    qc.setQueryData(['agenda', 'hoje', '2026-09-28'], [MOCK_APPOINTMENT]);
+    expect(qc.getQueryState(['agenda', 'hoje', '2026-09-28'])?.isInvalidated).toBe(false);
+
+    const { result } = renderHook(() => useCheckinAgendamento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(qc.getQueryState(['agenda', 'hoje', '2026-09-28'])?.isInvalidated).toBe(true);
+  });
+
+  // 🔴 Mesma classe de mordida que já provou o bug real de useAtualizarStatusAgendamento
+  // (onSettled -> onSuccess): sem isto, um 409 deixaria a linha presa num
+  // nrVersion velho até o usuário sair e voltar da tela.
+  it('invalida a agenda TAMBÉM no 409 (versão desatualizada)', async () => {
+    mockCheckin.mockRejectedValue(Object.assign(new Error('Conflito'), { status: 409 }));
+    const { qc, wrapper } = makeWrapperComCliente();
+    const spy = jest.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useCheckinAgendamento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['agenda'] });
   });
 });

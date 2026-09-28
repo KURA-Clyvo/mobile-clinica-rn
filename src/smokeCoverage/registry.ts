@@ -40,6 +40,18 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'toca mobile-clinica-rn) — candidato a follow-up, provavelmente FM-09 (o gate de ' +
       'contrato do ciclo FIN) ou uma task própria em DevOps-Cloud.',
   },
+  'agenda.service.ts::checkinAgendamento': {
+    naoCoberto:
+      'REC-12 (KURA_BACKLOG_RECEPCAO, tela "Hoje" da recepção) — POST /api/v1/agendamentos/' +
+      '{id}/checkin (rota ABSOLUTA nova, REC-11, backend-clinica-dotnet AgendaController.cs, ' +
+      'ainda em branch origin/feat/rec-11-eventos-recepcao, não em main). ' +
+      'smoke-contratos.sh (DevOps-Cloud) não tem check para ela hoje — mesma razão de ' +
+      'atualizarStatusAgendamento acima: side-effecting, exige lock otimista (NrVersion de ' +
+      'uma leitura anterior) e um agendamento em AGENDADO/CONFIRMADO pré-existente no seed. ' +
+      'Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task — ' +
+      'entra pela REC-18 (config da D-1, smoke e seed da demo), que já lista REC-10/REC-11 ' +
+      'como os checks novos a acrescentar.',
+  },
 
   // auth.service.ts
   'auth.service.ts::login': { coberto: 'auth/login (clinica)' },

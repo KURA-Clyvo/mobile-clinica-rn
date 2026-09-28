@@ -10,6 +10,23 @@ import { translateStatusAgendamento } from '../utils/statusAgendamento';
 // TASK-65 (FIX_5): exportadas de propósito — mesmo racional de
 // dashboard.service.ts/PetResumoApiDto (ver comentário lá). O mock
 // (`agenda.mock.ts`) precisa devolver este shape RAW, não `AgendamentoResponse`.
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar os campos REC-09/REC-11.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs:10-41
+//          (classe `AgendamentoItemDto`)
+// COMMIT:  099ee3f86744af6996e819e704546dc7b0280029
+//          (branch `feat/rec-11-eventos-recepcao`, ainda não em `main`)
+// CONFERIDO EM: 2026-09-28 — bate linha a linha com a fonte nesse commit.
+//
+// COMO RECONFERIR:
+//   git -C ../backend-clinica-dotnet show \
+//     099ee3f:src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs | sed -n '10,41p'
+//
+// Serialização em camelCase (System.Text.Json default do ASP.NET Core, sem
+// `JsonNamingPolicy` custom — confirmado por grep no `Program.cs`, mesma
+// checagem que o relatório da REC-09 já fez).
 export interface AgendamentoItemApiDto {
   idAgendamento: number;
   dtAgendamento: string;
@@ -21,6 +38,20 @@ export interface AgendamentoItemApiDto {
   dsTipoConsulta: string;
   dsStatus: string;
   nrVersion: number;
+
+  // REC-09 (fecha o E21) — todos opcionais no wire, `long?`/`string?` no
+  // lado .NET. `dsEtapaRecepcao` é a única SEMPRE preenchida (função total
+  // no servidor, A-3) — ver AgendamentoResponse.dsEtapaRecepcao (types/
+  // api.ts) para por que ela não é opcional no tipo app-facing.
+  idPet?: number;
+  idTutor?: number;
+  dtCheckin?: string;
+  dtInicioAtendimento?: string;
+  dsOrigem?: string;
+  dsNivelUrgenciaOrigem?: string;
+  dsRespostaConfirmacao?: string;
+  dsEtapaRecepcao: string;
+  dsFotoThumbUrl?: string;
 }
 
 export interface AgendaApiResponseDto {
@@ -99,8 +130,9 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     dsStatusOrigem: dto.dsStatus,
     nrVersion: dto.nrVersion,
     pet: {
-      // TODO: AgendamentoItemDto não traz o id do pet, só o nome.
-      id: 0,
+      // REC-12: idPet chegou no DTO pela REC-09 — fecha o TODO antigo
+      // (o app tinha id=0 fixo pra todo pet da agenda até aqui).
+      id: dto.idPet ?? 0,
       nmPet: dto.nmPet,
       // TODO: AgendamentoItemDto não traz espécie do pet.
       nmEspecie: '',
@@ -108,8 +140,9 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
       nmRaca: '',
     },
     tutor: {
-      // TODO: AgendamentoItemDto não traz o id do tutor, só o nome.
-      id: 0,
+      // REC-12: idTutor chegou no DTO pela REC-09 — mesmo fechamento do
+      // TODO de idPet acima.
+      id: dto.idTutor ?? 0,
       nmTutor: dto.nmTutor,
       // TODO: AgendamentoItemDto não traz telefone do tutor.
       dsTelefone: '',
@@ -123,6 +156,15 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     // dsObservacao: AgendamentoItemDto não traz observações — permanece
     // undefined (campo opcional).
     dsObservacao: undefined,
+
+    // REC-09/REC-12 — campos da tela "Hoje" da recepção (A-3, A-6, A-7).
+    dtCheckin: dto.dtCheckin,
+    dtInicioAtendimento: dto.dtInicioAtendimento,
+    dsOrigem: dto.dsOrigem,
+    dsNivelUrgenciaOrigem: dto.dsNivelUrgenciaOrigem,
+    dsRespostaConfirmacao: dto.dsRespostaConfirmacao,
+    dsEtapaRecepcao: dto.dsEtapaRecepcao,
+    dsFotoThumbUrl: dto.dsFotoThumbUrl,
   };
 }
 
@@ -150,6 +192,35 @@ export async function atualizarStatusAgendamento(
 ): Promise<AgendamentoResponse> {
   const response = await apiClient.patch<AgendamentoItemApiDto>(
     `/api/v1/agendamentos/${idAgendamento}/status`,
+    req,
+  );
+  return mapAgendamentoItem(response.data);
+}
+
+// REC-12 — check-in (tela "Hoje" da recepção). Rota ABSOLUTA, mesmo padrão
+// de atualizarStatusAgendamento acima. FONTE: backend-clinica-dotnet
+// src/Kura.Api/Controllers/AgendaController.cs:97-106 (`[HttpPost("~/api/
+// v1/agendamentos/{id:long}/checkin")]`), commit 099ee3f (branch
+// `feat/rec-11-eventos-recepcao`) — reconferir com
+// `git -C ../backend-clinica-dotnet show 099ee3f:src/Kura.Api/Controllers/
+// AgendaController.cs | sed -n '97,106p'`.
+//
+// 🔴 m-7 (g2-rec09.md): a resposta deste endpoint (como a do PATCH de
+// status) NÃO tem foto/urgência — `AtualizarStatusAsync`/`CheckinAsync`
+// devolvem o DTO via `GetByIdAsync` sem `.Include(TriagemOrigem)`. Quem
+// consome esta função NUNCA deve tratar o retorno como a linha completa —
+// invalide a query e deixe o refetch trazer a linha de verdade (mesmo
+// tratamento dado a `atualizarStatusAgendamento` — ver useAgenda.ts).
+export interface CheckinAgendamentoRequest {
+  nrVersion: number;
+}
+
+export async function checkinAgendamento(
+  idAgendamento: number,
+  req: CheckinAgendamentoRequest,
+): Promise<AgendamentoResponse> {
+  const response = await apiClient.post<AgendamentoItemApiDto>(
+    `/api/v1/agendamentos/${idAgendamento}/checkin`,
     req,
   );
   return mapAgendamentoItem(response.data);

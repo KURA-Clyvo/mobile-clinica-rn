@@ -20,7 +20,7 @@
 //     -> todo alerta virava 'RETORNO_PENDENTE' e todo agendamento recente saía com
 //     nmPet/nmTipoConsulta undefined e sgStatus fixo em 'AGENDADA'.
 import { getHoje, getAlertas, getRecentes } from '../src/services/dashboard.service';
-import { getAgenda, atualizarStatusAgendamento } from '../src/services/agenda.service';
+import { getAgenda, atualizarStatusAgendamento, checkinAgendamento } from '../src/services/agenda.service';
 import { login, registerClinica } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline, uploadFoto } from '../src/services/pets.service';
 import type { FotoVarianteGerada } from '../src/utils/fotoPet';
@@ -155,6 +155,28 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       expect(atualizado.dsStatusOrigem).toBe('CONFIRMADO');
       // nrVersion tem que ter avançado — não o mesmo valor enviado.
       expect(atualizado.nrVersion).toBe(alvo!.nrVersion + 1);
+    });
+
+    // REC-12 — mesma disciplina do teste acima: cadeia REAL (service ->
+    // apiClient -> mock-adapter -> agenda.mock.ts::checkin), sem jest.mock
+    // do apiClient. Prova G4b para o par novo desta task.
+    it('checkinAgendamento executa sem lançar, marca dtCheckin e devolve etapa CHEGOU', async () => {
+      const agenda = await getAgenda({ dataInicio: '2020-01-01', dataFim: '2030-01-01' });
+      const alvo = agenda.find((a) => a.dsEtapaRecepcao === 'AGENDADO');
+      expect(alvo).toBeDefined();
+
+      const atualizado = await checkinAgendamento(alvo!.id, { nrVersion: alvo!.nrVersion });
+
+      expect(atualizado.id).toBe(alvo!.id);
+      expect(atualizado.dsEtapaRecepcao).toBe('CHEGOU');
+      expect(atualizado.dtCheckin).toBeDefined();
+      expect(atualizado.nrVersion).toBe(alvo!.nrVersion + 1);
+
+      // Idempotente (REC-11): 2ª chamada devolve o MESMO dtCheckin, sem
+      // incrementar nrVersion de novo.
+      const segunda = await checkinAgendamento(alvo!.id, { nrVersion: atualizado.nrVersion });
+      expect(segunda.dtCheckin).toBe(atualizado.dtCheckin);
+      expect(segunda.nrVersion).toBe(atualizado.nrVersion);
     });
   });
 

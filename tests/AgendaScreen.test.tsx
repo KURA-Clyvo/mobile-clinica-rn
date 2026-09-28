@@ -7,6 +7,11 @@ import { getMondayOf, addDays } from '../src/utils/date';
 import { layout } from '../src/theme/tokens';
 
 const mockAtualizarStatusMutate = jest.fn();
+// REC-12: useAgendaHoje/useCheckinAgendamento são chamados INCONDICIONALMENTE
+// por AgendaScreen (regra dos hooks), mesmo quando o modo default 'semana'
+// está ativo — sem mocká-los aqui, `undefined()` derruba todo render desta
+// suíte (mesmo padrão já documentado para useAtualizarStatusAgendamento).
+const mockCheckinMutate = jest.fn();
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: jest.fn(),
   // FM-04: AgendamentoStatusMenu (agora sempre montado dentro de
@@ -14,6 +19,8 @@ jest.mock('@hooks/useAgenda', () => ({
   // mocká-lo aqui, useMutation do @tanstack/react-query quebraria por
   // falta de QueryClientProvider no wrap() deste arquivo.
   useAtualizarStatusAgendamento: jest.fn(),
+  useAgendaHoje: jest.fn(),
+  useCheckinAgendamento: jest.fn(),
 }));
 
 // FM-04: AgendamentoStatusMenu usa useSafeAreaInsets — sem provider neste
@@ -47,9 +54,16 @@ function setViewport(width: number, height: number) {
   mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
 }
 
-import { useAgendaSemana, useAtualizarStatusAgendamento } from '../src/hooks/useAgenda';
+import {
+  useAgendaSemana,
+  useAtualizarStatusAgendamento,
+  useAgendaHoje,
+  useCheckinAgendamento,
+} from '../src/hooks/useAgenda';
 const mockUseAgendaSemana = useAgendaSemana as jest.Mock;
 const mockUseAtualizarStatusAgendamento = useAtualizarStatusAgendamento as jest.Mock;
+const mockUseAgendaHoje = useAgendaHoje as jest.Mock;
+const mockUseCheckinAgendamento = useCheckinAgendamento as jest.Mock;
 
 const REFETCH = jest.fn().mockResolvedValue(undefined);
 
@@ -108,12 +122,29 @@ function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
 
+const REFETCH_HOJE = jest.fn().mockResolvedValue(undefined);
+
 beforeEach(() => {
   jest.clearAllMocks();
   REFETCH.mockResolvedValue(undefined);
+  REFETCH_HOJE.mockResolvedValue(undefined);
   setViewport(400, 800);
   mockUseAtualizarStatusAgendamento.mockReturnValue({
     mutate: mockAtualizarStatusMutate,
+    isPending: false,
+    variables: undefined,
+  });
+  // REC-12: default 'modo semana' nunca lê estes dois — valores default
+  // inofensivos, sobrescritos nos testes do describe 'modo Hoje' abaixo.
+  mockUseAgendaHoje.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    refetch: REFETCH_HOJE,
+    dataHoje: '2026-09-28',
+  });
+  mockUseCheckinAgendamento.mockReturnValue({
+    mutate: mockCheckinMutate,
     isPending: false,
     variables: undefined,
   });

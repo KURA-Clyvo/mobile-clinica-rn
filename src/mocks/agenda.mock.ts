@@ -17,6 +17,48 @@ function makeDate(base: Date, dayOffset: number, hour: number, minute = 0): stri
   return d.toISOString();
 }
 
+// REC-12 — timestamps de check-in/início são gravados pelo backend em hora
+// LOCAL de SP (A-5, IRelogioClinica), sem sufixo `Z`/offset — diferente de
+// `makeDate` acima (que usa `toISOString()`, UTC, para os agendamentos da
+// visão Semana pré-existente). Um mock de check-in/início precisa da MESMA
+// forma naive que o servidor produz, senão `minutosEsperando` (etapaRecepcao.ts)
+// interpretaria um horário deslocado pelo fuso ao rodar num aparelho fora
+// de UTC.
+function naiveLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
+
+function minutosAtras(minutos: number): Date {
+  return new Date(Date.now() - minutos * 60_000);
+}
+
+// REC-12 — a etapa REAL é derivada no servidor (A-3, AgendaService.
+// CalcularEtapaRecepcao). O mock não pode importar aquele código (vive no
+// outro repo) nem duplicar a tabela de precedência linha a linha — só
+// precisa de uma aproximação PLAUSÍVEL para os agendamentos da visão Semana
+// pré-existente (que não carregam check-in/início nenhum, então a única
+// entrada que importa é o `dsStatus`). Os itens dedicados da visão "Hoje"
+// (buildTodayReceptionAppointments, abaixo) declaram `dsEtapaRecepcao`
+// EXPLICITAMENTE, sem passar por este helper.
+function etapaMockParaStatus(dsStatus: string): string {
+  switch (dsStatus) {
+    case 'REALIZADO':
+      return 'FINALIZADO';
+    case 'CANCELADO':
+      return 'CANCELADO';
+    case 'NAO_COMPARECEU':
+      return 'NAO_COMPARECEU';
+    case 'CONFIRMADO':
+      return 'CONFIRMADO';
+    default:
+      return 'AGENDADO';
+  }
+}
+
 // TASK-65 (FIX_5): devolve AgendamentoItemApiDto[] (shape RAW do .NET, campos
 // idAgendamento/dtAgendamento/duracaoMinutos/dsStatus) — não mais AgendamentoResponse[]
 // (tipo app-facing produzido por mapAgendamentoItem). `dsStatus` usa os valores REAIS
@@ -29,7 +71,12 @@ function buildAppointments(): AgendamentoItemApiDto[] {
   const monday = getMonday(new Date());
   const vet = { idVeterinario: 1, nmVeterinario: 'Dr. Felipe Ferrete' };
 
-  return [
+  // Pré-existentes (visão Semana) — `dsEtapaRecepcao`/`idPet`/`idTutor`/
+  // `dsOrigem` acrescentados nesta task (REC-12) via `.map()` abaixo, sem
+  // reescrever cada literal: são campos novos e obrigatórios/úteis no wire
+  // DTO (ver pin em agenda.service.ts), mas o conteúdo de cada consulta da
+  // semana não muda.
+  const semana: Omit<AgendamentoItemApiDto, 'dsEtapaRecepcao' | 'idPet' | 'idTutor' | 'dsOrigem'>[] = [
     // Segunda
     { idAgendamento: 1, dtAgendamento: makeDate(monday, 0, 8), duracaoMinutos: 30, dsStatus: 'REALIZADO', nmPet: 'Thor', nmTutor: 'Carlos Mendes', dsTipoConsulta: 'Consulta de Retorno', nrVersion: 1, ...vet },
     { idAgendamento: 2, dtAgendamento: makeDate(monday, 0, 9), duracaoMinutos: 45, dsStatus: 'REALIZADO', nmPet: 'Mel', nmTutor: 'Patrícia Souza', dsTipoConsulta: 'Vacinação', nrVersion: 1, ...vet },
@@ -52,6 +99,85 @@ function buildAppointments(): AgendamentoItemApiDto[] {
     { idAgendamento: 14, dtAgendamento: makeDate(monday, 5, 8), duracaoMinutos: 30, dsStatus: 'AGENDADO', nmPet: 'Coco', nmTutor: 'Thiago Nascimento', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vet },
     { idAgendamento: 15, dtAgendamento: makeDate(monday, 5, 9, 30), duracaoMinutos: 30, dsStatus: 'AGENDADO', nmPet: 'Pingo', nmTutor: 'Camila Ribeiro', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vet },
     // Domingo: sem consultas
+  ];
+
+  const semanaCompleta: AgendamentoItemApiDto[] = semana.map((a, i) => ({
+    ...a,
+    idPet: 100 + i,
+    idTutor: 200 + i,
+    dsOrigem: 'PORTAL',
+    dsEtapaRecepcao: etapaMockParaStatus(a.dsStatus),
+  }));
+
+  return [...semanaCompleta, ...buildTodayReceptionAppointments(vet)];
+}
+
+// REC-12 — itens dedicados à visão "Hoje" da recepção, cobrindo as 7 etapas
+// (A-3) e as 3 origens (`DS_ORIGEM`, A-1), independente de que dia da semana
+// seja "hoje" quando o mock rodar (os itens da visão Semana acima só caem em
+// "hoje" por coincidência de data). IDs a partir de 16 (a visão Semana usa
+// 1-15). Horas fixas ao longo do dia de hoje — `makeHojeAt` usa
+// `new Date()` (hoje real), não `monday` (que pode ser semana diferente).
+function buildTodayReceptionAppointments(
+  vetBase: { idVeterinario: number; nmVeterinario: string },
+): AgendamentoItemApiDto[] {
+  const hoje = new Date();
+  const makeHojeAt = (hour: number, minute = 0): string => {
+    const d = new Date(hoje);
+    d.setHours(hour, minute, 0, 0);
+    return d.toISOString();
+  };
+
+  return [
+    // AGENDADO, sem check-in, origem PORTAL, com foto.
+    {
+      idAgendamento: 16, dtAgendamento: makeHojeAt(9), duracaoMinutos: 30, dsStatus: 'AGENDADO',
+      nmPet: 'Amora', nmTutor: 'Beatriz Lopes', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
+      idPet: 116, idTutor: 216, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
+      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/116/thumb.webp',
+    },
+    // CONFIRMADO, sem check-in, origem RECEPCAO, sem foto (fallback).
+    {
+      idAgendamento: 17, dtAgendamento: makeHojeAt(9, 30), duracaoMinutos: 30, dsStatus: 'CONFIRMADO',
+      nmPet: 'Bento', nmTutor: 'Caio Ramos', dsTipoConsulta: 'Vacinação', nrVersion: 1, ...vetBase,
+      idPet: 117, idTutor: 217, dsOrigem: 'RECEPCAO', dsEtapaRecepcao: 'CONFIRMADO',
+    },
+    // CHEGOU (dtCheckin preenchido há ~12min) — origem TRIAGEM_LUNA, urgência ALTA.
+    {
+      idAgendamento: 18, dtAgendamento: makeHojeAt(10), duracaoMinutos: 30, dsStatus: 'AGENDADO',
+      nmPet: 'Nina', nmTutor: 'Diego Farias', dsTipoConsulta: 'Consulta Geral', nrVersion: 2, ...vetBase,
+      idPet: 118, idTutor: 218, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'ALTA',
+      dsEtapaRecepcao: 'CHEGOU', dtCheckin: naiveLocal(minutosAtras(12)),
+      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/118/thumb.webp',
+    },
+    // EM_ATENDIMENTO (check-in + início preenchidos) — origem TRIAGEM_LUNA, urgência MEDIA.
+    {
+      idAgendamento: 19, dtAgendamento: makeHojeAt(10, 30), duracaoMinutos: 45, dsStatus: 'CONFIRMADO',
+      nmPet: 'Zeca', nmTutor: 'Elaine Prado', dsTipoConsulta: 'Check-up Anual', nrVersion: 3, ...vetBase,
+      idPet: 119, idTutor: 219, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'MEDIA',
+      dsEtapaRecepcao: 'EM_ATENDIMENTO',
+      dtCheckin: naiveLocal(minutosAtras(25)), dtInicioAtendimento: naiveLocal(minutosAtras(5)),
+    },
+    // FINALIZADO — origem PORTAL, ciclo completo.
+    {
+      idAgendamento: 20, dtAgendamento: makeHojeAt(8), duracaoMinutos: 30, dsStatus: 'REALIZADO',
+      nmPet: 'Uga', nmTutor: 'Felipe Rocha', dsTipoConsulta: 'Consulta de Retorno', nrVersion: 4, ...vetBase,
+      idPet: 120, idTutor: 220, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'FINALIZADO',
+      dtCheckin: naiveLocal(minutosAtras(90)), dtInicioAtendimento: naiveLocal(minutosAtras(80)),
+    },
+    // NAO_COMPARECEU — origem RECEPCAO, horário já passado, nunca chegou.
+    {
+      idAgendamento: 21, dtAgendamento: makeHojeAt(7, 30), duracaoMinutos: 30, dsStatus: 'NAO_COMPARECEU',
+      nmPet: 'Fifi', nmTutor: 'Gustavo Alencar', dsTipoConsulta: 'Vacinação', nrVersion: 2, ...vetBase,
+      idPet: 121, idTutor: 221, dsOrigem: 'RECEPCAO', dsEtapaRecepcao: 'NAO_COMPARECEU',
+    },
+    // CANCELADO — origem TRIAGEM_LUNA, urgência BAIXA.
+    {
+      idAgendamento: 22, dtAgendamento: makeHojeAt(16), duracaoMinutos: 30, dsStatus: 'CANCELADO',
+      nmPet: 'Duke', nmTutor: 'Helena Vidal', dsTipoConsulta: 'Consulta Geral', nrVersion: 2, ...vetBase,
+      idPet: 122, idTutor: 222, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'BAIXA',
+      dsEtapaRecepcao: 'CANCELADO',
+    },
   ];
 }
 
@@ -151,6 +277,61 @@ export async function atualizarStatus(
   }
 
   item.dsStatus = body.dsStatus ?? item.dsStatus;
+  item.nrVersion = item.nrVersion + 1;
+  // REC-12: mantém dsEtapaRecepcao coerente com o novo dsStatus para quem
+  // reler pela visão "Hoje" depois do PATCH — mesma aproximação de
+  // etapaMockParaStatus() usada na fixture inicial (não substitui a regra
+  // real do servidor, que continua sendo a única autoridade — A-3).
+  item.dsEtapaRecepcao = etapaMockParaStatus(item.dsStatus);
+
+  return { ...item };
+}
+
+// REC-12 — "Chegou" (check-in). Mesmo padrão de `atualizarStatus` acima:
+// persiste no MESMO `_store`, só simula os erros que o app precisa tratar
+// explicitamente (409 de versão, 422 de status não elegível) — a máquina de
+// estados completa continua sendo autoridade só do lado real do .NET.
+export async function checkin(config: InternalAxiosRequestConfig): Promise<AgendamentoItemApiDto> {
+  const match = config.url?.match(/\/agendamentos\/(\d+)\/checkin$/);
+  const idAgendamento = match ? Number(match[1]) : 0;
+  const body = (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as {
+    nrVersion?: number;
+  };
+
+  const store = getStore();
+  const item = store.find((a) => a.idAgendamento === idAgendamento);
+  if (!item) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Agendamento ${idAgendamento} não encontrado`,
+    });
+  }
+
+  // Idempotente (REC-11): 2º check-in devolve o estado atual sem checar
+  // versão nem sobrescrever o horário.
+  if (item.dtCheckin) {
+    return { ...item };
+  }
+
+  if (item.dsEtapaRecepcao !== 'AGENDADO' && item.dsEtapaRecepcao !== 'CONFIRMADO') {
+    return Promise.reject({
+      status: 422,
+      code: 'ETAPA_NAO_ELEGIVEL',
+      message: `Agendamento ${idAgendamento} não permite check-in no estado atual.`,
+    });
+  }
+
+  if (typeof body.nrVersion === 'number' && body.nrVersion !== item.nrVersion) {
+    return Promise.reject({
+      status: 409,
+      code: 'CONFLITO_CONCORRENCIA',
+      message: `Agendamento ${idAgendamento} foi atualizado por outro processo. Releia antes de tentar de novo.`,
+    });
+  }
+
+  item.dtCheckin = naiveLocal(new Date());
+  item.dsEtapaRecepcao = 'CHEGOU';
   item.nrVersion = item.nrVersion + 1;
 
   return { ...item };

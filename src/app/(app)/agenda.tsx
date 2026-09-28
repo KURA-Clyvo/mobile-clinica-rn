@@ -6,11 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Image,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
-import { useAgendaSemana } from '@hooks/useAgenda';
+import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStatusAgendamento } from '@hooks/useAgenda';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
@@ -30,6 +32,15 @@ import {
   isSameDay,
   isToday,
 } from '@utils/date';
+import {
+  etapaRecepcaoLabel,
+  etapaRecepcaoTone,
+  origemLabel,
+  origemTone,
+  minutosEsperando,
+  podeRegistrarChegada,
+  podeMarcarFalta,
+} from '@utils/etapaRecepcao';
 import { STRINGS } from '@constants/strings';
 import type { AgendamentoResponse } from '../../types/api';
 // FM-04 (revisão pós-medição do maestro): statusTone/statusLabel eram locais
@@ -204,7 +215,299 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 11,
       color: colors.text,
     },
+
+    // REC-12 — modo "Hoje" (toggle + cards da recepção).
+    modoToggleRow: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
+    modoBtn: {
+      flex: 1,
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 8,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    modoBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    modoBtnText: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 13,
+      color: colors.text,
+    },
+    modoBtnTextActive: {
+      color: colors.textOnPrimary,
+    },
+    hojeCard: { marginBottom: 10 },
+    hojeRow: { flexDirection: 'row', gap: 12 },
+    hojeFotoWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      overflow: 'hidden',
+      backgroundColor: colors.bgSunk,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    hojeFoto: { width: 48, height: 48 },
+    hojeContent: { flex: 1, gap: 4 },
+    hojeHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    hojePetName: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 14,
+      color: colors.text,
+      flex: 1,
+    },
+    hojeMetaText: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 12,
+      color: colors.textMute,
+    },
+    hojeEsperaText: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 12,
+      color: colors.clay,
+    },
+    hojeBadgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    hojeActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+      flexWrap: 'wrap',
+    },
+    hojeActionBtnPrimary: {
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+    },
+    hojeActionBtnSecondary: {
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    hojeActionBtnTextPrimary: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 12,
+      color: colors.textOnPrimary,
+    },
+    hojeActionBtnTextSecondary: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 12,
+      color: colors.text,
+    },
+    notaOrigem: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 11,
+      color: colors.textMute,
+      textAlign: 'center',
+      paddingTop: 8,
+      paddingBottom: 4,
+    },
   });
+
+// REC-12 — R5: nota fixa "origem registrada desde <data>". A data CERTA é a
+// de PRODUÇÃO da REC-10 (dia em que DS_ORIGEM passa a ser escrito como
+// RECEPCAO/TRIAGEM_LUNA pelo .NET, não só PORTAL pelo Java) — nunca "hoje do
+// deploy" (mostraria uma data que anda sozinha a cada rebuild, sem relação
+// com quando o dado passou a existir de verdade). No momento desta task,
+// REC-10 ainda vive em branch (`backend-clinica-dotnet`
+// `feat/rec-10-criar-agendamento`, não mesclada em `main`) — sem data real
+// de produção, `null` é o valor honesto. TODO: preencher com a data de
+// fechamento do ciclo REC quando a REC-18 (config da D-1 + smoke + seed)
+// fechar — ver `.superpowers/sdd/KURA_BACKLOG_RECEPCAO/progress.md` no repo
+// de planejamento (`dev VsClaude`) para a data exata.
+const DATA_INICIO_REGISTRO_ORIGEM: string | null = null;
+
+function notaOrigemTexto(): string {
+  return DATA_INICIO_REGISTRO_ORIGEM
+    ? `Origem registrada desde ${DATA_INICIO_REGISTRO_ORIGEM}`
+    : 'Origem registrada desde a entrada em produção deste recurso (data a confirmar)';
+}
+
+type ModoAgenda = 'semana' | 'hoje';
+
+interface ModoAgendaToggleProps {
+  modo: ModoAgenda;
+  onChange: (modo: ModoAgenda) => void;
+}
+
+// Componente-função PRÓPRIO, de propósito: `discoverInteractiveTouchables`
+// (src/a11y/) chaveia touchables por NOME DE COMPONENTE, não por posição no
+// arquivo. Se estes 2 botões vivessem soltos dentro de `AgendaScreen`, eles
+// REBINDARIAM em silêncio as chaves `AgendaScreen#1/#2/#3` (hoje
+// `btn-prev-week`/`btn-next-week`/`day-tab-*`) — exatamente o risco que o
+// comentário do walker documenta. Um componente próprio preserva as chaves
+// existentes intactas, ao custo de uma chave nova (`ModoAgendaToggle#1/#2`).
+function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  return (
+    <View style={styles.modoToggleRow}>
+      <TouchableOpacity
+        testID="btn-modo-semana"
+        accessibilityLabel="Ver agenda da semana"
+        style={[styles.modoBtn, modo === 'semana' && styles.modoBtnActive]}
+        onPress={() => onChange('semana')}
+      >
+        <Text style={[styles.modoBtnText, modo === 'semana' && styles.modoBtnTextActive]}>
+          Semana
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        testID="btn-modo-hoje"
+        accessibilityLabel="Ver agenda de hoje"
+        style={[styles.modoBtn, modo === 'hoje' && styles.modoBtnActive]}
+        onPress={() => onChange('hoje')}
+      >
+        <Text style={[styles.modoBtnText, modo === 'hoje' && styles.modoBtnTextActive]}>Hoje</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+interface AgendaHojeCardProps {
+  appointment: AgendamentoResponse;
+  onChegou: (appointment: AgendamentoResponse) => void;
+  onFaltou: (appointment: AgendamentoResponse) => void;
+  onAbrirProntuario: (appointment: AgendamentoResponse) => void;
+  pendingId?: number;
+}
+
+// Componente-função PRÓPRIO — mesma razão de `ModoAgendaToggle` acima: os 3
+// botões (Chegou/Faltou/Abrir prontuário) ganham `AgendaHojeCard#1/#2/#3`,
+// sem tocar as chaves de `AgendaAppointmentCard` (modo Semana, inalterado).
+function AgendaHojeCard({
+  appointment: a,
+  onChegou,
+  onFaltou,
+  onAbrirProntuario,
+  pendingId,
+}: AgendaHojeCardProps) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+
+  // A-3: `a.dsEtapaRecepcao` já vem PRONTA do servidor — este componente só
+  // exibe, nunca recalcula a partir de status+timestamps.
+  const etapa = a.dsEtapaRecepcao;
+  const mostrarChegou = podeRegistrarChegada(etapa);
+  const mostrarFaltou = podeMarcarFalta(etapa, a.dtInicio);
+  // A-6: tempo de espera é POR LINHA, calculado na tela a partir de
+  // `dtCheckin` — nunca agregado, nunca a partir de outro relógio.
+  const espera = etapa === 'CHEGOU' && a.dtCheckin ? minutosEsperando(a.dtCheckin) : null;
+  const pendente = pendingId === a.id;
+
+  return (
+    <KCCard style={styles.hojeCard} testID="agenda-hoje-card">
+      <View style={styles.hojeRow}>
+        <View style={styles.hojeFotoWrap}>
+          {a.dsFotoThumbUrl ? (
+            <Image
+              source={{ uri: a.dsFotoThumbUrl }}
+              style={styles.hojeFoto}
+              testID={`foto-pet-${a.id}`}
+              accessibilityLabel={`Foto de ${a.pet.nmPet}`}
+            />
+          ) : (
+            <KCIcon name="paw" size={22} color={colors.textMute} />
+          )}
+        </View>
+        <View style={styles.hojeContent}>
+          <View style={styles.hojeHeaderRow}>
+            <Text style={styles.hojePetName} numberOfLines={1}>
+              {a.pet.nmPet}
+            </Text>
+            <Text style={styles.hojeMetaText}>{formatTime(a.dtInicio)}</Text>
+          </View>
+          <Text style={styles.hojeMetaText} numberOfLines={1}>
+            {a.tutor.nmTutor} · {a.veterinario.nmVeterinario}
+          </Text>
+          <View style={styles.hojeBadgeRow}>
+            <KCChip tone={etapaRecepcaoTone(etapa)} testID={`etapa-${a.id}`}>
+              {etapaRecepcaoLabel(etapa)}
+            </KCChip>
+            <KCChip
+              tone={origemTone(a.dsOrigem, a.dsNivelUrgenciaOrigem)}
+              testID={`origem-${a.id}`}
+            >
+              {origemLabel(a.dsOrigem)}
+            </KCChip>
+          </View>
+          {espera !== null && (
+            <Text style={styles.hojeEsperaText} testID={`espera-${a.id}`}>
+              Esperando há {espera} min
+            </Text>
+          )}
+          <View style={styles.hojeActionsRow}>
+            {mostrarChegou && (
+              <TouchableOpacity
+                style={styles.hojeActionBtnPrimary}
+                onPress={() => onChegou(a)}
+                disabled={pendente}
+                testID={`btn-chegou-${a.id}`}
+                accessibilityLabel={`Registrar chegada de ${a.pet.nmPet}`}
+              >
+                <Text style={styles.hojeActionBtnTextPrimary}>Chegou</Text>
+              </TouchableOpacity>
+            )}
+            {mostrarFaltou && (
+              <TouchableOpacity
+                style={styles.hojeActionBtnSecondary}
+                onPress={() => onFaltou(a)}
+                disabled={pendente}
+                testID={`btn-faltou-${a.id}`}
+                accessibilityLabel={`Registrar falta de ${a.pet.nmPet}`}
+              >
+                <Text style={styles.hojeActionBtnTextSecondary}>Faltou</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={styles.hojeActionBtnSecondary}
+              onPress={() => onAbrirProntuario(a)}
+              testID={`btn-abrir-prontuario-${a.id}`}
+              accessibilityLabel={`Abrir prontuário de ${a.pet.nmPet}`}
+            >
+              <Text style={styles.hojeActionBtnTextSecondary}>Prontuário</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </KCCard>
+  );
+}
 
 interface AgendaAppointmentCardProps {
   appointment: AgendamentoResponse;
@@ -284,6 +587,12 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
 export default function AgendaScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const router = useRouter();
+
+  // REC-12 — R1: modo aditivo, default 'semana' PRESERVA o comportamento
+  // existente (a suíte pré-REC-12 nunca pressiona um toggle, então precisa
+  // continuar vendo o modo Semana sem precisar de nenhuma ação extra).
+  const [modo, setModo] = React.useState<ModoAgenda>('semana');
 
   const [semanaBase, setSemanaBase] = React.useState(() => new Date());
   const [selectedDay, setSelectedDay] = React.useState(() => new Date());
@@ -294,6 +603,92 @@ export default function AgendaScreen() {
     React.useState<AgendamentoResponse | null>(null);
 
   const { data, isLoading, semanaStart, semanaEnd, refetch } = useAgendaSemana(semanaBase);
+
+  // REC-12 — hooks sempre chamados incondicionalmente (regra dos hooks),
+  // mesmo quando `modo === 'semana'` — mesmo padrão já usado por
+  // `AgendamentoStatusMenu` (sempre montado, `visible=false` quando não
+  // deveria aparecer). `dataHoje` não é usado fora do modo 'hoje'.
+  const {
+    data: dataHoje,
+    isLoading: isLoadingHoje,
+    refetch: refetchHoje,
+  } = useAgendaHoje();
+  const checkinMutation = useCheckinAgendamento();
+  const faltouMutation = useAtualizarStatusAgendamento();
+  const [pendingHojeId, setPendingHojeId] = React.useState<number | undefined>(undefined);
+
+  const appointmentsHoje = React.useMemo(() => {
+    if (!dataHoje) return [];
+    return [...dataHoje].sort(
+      (a, b) => new Date(a.dtInicio).getTime() - new Date(b.dtInicio).getTime(),
+    );
+  }, [dataHoje]);
+
+  const [refreshingHoje, setRefreshingHoje] = React.useState(false);
+  const onRefreshHoje = React.useCallback(async () => {
+    setRefreshingHoje(true);
+    await refetchHoje();
+    setRefreshingHoje(false);
+  }, [refetchHoje]);
+
+  // m-7 (g2-rec09.md): a resposta do POST/PATCH não tem foto/urgência — a
+  // mutação NUNCA usa o valor de retorno como estado da linha; `onSettled`
+  // (dentro dos hooks, useAgenda.ts) já invalida a query e o refetch traz a
+  // linha completa de novo. Aqui só tratamos sucesso/erro pra dar feedback.
+  const handleChegou = (a: AgendamentoResponse) => {
+    setPendingHojeId(a.id);
+    checkinMutation.mutate(
+      { idAgendamento: a.id, nrVersion: a.nrVersion },
+      {
+        onSettled: () => setPendingHojeId(undefined),
+        onError: (err: unknown) => {
+          const apiErr = err as { status?: number; message?: string };
+          if (apiErr.status === 409) {
+            Alert.alert(
+              'Agendamento desatualizado',
+              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+            );
+          } else {
+            Alert.alert(
+              'Não foi possível registrar a chegada',
+              apiErr.message ?? 'Tente novamente em instantes.',
+            );
+          }
+        },
+      },
+    );
+  };
+
+  const handleFaltou = (a: AgendamentoResponse) => {
+    setPendingHojeId(a.id);
+    faltouMutation.mutate(
+      { idAgendamento: a.id, dsStatus: 'NAO_COMPARECEU', nrVersion: a.nrVersion },
+      {
+        onSettled: () => setPendingHojeId(undefined),
+        onError: (err: unknown) => {
+          const apiErr = err as { status?: number; message?: string };
+          if (apiErr.status === 409) {
+            Alert.alert(
+              'Agendamento desatualizado',
+              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+            );
+          } else {
+            Alert.alert(
+              'Não foi possível registrar a falta',
+              apiErr.message ?? 'Tente novamente em instantes.',
+            );
+          }
+        },
+      },
+    );
+  };
+
+  // REC-13 (fora do escopo desta task — aqui só a navegação, ver brief:
+  // "a linha abre consulta/[idPet]?idAgendamento=…"). A chamada real de
+  // `/inicio-atendimento` ao montar é da REC-13, não desta task.
+  const handleAbrirProntuario = (a: AgendamentoResponse) => {
+    router.push(ROUTES.app.consulta(a.pet.id, a.id));
+  };
 
   const weekDays = React.useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(semanaStart, i)),
@@ -346,120 +741,178 @@ export default function AgendaScreen() {
     // primitiva agora tem a prop `edges` (ver ScreenContainer.tsx) pra
     // restaurar isso caso vire regressão visível de verdade.
     <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
-      <View style={styles.weekNav}>
-        <TouchableOpacity
-          onPress={goToPrevWeek}
-          testID="btn-prev-week"
-          style={styles.navBtn}
-          accessibilityLabel={STRINGS.agenda.semanaAnterior}
-        >
-          <KCIcon name="back" size={20} color={colors.primary} />
-        </TouchableOpacity>
-        <Text style={styles.weekRange} testID="week-range">
-          {formatWeekRange(semanaStart, semanaEnd)}
-        </Text>
-        <TouchableOpacity
-          onPress={goToNextWeek}
-          testID="btn-next-week"
-          style={styles.navBtn}
-          accessibilityLabel={STRINGS.agenda.proximaSemana}
-        >
-          <KCIcon name="arrowR" size={20} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <ModoAgendaToggle modo={modo} onChange={setModo} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.dayTabsScroll}
-        contentContainerStyle={styles.dayTabsContent}
-      >
-        {weekDays.map((day, i) => {
-          const selected = isSameDay(day, selectedDay);
-          const today = isToday(day);
-          return (
+      {modo === 'semana' && (
+        <>
+          <View style={styles.weekNav}>
             <TouchableOpacity
-              key={i}
-              onPress={() => setSelectedDay(day)}
-              testID={`day-tab-${i}`}
-              style={[styles.dayTab, selected && styles.dayTabSelected]}
-              activeOpacity={0.75}
+              onPress={goToPrevWeek}
+              testID="btn-prev-week"
+              style={styles.navBtn}
+              accessibilityLabel={STRINGS.agenda.semanaAnterior}
             >
-              <Text
-                style={[
-                  styles.dayLabel,
-                  selected && styles.dayLabelSelected,
-                  today && !selected && styles.dayLabelToday,
-                ]}
-              >
-                {getDayLabel(day)}
-              </Text>
-              <Text
-                style={[
-                  styles.dayNumber,
-                  selected && styles.dayNumberSelected,
-                  today && !selected && styles.dayNumberToday,
-                ]}
-              >
-                {getDayNumber(day)}
-              </Text>
-              {today && (
-                <View style={[styles.todayDot, selected && styles.todayDotSelected]} />
-              )}
+              <KCIcon name="back" size={20} color={colors.primary} />
             </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            <Text style={styles.weekRange} testID="week-range">
+              {formatWeekRange(semanaStart, semanaEnd)}
+            </Text>
+            <TouchableOpacity
+              onPress={goToNextWeek}
+              testID="btn-next-week"
+              style={styles.navBtn}
+              accessibilityLabel={STRINGS.agenda.proximaSemana}
+            >
+              <KCIcon name="arrowR" size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
 
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
-          />
-        }
-      >
-        {isLoading ? (
-          <>
-            {[0, 1, 2, 3].map((i) => (
-              <View
-                key={i}
-                testID="skeleton"
-                style={[styles.skeletonRow, { backgroundColor: colors.border }]}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.dayTabsScroll}
+            contentContainerStyle={styles.dayTabsContent}
+          >
+            {weekDays.map((day, i) => {
+              const selected = isSameDay(day, selectedDay);
+              const today = isToday(day);
+              return (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => setSelectedDay(day)}
+                  testID={`day-tab-${i}`}
+                  style={[styles.dayTab, selected && styles.dayTabSelected]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.dayLabel,
+                      selected && styles.dayLabelSelected,
+                      today && !selected && styles.dayLabelToday,
+                    ]}
+                  >
+                    {getDayLabel(day)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.dayNumber,
+                      selected && styles.dayNumberSelected,
+                      today && !selected && styles.dayNumberToday,
+                    ]}
+                  >
+                    {getDayNumber(day)}
+                  </Text>
+                  {today && (
+                    <View style={[styles.todayDot, selected && styles.todayDotSelected]} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
               />
-            ))}
-          </>
-        ) : appointmentsForDay.length === 0 ? (
-          <KCEmptyState
-            icon="agenda"
-            title={STRINGS.agenda.semConsultas}
-            description={STRINGS.agenda.semConsultasDesc}
-            testID="empty-agenda"
-          />
-        ) : (
-          appointmentsForDay.map((a) => (
-            <AgendaAppointmentCard
-              key={a.id}
-              appointment={a}
-              onAbrirStatusMenu={setStatusMenuAppointment}
-            />
-          ))
-        )}
-      </ScrollView>
+            }
+          >
+            {isLoading ? (
+              <>
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    testID="skeleton"
+                    style={[styles.skeletonRow, { backgroundColor: colors.border }]}
+                  />
+                ))}
+              </>
+            ) : appointmentsForDay.length === 0 ? (
+              <KCEmptyState
+                icon="agenda"
+                title={STRINGS.agenda.semConsultas}
+                description={STRINGS.agenda.semConsultasDesc}
+                testID="empty-agenda"
+              />
+            ) : (
+              appointmentsForDay.map((a) => (
+                <AgendaAppointmentCard
+                  key={a.id}
+                  appointment={a}
+                  onAbrirStatusMenu={setStatusMenuAppointment}
+                />
+              ))
+            )}
+          </ScrollView>
 
-      <AgendamentoStatusMenu
-        visible={statusMenuAppointment !== null}
-        onClose={() => setStatusMenuAppointment(null)}
-        idAgendamento={statusMenuAppointment?.id ?? 0}
-        nrVersion={statusMenuAppointment?.nrVersion ?? 0}
-        dsStatusOrigem={statusMenuAppointment?.dsStatusOrigem ?? ''}
-        nmPet={statusMenuAppointment?.pet.nmPet ?? ''}
-      />
+          <AgendamentoStatusMenu
+            visible={statusMenuAppointment !== null}
+            onClose={() => setStatusMenuAppointment(null)}
+            idAgendamento={statusMenuAppointment?.id ?? 0}
+            nrVersion={statusMenuAppointment?.nrVersion ?? 0}
+            dsStatusOrigem={statusMenuAppointment?.dsStatusOrigem ?? ''}
+            nmPet={statusMenuAppointment?.pet.nmPet ?? ''}
+          />
+        </>
+      )}
+
+      {modo === 'hoje' && (
+        <ScrollView
+          testID="agenda-hoje-lista"
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshingHoje}
+              onRefresh={onRefreshHoje}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
+        >
+          {isLoadingHoje ? (
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <View
+                  key={i}
+                  testID="skeleton"
+                  style={[styles.skeletonRow, { backgroundColor: colors.border }]}
+                />
+              ))}
+            </>
+          ) : appointmentsHoje.length === 0 ? (
+            <KCEmptyState
+              icon="agenda"
+              title={STRINGS.agenda.semConsultas}
+              description={STRINGS.agenda.semConsultasDesc}
+              testID="empty-agenda"
+            />
+          ) : (
+            <>
+              {appointmentsHoje.map((a) => (
+                <AgendaHojeCard
+                  key={a.id}
+                  appointment={a}
+                  onChegou={handleChegou}
+                  onFaltou={handleFaltou}
+                  onAbrirProntuario={handleAbrirProntuario}
+                  pendingId={pendingHojeId}
+                />
+              ))}
+              <Text style={styles.notaOrigem} testID="nota-origem-hoje">
+                {notaOrigemTexto()}
+              </Text>
+            </>
+          )}
+        </ScrollView>
+      )}
     </ScreenContainer>
   );
 }
