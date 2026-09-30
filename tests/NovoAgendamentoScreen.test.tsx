@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import NovoAgendamentoScreen from '../src/app/(app)/agenda-novo';
 import { ID_PET_MOCK_NAO_VINCULADO_AO_TUTOR, __resetStoreParaTeste } from '../src/mocks/agenda.mock';
+import { getAgenda } from '../src/services/agenda.service';
+import { formatDateISO } from '../src/utils/date';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -63,6 +65,29 @@ afterEach(() => {
 // vinculado a esse tutor no mock) -> veterinário (Dr. Felipe Ferrete, id 1) -> tipo
 // (CONSULTA). Data/hora fica no default (agora) — suficiente pro servidor real (tolerância
 // de 15 min de encaixe).
+// A store do mock (agenda.mock.ts) grava `dtAgendamento` como "agora" (hora local do
+// aparelho no momento em que a tela montou) — consultar a agenda de HOJE (mesma rota
+// que `useAgendaHoje`/`AgendaHojeCard` usam de verdade) é a forma de provar o aceite
+// LITERAL do backlog ("o agendamento criado pelo card aparece na Hoje com o selo
+// TRIAGEM_LUNA e a urgência"), não só que a tela de sucesso apareceu — a tela de
+// sucesso aparece IGUALMENTE com `dsOrigem` errado, então ela sozinha não distingue.
+async function buscarAgendamentoCriadoHoje(nmPet: string, idVeterinario: number) {
+  const hoje = formatDateISO(new Date());
+  const agendamentos = await getAgenda({ dataInicio: hoje, dataFim: hoje });
+  // `agenda.mock.ts::buildAppointments`/`buildTodayReceptionAppointments` já semeiam
+  // agendamentos fixos na semana corrente (inclusive um "Rex"/vet 1 pré-existente, que
+  // PODE cair em "hoje" dependendo do dia da semana em que a suíte rodar — medido: sem
+  // este filtro por id, o teste pegava esse fixture antigo em vez do que acabou de ser
+  // criado). O item criado por `criarAgendamento` (agenda.mock.ts) sempre nasce com
+  // `idAgendamento` a partir de 9000 (`_proximoIdAgendamentoCriado`), estritamente maior
+  // que qualquer id de seed — pegar o de MAIOR id entre os que batem pet+vet isola o
+  // item de verdade desta chamada, sem depender do dia da semana.
+  const candidatos = agendamentos.filter(
+    (a) => a.pet.nmPet === nmPet && a.veterinario.id === idVeterinario,
+  );
+  return candidatos.sort((a, b) => b.id - a.id)[0];
+}
+
 async function preencherFormularioCompleto(getByTestId: ReturnType<typeof render>['getByTestId']) {
   fireEvent.changeText(getByTestId('search-tutor-novo-agendamento'), 'Ana Beatriz');
   await waitFor(() => expect(getByTestId('tutor-opcao-201')).toBeTruthy());
@@ -130,10 +155,21 @@ describe('NovoAgendamentoScreen', () => {
       fireEvent.press(getByTestId('btn-salvar-agendamento'));
     });
 
-    // O selo TRIAGEM_LUNA (dsOrigem) só nasce se o servidor recebeu idTriagemOrigem —
-    // provado indiretamente pela tela de sucesso aparecer sem erro 404/422 (o mock
-    // exige que a triagem 501 pertença ao tutor 201, que é exatamente o caso aqui).
     await waitFor(() => expect(getByTestId('btn-voltar-agenda-novo')).toBeTruthy());
+
+    // PROVA DIRETA do aceite literal do backlog ("o agendamento criado pelo card
+    // aparece na Hoje com o selo TRIAGEM_LUNA e a urgência") — lê de volta pela MESMA
+    // rota que a agenda "Hoje" usa (getAgenda), não só confere que a tela não quebrou.
+    // Achado do maestro (G0 desta rodada): a versão anterior deste teste só conferia a
+    // tela de sucesso, que aparece IGUALMENTE se `idTriagemOrigem` for descartado (o
+    // mock cai em `dsOrigem: 'RECEPCAO'` sem erro nenhum) — reproduzido ao vivo,
+    // `EXIT=0` numa mutação que deveria ter dado `EXIT=1`. A asserção abaixo fecha o
+    // buraco: urgência 'ALTA' é o valor exato de `luna.mock.ts::TRIAGENS_FIXTURE`
+    // (idTriagem 501).
+    const criado = await buscarAgendamentoCriadoHoje('Rex', 1);
+    expect(criado).toBeDefined();
+    expect(criado?.dsOrigem).toBe('TRIAGEM_LUNA');
+    expect(criado?.dsNivelUrgenciaOrigem).toBe('ALTA');
   });
 
   it('opened from the patient record (idPet): pet AND tutor are locked (tutor derived from the pet owner)', async () => {
@@ -161,6 +197,16 @@ describe('NovoAgendamentoScreen', () => {
       fireEvent.press(getByTestId('btn-salvar-agendamento'));
     });
     await waitFor(() => expect(getByTestId('btn-voltar-agenda-novo')).toBeTruthy());
+
+    // Mesma prova direta do teste irmão (origem TRIAGEM_LUNA) — o lado oposto: sem
+    // parâmetro de triagem na rota, a leitura de volta pela agenda "Hoje" tem que
+    // mostrar `dsOrigem: 'RECEPCAO'` e NENHUMA urgência de origem, não só "a tela não
+    // quebrou" (que aconteceria mesmo se o campo fosse mandado por engano, contanto
+    // que a triagem 501 realmente pertencesse ao tutor 201 usado aqui).
+    const criado = await buscarAgendamentoCriadoHoje('Rex', 1);
+    expect(criado).toBeDefined();
+    expect(criado?.dsOrigem).toBe('RECEPCAO');
+    expect(criado?.dsNivelUrgenciaOrigem).toBeUndefined();
   });
 
   it('"Encaixe agora" creates the appointment with the current time AND checks the patient in, in the same gesture', async () => {
