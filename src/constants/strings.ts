@@ -191,6 +191,10 @@ export const STRINGS = {
       'Esta triagem não tem um tutor cadastrado. Cadastre o tutor antes de agendar.',
     CADASTRAR_TUTOR: 'Cadastrar tutor',
     ERRO_GENERICO: 'Não foi possível criar o agendamento. Tente novamente.',
+    // G2/A-1 — "Encaixe agora": o agendamento foi criado, mas o check-in (2ª chamada
+    // encadeada) falhou — nunca mostrar o texto de sucesso pleno nesse caso.
+    CHECKIN_FALHOU_TITULO: 'Agendamento criado, mas a chegada não foi registrada',
+    CHECKIN_FALHOU_DESC: 'Confira o agendamento na agenda e registre a chegada por lá.',
   },
   erros: {
     generico: 'Algo deu errado. Tente novamente.',

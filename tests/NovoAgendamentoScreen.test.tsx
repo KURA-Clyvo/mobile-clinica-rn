@@ -12,6 +12,23 @@ import { ID_PET_MOCK_NAO_VINCULADO_AO_TUTOR, __resetStoreParaTeste } from '../sr
 import { getAgenda } from '../src/services/agenda.service';
 import { formatDateISO } from '../src/utils/date';
 
+// G2/A-1 — tudo em `@services/agenda.service` continua REAL (mesmo padrão de
+// `LunaScreen.test.tsx::jest.mock('@services/tutores.service', ...)`) — só
+// `checkinAgendamento` vira um `jest.fn()` controlável, para o teste de "Encaixe
+// agora" poder provar o caminho de ERRO do check-in (o `useCheckinAgendamento` real
+// importa esta função por nome; sobrescrevê-la aqui é o único jeito de fazer a 2ª
+// chamada da cadeia falhar SEM inventar um id de agendamento que não existiria na UI
+// de verdade — a mutação da G2, `idAgendamento: 999999`, não reproduz nenhum caminho
+// real de produção; um 409 de `nrVersion` desatualizado é o caso plausível de
+// verdade, e é esse que este mock simula). Default (`beforeEach` abaixo): repassa pro
+// `checkinAgendamento` REAL, então todo teste que não mexe nisto continua batendo na
+// cadeia real de mock inalterada.
+const mockCheckinAgendamento = jest.fn();
+jest.mock('@services/agenda.service', () => ({
+  ...jest.requireActual('@services/agenda.service'),
+  checkinAgendamento: (...args: unknown[]) => mockCheckinAgendamento(...args),
+}));
+
 const mockPush = jest.fn();
 const mockBack = jest.fn();
 let mockSearchParams: Record<string, string> = {};
@@ -55,6 +72,12 @@ beforeEach(() => {
   process.env.EXPO_PUBLIC_USE_MOCKS = 'true';
   mockSearchParams = {};
   __resetStoreParaTeste();
+  // Default: repassa pro checkinAgendamento REAL (cadeia real de mock). Só o teste de
+  // "check-in falha" (G2/A-1) sobrescreve isto com `.mockImplementationOnce`.
+  mockCheckinAgendamento.mockImplementation(
+    (idAgendamento: number, req: { nrVersion: number }) =>
+      jest.requireActual('@services/agenda.service').checkinAgendamento(idAgendamento, req),
+  );
 });
 
 afterEach(() => {
@@ -210,7 +233,7 @@ describe('NovoAgendamentoScreen', () => {
   });
 
   it('"Encaixe agora" creates the appointment with the current time AND checks the patient in, in the same gesture', async () => {
-    const { getByTestId } = wrap(<NovoAgendamentoScreen />);
+    const { getByTestId, queryByTestId } = wrap(<NovoAgendamentoScreen />);
     await preencherFormularioCompleto(getByTestId);
 
     await act(async () => {
@@ -218,6 +241,49 @@ describe('NovoAgendamentoScreen', () => {
     });
 
     await waitFor(() => expect(getByTestId('btn-voltar-agenda-novo')).toBeTruthy());
+    // G2/S2 promovido a asserção (achado A-1): a tela de sucesso sozinha não prova que
+    // o check-in SURTIU EFEITO — só que "alguma chamada foi disparada". Lê de volta
+    // pela mesma rota real da agenda "Hoje" e confere `dtCheckin` preenchido e a etapa
+    // `CHEGOU` (não só "AGENDADO"), E que o aviso de check-in falhou NÃO aparece.
+    const criado = await buscarAgendamentoCriadoHoje('Rex', 1);
+    expect(criado?.dtCheckin).toBeTruthy();
+    expect(criado?.dsEtapaRecepcao).toBe('CHEGOU');
+    expect(queryByTestId('aviso-checkin-falhou')).toBeNull();
+  });
+
+  // G2/A-1 — a mordida que faltava: "Encaixe agora" cria o agendamento com sucesso,
+  // mas o CHECK-IN (2ª chamada encadeada) falha (409 de nrVersion desatualizado é o
+  // cenário plausível de verdade — corrida com a agenda aberta em outro aparelho).
+  // Antes do fix, `onSettled` mostrava "Agendamento criado com sucesso!" nos dois
+  // casos — a recepção saía da tela achando que a chegada tinha sido registrada.
+  it('G2/A-1 — MORDIDA: if check-in fails after the appointment is created, shows a specific warning (never the full-success text), and dtCheckin stays empty', async () => {
+    mockCheckinAgendamento.mockImplementationOnce(() =>
+      Promise.reject({
+        status: 409,
+        code: 'CONFLITO_CONCORRENCIA',
+        message: 'Agendamento foi atualizado por outro processo. Releia antes de tentar de novo.',
+      }),
+    );
+
+    const { getByTestId, queryByText } = wrap(<NovoAgendamentoScreen />);
+    await preencherFormularioCompleto(getByTestId);
+
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-encaixe-agora'));
+    });
+
+    const aviso = await waitFor(() => getByTestId('aviso-checkin-falhou'));
+    expect(aviso).toBeTruthy();
+    // NUNCA o texto de sucesso pleno — a recepção não pode ler isto como "chegada
+    // registrada" quando ela não foi.
+    expect(queryByText('Agendamento criado com sucesso!')).toBeNull();
+
+    // Prova que o app não FINGE que o check-in aconteceu: o agendamento FOI criado
+    // (dsStatus AGENDADO), mas dtCheckin continua vazio e a etapa não avançou.
+    const criado = await buscarAgendamentoCriadoHoje('Rex', 1);
+    expect(criado).toBeDefined();
+    expect(criado?.dtCheckin).toBeFalsy();
+    expect(criado?.dsEtapaRecepcao).toBe('AGENDADO');
   });
 
   it('a 422 error (pet not linked to the tutor) shows a visible message and does not crash or navigate away', async () => {

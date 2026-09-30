@@ -431,11 +431,20 @@ let _proximoIdAgendamentoCriado = 9000;
 
 // REC-14 — POST /api/v1/agendamentos. Espelha `AgendamentoCreateValidator.cs` (forma) e
 // `AgendaService.CriarAsync` (regras relacionais + tolerância de encaixe) — ver o PIN de
-// contrato cross-repo em `agenda.service.ts::criarAgendamento`. Ordem das checagens
-// replica a ordem real do service: tutor -> pet -> vínculo -> veterinário -> triagem de
-// origem -> tolerância de horário -> forma (tipo/duração/observações) — na prática pouco
-// importa pra este mock (nenhum teste depende da ORDEM dos 4xx), mas manter a mesma ordem
-// facilita comparar os dois lados quando o contrato mudar de novo.
+// contrato cross-repo em `agenda.service.ts::criarAgendamento`.
+//
+// 🟡 G2/M-1 — CORREÇÃO: este comentário afirmava que a ordem abaixo (tutor -> pet ->
+// vínculo -> veterinário -> triagem de origem -> tolerância de horário -> forma
+// tipo/duração/observações/fuso) "replica a ordem real do service". Isso é verdade
+// SOBRE O SERVICE, mas FALSO sobre o ENDPOINT: `Program.cs:61` liga
+// `AddFluentValidationAutoValidation()`, que roda `AgendamentoCreateValidator` como
+// filtro de model-validation ANTES da action — no servidor real, TODO 400 de forma
+// precede QUALQUER 404/422 relacional. Este mock põe os 400 por ÚLTIMO. Não corrigido
+// nesta fix wave (nenhum teste depende da ordem hoje — a UI nunca envia um payload que
+// falhe nos dois ao mesmo tempo, já que `dsTipo` vem de lista fechada de chips e
+// `dtAgendamento` é sempre gerado por `formatDateTimeLocalSemFuso`) — só o texto que
+// mentia foi corrigido. Se algum dia um teste depender da ordem, reordenar de verdade
+// (mover o bloco de forma para o topo) é o fix certo, não outro comentário.
 export async function criarAgendamento(
   config: InternalAxiosRequestConfig,
 ): Promise<AgendamentoItemApiDto> {
@@ -499,6 +508,27 @@ export async function criarAgendamento(
       });
     }
     dsNivelUrgenciaOrigem = triagem.urgencia;
+  }
+
+  // G2/A-3 — `AgendamentoCreateValidator.cs` recusa com 400 EXPLÍCITO qualquer
+  // `DtAgendamento` cujo `Kind` não seja `Unspecified` (o comentário do validator real
+  // cita exatamente `Date.toISOString()` do RN como o cliente mais provável de errar
+  // isso). Este mock não tinha NENHUMA checagem equivalente — `new Date(...)` aceita
+  // "Z"/offset silenciosamente, então um regresso que trocasse
+  // `formatDateTimeLocalSemFuso` por `toISOString()` na tela passaria 100% verde em
+  // modo mock enquanto o `.NET` real devolveria 400 em TODO agendamento. Mesma forma
+  // de detecção usada pelo validator (ausência de sufixo de fuso), sem reimplementar
+  // `DateTimeKind` (que não existe em JS): checagem textual no CORPO CRU, antes de
+  // `new Date(...)` normalizar a diferença.
+  if (/(Z|[+-]\d{2}:?\d{2})$/.test(body.dtAgendamento)) {
+    return Promise.reject({
+      status: 400,
+      code: 'VALIDACAO',
+      message:
+        "'DtAgendamento' deve ser enviado como hora local de São Paulo, sem fuso " +
+        "(sem 'Z' e sem offset, ex.: '2026-10-07T09:00:00') — 'Z'/offset indicam " +
+        'que o cliente está mandando UTC ou outro fuso, o que grava a hora errada.',
+    });
   }
 
   const agora = new Date();

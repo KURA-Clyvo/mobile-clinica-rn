@@ -157,6 +157,16 @@ describe('PatientDetailScreen', () => {
     expect(mockPush).toHaveBeenCalledWith('/consulta/1');
   });
 
+  // G2/A-2 — REC-14: o ponto de entrada "Agendar" pela ficha do paciente não tinha
+  // NENHUM teste. A G2 mediu que um `onPress` vazio (botão morto) OU um push sem
+  // `idPet` (formulário abre em branco, perdendo o pet e o tutor travados) passavam
+  // pela suíte inteira sem nenhuma falha — este teste fecha os dois casos.
+  it('G2/A-2 — navigates to the appointment form WITH idPet on "Agendar" button tap', () => {
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+    fireEvent.press(getByTestId('btn-agendar'));
+    expect(mockPush).toHaveBeenCalledWith('/agenda-novo?idPet=1');
+  });
+
   // 🔴 FM-01 — o par positivo/negativo. O teste acima prova que o veterinário
   // VÊ a ação; sem este, "o botão existe" seria indistinguível de "o botão
   // existe para todo mundo", e o esconder-para-gestor não estaria provado.

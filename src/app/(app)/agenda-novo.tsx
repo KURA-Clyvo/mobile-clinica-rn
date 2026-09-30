@@ -142,6 +142,14 @@ export default function NovoAgendamentoScreen() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [erroServidor, setErroServidor] = useState<string | null>(null);
   const [salvo, setSalvo] = useState(false);
+  // G2/A-1 — "Encaixe agora" encadeia 2 chamadas (criar + checkin); o `onSettled` do
+  // checkin rodava TANTO no sucesso quanto no erro, e os dois caiam na MESMA tela de
+  // "Agendamento criado com sucesso!" — um check-in que falha (404/409/422; o 409 de
+  // `nrVersion` é plausível de verdade, corrida com a agenda aberta em outro
+  // aparelho) ficava SILENCIADO, e a recepção saía da tela achando que a chegada
+  // tinha sido registrada. Este flag distingue os 2 desfechos na MESMA tela de
+  // sucesso (o agendamento FOI criado nos dois casos — só o check-in que não).
+  const [checkinFalhou, setCheckinFalhou] = useState(false);
 
   const { mutate: criar, isPending: salvando } = useCriarAgendamento();
   const { mutate: checkin, isPending: fazendoCheckin } = useCheckinAgendamento();
@@ -151,6 +159,7 @@ export default function NovoAgendamentoScreen() {
       return () => {
         setErroServidor(null);
         setSalvo(false);
+        setCheckinFalhou(false);
       };
     }, []),
   );
@@ -264,16 +273,24 @@ export default function NovoAgendamentoScreen() {
   const handleEncaixeAgora = () => {
     if (!idTutor || !idPet || !idVeterinario || !dsTipo || observacoesExcedeu) return;
     setErroServidor(null);
+    setCheckinFalhou(false);
     const agora = new Date();
     setDtAgendamento(agora);
     criar(
       { ...montarDto(), dtAgendamento: formatDateTimeLocalSemFuso(agora) },
       {
         onSuccess: (agendamento) => {
+          // G2/A-1 — sucesso e erro do check-in NÃO podem levar à mesma afirmação: o
+          // agendamento foi criado nos 2 casos, mas só no sucesso a chegada foi
+          // REGISTRADA de verdade. `onSettled` antigo escondia essa diferença.
           checkin(
             { idAgendamento: agendamento.id, nrVersion: agendamento.nrVersion },
             {
-              onSettled: () => setSalvo(true),
+              onSuccess: () => setSalvo(true),
+              onError: () => {
+                setCheckinFalhou(true);
+                setSalvo(true);
+              },
             },
           );
         },
@@ -289,7 +306,16 @@ export default function NovoAgendamentoScreen() {
       <ScreenContainer>
         <View style={styles.section}>
           <KCIcon name="check" size={40} color={colors.success} />
-          <Text style={styles.title}>Agendamento criado com sucesso!</Text>
+          {checkinFalhou ? (
+            <>
+              <Text style={styles.title} testID="aviso-checkin-falhou">
+                {STRINGS.AGENDA_NOVO.CHECKIN_FALHOU_TITULO}
+              </Text>
+              <Text style={styles.subtitulo}>{STRINGS.AGENDA_NOVO.CHECKIN_FALHOU_DESC}</Text>
+            </>
+          ) : (
+            <Text style={styles.title}>Agendamento criado com sucesso!</Text>
+          )}
           <KCButton
             variant="secondary"
             onPress={() => router.push(ROUTES.app.agenda)}
