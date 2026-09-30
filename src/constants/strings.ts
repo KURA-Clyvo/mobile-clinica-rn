@@ -159,6 +159,13 @@ export const STRINGS = {
     // por `getByText('Nenhuma consulta neste dia')` literal.
     semConsultas: 'Nenhuma consulta neste dia',
     semConsultasDesc: 'Toque em outro dia da semana ou aguarde novos agendamentos.',
+    // Fix wave G2 (m-3): erro de rede no modo "Hoje" tinha o MESMO texto do
+    // estado vazio legítimo ("nenhuma consulta") — a recepção não conseguia
+    // distinguir "não há consulta" de "a chamada falhou". Estado próprio,
+    // com ação de retry.
+    erroHojeTitulo: 'Não foi possível carregar a agenda de hoje',
+    erroHojeDesc: 'Verifique sua conexão e tente novamente.',
+    tentarNovamente: 'Tentar de novo',
   },
   erros: {
     generico: 'Algo deu errado. Tente novamente.',

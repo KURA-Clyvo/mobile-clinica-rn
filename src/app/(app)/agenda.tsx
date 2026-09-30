@@ -37,6 +37,7 @@ import {
   etapaRecepcaoTone,
   origemLabel,
   origemTone,
+  origemUrgenciaLabel,
   minutosEsperando,
   podeRegistrarChegada,
   podeMarcarFalta,
@@ -337,6 +338,45 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingTop: 8,
       paddingBottom: 4,
     },
+
+    // Fix wave G2 (m-3) — estado de erro do modo "Hoje", distinto do estado
+    // vazio legítimo (KCEmptyState acima): um erro de rede não pode dizer
+    // "nenhuma consulta", que é uma afirmação falsa sobre o dia.
+    hojeErroContainer: {
+      alignItems: 'center',
+      paddingVertical: 32,
+      paddingHorizontal: 24,
+    },
+    hojeErroTitulo: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 15,
+      color: colors.text,
+      textAlign: 'center',
+      marginTop: 12,
+    },
+    hojeErroDesc: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textMute,
+      textAlign: 'center',
+      marginTop: 4,
+    },
+    hojeErroBtn: {
+      marginTop: 16,
+      minHeight: 44,
+      minWidth: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+    },
+    hojeErroBtnText: {
+      fontFamily: 'Lexend_500Medium',
+      fontSize: 13,
+      color: colors.textOnPrimary,
+    },
   });
 
 // REC-12 — R5: nota fixa "origem registrada desde <data>". A data CERTA é a
@@ -430,19 +470,43 @@ function AgendaHojeCard({
   const espera = etapa === 'CHEGOU' && a.dtCheckin ? minutosEsperando(a.dtCheckin) : null;
   const pendente = pendingId === a.id;
 
+  // Fix wave G2 (m-9, WCAG 1.4.1): o nível de urgência da triagem entra no
+  // TEXTO do selo também — a cor sozinha (2.82-2.97 de contraste, medido
+  // pelo G2) não distingue ALTA de MEDIA para quem não enxerga a cor.
+  const urgenciaTexto =
+    a.dsOrigem === 'TRIAGEM_LUNA' ? origemUrgenciaLabel(a.dsNivelUrgenciaOrigem) : null;
+  const origemTexto = urgenciaTexto
+    ? `${origemLabel(a.dsOrigem)} · ${urgenciaTexto}`
+    : origemLabel(a.dsOrigem);
+
+  // Fix wave G2 (m-7): `AGENDAMENTO.ID_PET` é nullable no backend — sem
+  // produtor conhecido hoje (Java e REC-10 sempre exigem pet), mas latente.
+  // Sem `idPet`, "Abrir prontuário" levaria a `/consulta/0` (rota inválida) —
+  // o botão fica desabilitado em vez de navegar para lugar nenhum.
+  const temPet = Boolean(a.pet?.id);
+
+  // Fix wave G2 (m-8): URL assinada da foto (FT-04) tem validade — quando
+  // expira ou falha, `<Image>` sem `onError` deixava um círculo vazio
+  // (`bgSunk`), sem o ícone de reserva que a ausência de foto já usa.
+  const [fotoQuebrada, setFotoQuebrada] = React.useState(false);
+  const mostrarFoto = Boolean(a.dsFotoThumbUrl) && !fotoQuebrada;
+
   return (
     <KCCard style={styles.hojeCard} testID="agenda-hoje-card">
       <View style={styles.hojeRow}>
         <View style={styles.hojeFotoWrap}>
-          {a.dsFotoThumbUrl ? (
+          {mostrarFoto && a.dsFotoThumbUrl ? (
             <Image
               source={{ uri: a.dsFotoThumbUrl }}
               style={styles.hojeFoto}
               testID={`foto-pet-${a.id}`}
               accessibilityLabel={`Foto de ${a.pet.nmPet}`}
+              onError={() => setFotoQuebrada(true)}
             />
           ) : (
-            <KCIcon name="paw" size={22} color={colors.textMute} />
+            <View testID={`foto-pet-fallback-${a.id}`}>
+              <KCIcon name="paw" size={22} color={colors.textMute} />
+            </View>
           )}
         </View>
         <View style={styles.hojeContent}>
@@ -463,7 +527,7 @@ function AgendaHojeCard({
               tone={origemTone(a.dsOrigem, a.dsNivelUrgenciaOrigem)}
               testID={`origem-${a.id}`}
             >
-              {origemLabel(a.dsOrigem)}
+              {origemTexto}
             </KCChip>
           </View>
           {espera !== null && (
@@ -495,10 +559,12 @@ function AgendaHojeCard({
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={styles.hojeActionBtnSecondary}
-              onPress={() => onAbrirProntuario(a)}
+              style={[styles.hojeActionBtnSecondary, !temPet && { opacity: 0.4 }]}
+              onPress={() => temPet && onAbrirProntuario(a)}
+              disabled={!temPet}
               testID={`btn-abrir-prontuario-${a.id}`}
               accessibilityLabel={`Abrir prontuário de ${a.pet.nmPet}`}
+              accessibilityState={{ disabled: !temPet }}
             >
               <Text style={styles.hojeActionBtnTextSecondary}>Prontuário</Text>
             </TouchableOpacity>
@@ -635,6 +701,7 @@ export default function AgendaScreen() {
   const {
     data: dataHoje,
     isLoading: isLoadingHoje,
+    isError: isErrorHoje,
     refetch: refetchHoje,
   } = useAgendaHoje();
   const checkinMutation = useCheckinAgendamento();
@@ -657,54 +724,69 @@ export default function AgendaScreen() {
 
   // m-7 (g2-rec09.md): a resposta do POST/PATCH não tem foto/urgência — a
   // mutação NUNCA usa o valor de retorno como estado da linha; `onSettled`
-  // (dentro dos hooks, useAgenda.ts) já invalida a query e o refetch traz a
-  // linha completa de novo. Aqui só tratamos sucesso/erro pra dar feedback.
-  const handleChegou = (a: AgendamentoResponse) => {
+  // (dentro da DEFINIÇÃO do hook, useAgenda.ts) já invalida a query e o
+  // refetch traz a linha completa de novo. Aqui só tratamos sucesso/erro pra
+  // dar feedback.
+  //
+  // Fix wave G2 (m-6): trocado `mutate(vars, {onSettled, onError})` por
+  // `await mutateAsync(vars)` + try/catch/finally. TanStack Query v5 só
+  // resolve os callbacks passados na CHAMADA (2º argumento de `mutate`) para
+  // a ÚLTIMA mutação em voo do hook — duas chamadas em sequência rápida
+  // (ex.: dois toques em "Chegou" em linhas diferentes) faziam o aviso da
+  // PRIMEIRA se perder silenciosamente quando a segunda ainda estava em
+  // trânsito. `mutateAsync` devolve uma Promise própria POR CHAMADA: cada
+  // `await`/`catch` aqui resolve com o resultado da SUA PRÓPRIA invocação,
+  // sem depender de estado compartilhado do hook. `onSettled` continua só na
+  // definição do hook (invalida a query nos dois casos, sempre).
+  const handleChegou = async (a: AgendamentoResponse) => {
     setPendingHojeId(a.id);
-    checkinMutation.mutate(
-      { idAgendamento: a.id, nrVersion: a.nrVersion },
-      {
-        onSettled: () => setPendingHojeId(undefined),
-        onError: (err: unknown) => {
-          const apiErr = err as { status?: number; message?: string };
-          if (apiErr.status === 409) {
-            Alert.alert(
-              'Agendamento desatualizado',
-              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-            );
-          } else {
-            Alert.alert(
-              'Não foi possível registrar a chegada',
-              apiErr.message ?? 'Tente novamente em instantes.',
-            );
-          }
-        },
-      },
-    );
+    try {
+      await checkinMutation.mutateAsync({ idAgendamento: a.id, nrVersion: a.nrVersion });
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number; message?: string };
+      if (apiErr.status === 409) {
+        Alert.alert(
+          'Agendamento desatualizado',
+          'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+        );
+      } else {
+        Alert.alert(
+          'Não foi possível registrar a chegada',
+          apiErr.message ?? 'Tente novamente em instantes.',
+        );
+      }
+    } finally {
+      // Guarda: `pendingHojeId` é um slot único (limitação conhecida, fora
+      // do escopo desta fix wave) — se outra chamada já assumiu o slot
+      // enquanto esta estava em voo, não apagar o id DELA.
+      setPendingHojeId((atual) => (atual === a.id ? undefined : atual));
+    }
   };
 
-  const handleFaltou = (a: AgendamentoResponse) => {
+  const handleFaltou = async (a: AgendamentoResponse) => {
     setPendingHojeId(a.id);
-    faltouMutation.mutate(
-      { idAgendamento: a.id, dsStatus: 'NAO_COMPARECEU', nrVersion: a.nrVersion },
-      {
-        onSettled: () => setPendingHojeId(undefined),
-        onError: (err: unknown) => {
-          const apiErr = err as { status?: number; message?: string };
-          if (apiErr.status === 409) {
-            Alert.alert(
-              'Agendamento desatualizado',
-              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-            );
-          } else {
-            Alert.alert(
-              'Não foi possível registrar a falta',
-              apiErr.message ?? 'Tente novamente em instantes.',
-            );
-          }
-        },
-      },
-    );
+    try {
+      await faltouMutation.mutateAsync({
+        idAgendamento: a.id,
+        dsStatus: 'NAO_COMPARECEU',
+        nrVersion: a.nrVersion,
+      });
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number; message?: string };
+      if (apiErr.status === 409) {
+        Alert.alert(
+          'Agendamento desatualizado',
+          'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+        );
+      } else {
+        Alert.alert(
+          'Não foi possível registrar a falta',
+          apiErr.message ?? 'Tente novamente em instantes.',
+        );
+      }
+    } finally {
+      setPendingHojeId((atual) => (atual === a.id ? undefined : atual));
+    }
   };
 
   // REC-13 (fora do escopo desta task — aqui só a navegação, ver brief:
@@ -911,6 +993,27 @@ export default function AgendaScreen() {
                 />
               ))}
             </>
+          ) : isErrorHoje ? (
+            // Fix wave G2 (m-3, P2): erro de rede antes disto renderizava o
+            // MESMO `empty-agenda` do estado vazio legítimo — "nenhuma
+            // consulta" é uma afirmação FALSA quando a chamada falhou, não
+            // uma leitura correta de um dia sem agendamento. Estado próprio,
+            // com ação de "tentar de novo" que dispara o mesmo refetch do
+            // pull-to-refresh.
+            <View style={styles.hojeErroContainer} testID="agenda-hoje-erro">
+              <KCIcon name="alert" size={40} color={colors.textMute} />
+              <Text style={styles.hojeErroTitulo}>{STRINGS.agenda.erroHojeTitulo}</Text>
+              <Text style={styles.hojeErroDesc}>{STRINGS.agenda.erroHojeDesc}</Text>
+              <TouchableOpacity
+                style={styles.hojeErroBtn}
+                onPress={onRefreshHoje}
+                testID="btn-tentar-novo-hoje"
+                accessibilityRole="button"
+                accessibilityLabel={STRINGS.agenda.tentarNovamente}
+              >
+                <Text style={styles.hojeErroBtnText}>{STRINGS.agenda.tentarNovamente}</Text>
+              </TouchableOpacity>
+            </View>
           ) : appointmentsHoje.length === 0 ? (
             <KCEmptyState
               icon="agenda"

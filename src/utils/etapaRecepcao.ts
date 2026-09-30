@@ -109,6 +109,24 @@ export function origemLabel(origem: string | null | undefined): string {
   }
 }
 
+// Fix wave G2 (m-9, WCAG 1.4.1): a urgência da triagem (ALTA/MEDIA/BAIXA) era
+// comunicada SÓ pela cor do selo — contraste medido pelo G2 (amber/amberPale
+// 2.82, clay/clayPale 2.97, abaixo do mínimo WCAG) e daltônico não distingue
+// ALTA de MEDIA. O nível agora entra no TEXTO do selo também (cor continua
+// existindo, não é removida — só deixa de ser o ÚNICO canal).
+export function origemUrgenciaLabel(nivelUrgencia: string | null | undefined): string | null {
+  switch (nivelUrgencia) {
+    case 'ALTA':
+      return 'Alta';
+    case 'MEDIA':
+      return 'Média';
+    case 'BAIXA':
+      return 'Baixa';
+    default:
+      return null;
+  }
+}
+
 // Selo de origem TRIAGEM_LUNA usa a cor da URGÊNCIA (BAIXA/MEDIA/ALTA) da
 // triagem que originou o agendamento — mesmos tokens de tone de `luna.tsx`
 // (filaUrgenciaTone: ALTA->clay, MEDIA->amber, BAIXA->mute), não hex

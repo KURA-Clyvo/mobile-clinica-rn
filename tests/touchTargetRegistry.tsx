@@ -299,6 +299,9 @@ const mockUseAgendaSemanaReturn = jest.fn(() => ({
 // `AgendaAppointmentCard#*` do registry abaixo).
 const mockUseAtualizarStatusAgendamentoReturn = jest.fn(() => ({
   mutate: jest.fn(),
+  // Fix wave G2 (m-6): AgendaScreen passou a chamar `mutateAsync` (não mais
+  // `mutate` com callbacks por chamada) nos pontos de disparo Chegou/Faltou.
+  mutateAsync: jest.fn().mockResolvedValue(undefined),
   isPending: false,
   variables: undefined,
 }));
@@ -315,6 +318,8 @@ const mockUseAgendaHojeReturn = jest.fn(() => ({
 }));
 const mockUseCheckinAgendamentoReturn = jest.fn(() => ({
   mutate: jest.fn(),
+  // Fix wave G2 (m-6) — ver comentário equivalente acima.
+  mutateAsync: jest.fn().mockResolvedValue(undefined),
   isPending: false,
   variables: undefined,
 }));
@@ -1213,6 +1218,34 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId } = wrap(<AgendaScreen />);
       fireEvent.press(getByTestId('btn-modo-hoje'));
       const estilo = flat(getByTestId('btn-abrir-prontuario-501').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  // Fix wave G2 (m-3) — botão "Tentar de novo" do estado de erro do modo
+  // "Hoje". Vive DIRETO dentro de `AgendaScreen` (não num componente-função
+  // próprio, ao contrário de `ModoAgendaToggle`/`AgendaHojeCard`) porque só
+  // existe quando `isErrorHoje` é true — não há risco de REBINDAR as chaves
+  // `AgendaScreen#1/#2/#3` (que já existem, sempre renderizadas em modo
+  // Semana): a descoberta por AST é posicional no arquivo INTEIRO, então
+  // este botão, escrito DEPOIS dos três, sempre vira `#4`, nunca troca de
+  // lugar com eles. `hojeErroBtn` declara `minHeight:44, minWidth:44`
+  // explícitos — os dois provados por render real.
+  '(app)/agenda.tsx::AgendaScreen#4': {
+    category: 'meets-min',
+    expectedTestId: 'btn-tentar-novo-hoje',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: true,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-tentar-novo-hoje').props.style);
       const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
       return { categoriaMedida: 'meets-min', eixos };
     },
