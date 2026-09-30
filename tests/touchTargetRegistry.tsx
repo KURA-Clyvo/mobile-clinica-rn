@@ -299,12 +299,35 @@ const mockUseAgendaSemanaReturn = jest.fn(() => ({
 // `AgendaAppointmentCard#*` do registry abaixo).
 const mockUseAtualizarStatusAgendamentoReturn = jest.fn(() => ({
   mutate: jest.fn(),
+  // Fix wave G2 (m-6): AgendaScreen passou a chamar `mutateAsync` (não mais
+  // `mutate` com callbacks por chamada) nos pontos de disparo Chegou/Faltou.
+  mutateAsync: jest.fn().mockResolvedValue(undefined),
+  isPending: false,
+  variables: undefined,
+}));
+// REC-12: useAgendaHoje/useCheckinAgendamento são chamados INCONDICIONALMENTE
+// por AgendaScreen (regra dos hooks) — mesmo dever dos 2 hooks acima. As
+// entradas deste registry só exercitam o modo Semana (default), então os
+// valores default aqui nunca precisam de dado real.
+const mockUseAgendaHojeReturn = jest.fn(() => ({
+  data: [] as AgendamentoResponse[],
+  isLoading: false,
+  isError: false,
+  refetch: jest.fn(),
+  dataHoje: '2026-09-28',
+}));
+const mockUseCheckinAgendamentoReturn = jest.fn(() => ({
+  mutate: jest.fn(),
+  // Fix wave G2 (m-6) — ver comentário equivalente acima.
+  mutateAsync: jest.fn().mockResolvedValue(undefined),
   isPending: false,
   variables: undefined,
 }));
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: () => mockUseAgendaSemanaReturn(),
   useAtualizarStatusAgendamento: () => mockUseAtualizarStatusAgendamentoReturn(),
+  useAgendaHoje: () => mockUseAgendaHojeReturn(),
+  useCheckinAgendamento: () => mockUseCheckinAgendamentoReturn(),
 }));
 
 // FM-02 — mesmo padrão dos blocos acima: mocka-se o HOOK, não o service, o
@@ -552,6 +575,26 @@ const AGENDAMENTO_FIXTURE: AgendamentoResponse = {
   pet: { id: 1, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Labrador' },
   tutor: { id: 1, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001' },
   veterinario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345' },
+  // REC-12: campo novo e obrigatório de AgendamentoResponse.
+  dsEtapaRecepcao: 'AGENDADO',
+};
+
+// REC-12 — etapa AGENDADO + horário NO PASSADO (1h atrás): `podeRegistrarChegada`
+// E `podeMarcarFalta` (etapaRecepcao.ts) ficam true ao MESMO TEMPO, então os 3
+// botões da AgendaHojeCard (Chegou/Faltou/Abrir prontuário) aparecem juntos.
+const UMA_HORA_ATRAS = new Date(Date.now() - 60 * 60_000).toISOString();
+const AGENDAMENTO_HOJE_AMBOS_BOTOES: AgendamentoResponse = {
+  id: 501,
+  dtInicio: UMA_HORA_ATRAS,
+  nrDuracaoMinutos: 30,
+  sgStatus: 'AGENDADA',
+  dsStatusOrigem: 'AGENDADO',
+  nrVersion: 1,
+  pet: { id: 601, nmPet: 'Bibi', nmEspecie: 'Gato', nmRaca: 'SRD' },
+  tutor: { id: 701, nmTutor: 'Renata Duarte', dsTelefone: '11999990501' },
+  veterinario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345' },
+  dsOrigem: 'PORTAL',
+  dsEtapaRecepcao: 'AGENDADO',
 };
 
 const MEDICAMENTO_FIXTURE: MedicamentoResponse = {
@@ -1072,6 +1115,137 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       // `KCButton`, ver `meets-min-one-axis` acima). Os dois eixos agora
       // são provados de verdade.
       const estilo = flat(getByTestId('day-tab-0').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  // REC-12 — toggle "Semana"/"Hoje", componente PRÓPRIO (ver comentário em
+  // `ModoAgendaToggle`, agenda.tsx, sobre por que ele não vive dentro de
+  // `AgendaScreen`). `modoBtn` declara `minHeight:44, minWidth:44`
+  // explícitos — os dois provados por render real.
+  '(app)/agenda.tsx::ModoAgendaToggle#1': {
+    category: 'meets-min',
+    expectedTestId: 'btn-modo-semana',
+    verify: () => {
+      mockUseAgendaSemanaReturn.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        semanaStart: new Date(),
+        semanaEnd: new Date(),
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      const estilo = flat(getByTestId('btn-modo-semana').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  '(app)/agenda.tsx::ModoAgendaToggle#2': {
+    category: 'meets-min',
+    expectedTestId: 'btn-modo-hoje',
+    verify: () => {
+      mockUseAgendaSemanaReturn.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        semanaStart: new Date(),
+        semanaEnd: new Date(),
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      const estilo = flat(getByTestId('btn-modo-hoje').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  // REC-12 — cartão da agenda "Hoje". Fixture com etapa AGENDADO e horário
+  // NO PASSADO faz `mostrarChegou` E `mostrarFaltou` (etapaRecepcao.ts)
+  // ficarem verdadeiros ao mesmo tempo — os 3 botões (Chegou/Faltou/Abrir
+  // prontuário) aparecem juntos no MESMO render, suficiente para alcançar
+  // as 3 ocorrências (`AgendaHojeCard#1/#2/#3`) que a descoberta por AST
+  // encontra na fonte (contagem é POSICIONAL no arquivo, não por instância
+  // de runtime — ver discoverInteractiveTouchables.ts).
+  '(app)/agenda.tsx::AgendaHojeCard#1': {
+    category: 'meets-min',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [AGENDAMENTO_HOJE_AMBOS_BOTOES],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-chegou-501').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  '(app)/agenda.tsx::AgendaHojeCard#2': {
+    category: 'meets-min',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [AGENDAMENTO_HOJE_AMBOS_BOTOES],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-faltou-501').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  '(app)/agenda.tsx::AgendaHojeCard#3': {
+    category: 'meets-min',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [AGENDAMENTO_HOJE_AMBOS_BOTOES],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-abrir-prontuario-501').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  // Fix wave G2 (m-3) — botão "Tentar de novo" do estado de erro do modo
+  // "Hoje". Vive DIRETO dentro de `AgendaScreen` (não num componente-função
+  // próprio, ao contrário de `ModoAgendaToggle`/`AgendaHojeCard`) porque só
+  // existe quando `isErrorHoje` é true — não há risco de REBINDAR as chaves
+  // `AgendaScreen#1/#2/#3` (que já existem, sempre renderizadas em modo
+  // Semana): a descoberta por AST é posicional no arquivo INTEIRO, então
+  // este botão, escrito DEPOIS dos três, sempre vira `#4`, nunca troca de
+  // lugar com eles. `hojeErroBtn` declara `minHeight:44, minWidth:44`
+  // explícitos — os dois provados por render real.
+  '(app)/agenda.tsx::AgendaScreen#4': {
+    category: 'meets-min',
+    expectedTestId: 'btn-tentar-novo-hoje',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: true,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-tentar-novo-hoje').props.style);
       const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
       return { categoriaMedida: 'meets-min', eixos };
     },

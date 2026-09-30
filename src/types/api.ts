@@ -128,6 +128,17 @@ export interface AgendamentoResponse {
     nrCRMV: string;
   };
   dsObservacao?: string;
+  // REC-12 (fecha o E21 no app — REC-09 já expunha estes campos no DTO do
+  // .NET, ninguém no app os consumia ainda). Ver pin de contrato em
+  // agenda.service.ts::AgendamentoItemApiDto para a fonte exata.
+  dtCheckin?: string;
+  dtInicioAtendimento?: string;
+  dsOrigem?: string;
+  dsNivelUrgenciaOrigem?: string;
+  dsRespostaConfirmacao?: string;
+  // Sempre preenchido (função total no servidor — A-3), nunca vazio/nulo.
+  dsEtapaRecepcao: string;
+  dsFotoThumbUrl?: string;
 }
 
 // ─── Pets ─────────────────────────────────────────────────────

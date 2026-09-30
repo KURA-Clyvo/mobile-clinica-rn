@@ -25,6 +25,11 @@ const ROUTES: [RegExp, MockHandler][] = [
   // não há nenhuma, a ordem aqui não importa por enquanto, mas o padrão de
   // regex por URL (não por método) é o mesmo dos outros — ver resolveMock().
   [/\/agendamentos\/\d+\/status$/, agendaMock.atualizarStatus],
+  // REC-12: rota ABSOLUTA nova (AgendaController.cs,
+  // [HttpPost("~/api/v1/agendamentos/{id:long}/checkin")]). Mutuamente
+  // exclusiva de `/status$` acima por construção (sufixos diferentes,
+  // ambos ancorados em `$`).
+  [/\/agendamentos\/\d+\/checkin$/, agendaMock.checkin],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],

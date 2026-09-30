@@ -66,6 +66,8 @@ const agendamentoFixture: AgendamentoResponse = {
   pet: { id: 1, nmPet: 'Thor', nmEspecie: 'Cão', nmRaca: 'Labrador' },
   tutor: { id: 10, nmTutor: 'Carlos Mendes', dsTelefone: '11999990001' },
   veterinario: { id: 20, nmVeterinario: 'Dr. Felipe Ferrete', nrCRMV: 'SP-12345' },
+  // REC-12: campo novo e obrigatório de AgendamentoResponse.
+  dsEtapaRecepcao: 'AGENDADO',
 };
 
 const medicamentoFixture: MedicamentoResponse = {

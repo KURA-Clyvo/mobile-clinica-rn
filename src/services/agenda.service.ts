@@ -10,6 +10,25 @@ import { translateStatusAgendamento } from '../utils/statusAgendamento';
 // TASK-65 (FIX_5): exportadas de propósito — mesmo racional de
 // dashboard.service.ts/PetResumoApiDto (ver comentário lá). O mock
 // (`agenda.mock.ts`) precisa devolver este shape RAW, não `AgendamentoResponse`.
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar os campos REC-09/REC-11.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs:10-41
+//          (classe `AgendamentoItemDto`)
+// COMMIT:  242be7d509f6… (`main`)
+// CONFERIDO EM: 2026-09-28 — bate linha a linha com a fonte nesse commit (G2,
+// `g2-rec12.md` F1: `git diff 099ee3f origin/main --stat -- AgendaResponseDto.cs`
+// devolveu vazio — o código citado pelo pin de `099ee3f` já estava idêntico em
+// `main`; só a nota "ainda não em main" ficou desatualizada, corrigida aqui).
+//
+// COMO RECONFERIR:
+//   git -C ../backend-clinica-dotnet show \
+//     242be7d:src/Kura.Application/DTOs/Agenda/AgendaResponseDto.cs | sed -n '10,41p'
+//
+// Serialização em camelCase (System.Text.Json default do ASP.NET Core, sem
+// `JsonNamingPolicy` custom — confirmado por grep no `Program.cs`, mesma
+// checagem que o relatório da REC-09 já fez).
 export interface AgendamentoItemApiDto {
   idAgendamento: number;
   dtAgendamento: string;
@@ -21,6 +40,29 @@ export interface AgendamentoItemApiDto {
   dsTipoConsulta: string;
   dsStatus: string;
   nrVersion: number;
+
+  // REC-09 (fecha o E21) — todos opcionais no wire, `long?`/`string?`/
+  // `DateTime?` no lado .NET. `dsEtapaRecepcao` é a única SEMPRE preenchida
+  // (função total no servidor, A-3) — ver AgendamentoResponse.dsEtapaRecepcao
+  // (types/api.ts) para por que ela não é opcional no tipo app-facing.
+  //
+  // Fix wave G2 (m-1): `System.Text.Json` serializa estes campos como `null`
+  // literal quando ausentes (sem `DefaultIgnoreCondition` no `Program.cs`),
+  // nunca omite a chave — `?: T` só cobre `undefined`, então o tipo mentia
+  // sobre o que chega de verdade. `?: T | null` cobre os dois: `undefined`
+  // (conveniência de fixture de teste, que nunca chega pela rede real) E
+  // `null` (o que a rede REALMENTE manda). Todo consumidor já tratava os
+  // dois igual (`dto.idPet ?? 0`, `a.dtCheckin ? …`) — mudança só de tipo,
+  // sem mudança de comportamento (G2 confirmou "hoje inofensivo").
+  idPet?: number | null;
+  idTutor?: number | null;
+  dtCheckin?: string | null;
+  dtInicioAtendimento?: string | null;
+  dsOrigem?: string | null;
+  dsNivelUrgenciaOrigem?: string | null;
+  dsRespostaConfirmacao?: string | null;
+  dsEtapaRecepcao: string;
+  dsFotoThumbUrl?: string | null;
 }
 
 export interface AgendaApiResponseDto {
@@ -99,8 +141,9 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     dsStatusOrigem: dto.dsStatus,
     nrVersion: dto.nrVersion,
     pet: {
-      // TODO: AgendamentoItemDto não traz o id do pet, só o nome.
-      id: 0,
+      // REC-12: idPet chegou no DTO pela REC-09 — fecha o TODO antigo
+      // (o app tinha id=0 fixo pra todo pet da agenda até aqui).
+      id: dto.idPet ?? 0,
       nmPet: dto.nmPet,
       // TODO: AgendamentoItemDto não traz espécie do pet.
       nmEspecie: '',
@@ -108,8 +151,9 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
       nmRaca: '',
     },
     tutor: {
-      // TODO: AgendamentoItemDto não traz o id do tutor, só o nome.
-      id: 0,
+      // REC-12: idTutor chegou no DTO pela REC-09 — mesmo fechamento do
+      // TODO de idPet acima.
+      id: dto.idTutor ?? 0,
       nmTutor: dto.nmTutor,
       // TODO: AgendamentoItemDto não traz telefone do tutor.
       dsTelefone: '',
@@ -123,6 +167,20 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     // dsObservacao: AgendamentoItemDto não traz observações — permanece
     // undefined (campo opcional).
     dsObservacao: undefined,
+
+    // REC-09/REC-12 — campos da tela "Hoje" da recepção (A-3, A-6, A-7).
+    // Fix wave G2 (m-1): o wire DTO agora é `T | null` (o que a rede
+    // REALMENTE manda — ver comentário no tipo acima); `AgendamentoResponse`
+    // (tipo app-facing, types/api.ts) continua só `T | undefined` de
+    // propósito — o mapper é a camada anticorrupção certa pra colapsar
+    // `null` em `undefined`, não espalhar `| null` pro app inteiro.
+    dtCheckin: dto.dtCheckin ?? undefined,
+    dtInicioAtendimento: dto.dtInicioAtendimento ?? undefined,
+    dsOrigem: dto.dsOrigem ?? undefined,
+    dsNivelUrgenciaOrigem: dto.dsNivelUrgenciaOrigem ?? undefined,
+    dsRespostaConfirmacao: dto.dsRespostaConfirmacao ?? undefined,
+    dsEtapaRecepcao: dto.dsEtapaRecepcao,
+    dsFotoThumbUrl: dto.dsFotoThumbUrl ?? undefined,
   };
 }
 
@@ -150,6 +208,36 @@ export async function atualizarStatusAgendamento(
 ): Promise<AgendamentoResponse> {
   const response = await apiClient.patch<AgendamentoItemApiDto>(
     `/api/v1/agendamentos/${idAgendamento}/status`,
+    req,
+  );
+  return mapAgendamentoItem(response.data);
+}
+
+// REC-12 — check-in (tela "Hoje" da recepção). Rota ABSOLUTA, mesmo padrão
+// de atualizarStatusAgendamento acima. FONTE: backend-clinica-dotnet
+// src/Kura.Api/Controllers/AgendaController.cs:97-106 (`[HttpPost("~/api/
+// v1/agendamentos/{id:long}/checkin")]`), commit 242be7d509f6… (`main`,
+// conferido em 2026-09-28 — fix wave G2, m-2: era `099ee3f`/"branch, ainda
+// não em main", hoje é falso, o mesmo conteúdo está em `main`) — reconferir
+// com `git -C ../backend-clinica-dotnet show 242be7d:src/Kura.Api/
+// Controllers/AgendaController.cs | sed -n '97,106p'`.
+//
+// 🔴 m-7 (g2-rec09.md): a resposta deste endpoint (como a do PATCH de
+// status) NÃO tem foto/urgência — `AtualizarStatusAsync`/`CheckinAsync`
+// devolvem o DTO via `GetByIdAsync` sem `.Include(TriagemOrigem)`. Quem
+// consome esta função NUNCA deve tratar o retorno como a linha completa —
+// invalide a query e deixe o refetch trazer a linha de verdade (mesmo
+// tratamento dado a `atualizarStatusAgendamento` — ver useAgenda.ts).
+export interface CheckinAgendamentoRequest {
+  nrVersion: number;
+}
+
+export async function checkinAgendamento(
+  idAgendamento: number,
+  req: CheckinAgendamentoRequest,
+): Promise<AgendamentoResponse> {
+  const response = await apiClient.post<AgendamentoItemApiDto>(
+    `/api/v1/agendamentos/${idAgendamento}/checkin`,
     req,
   );
   return mapAgendamentoItem(response.data);

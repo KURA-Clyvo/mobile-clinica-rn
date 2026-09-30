@@ -172,9 +172,12 @@ Nenhum dos 3 é um "check-in" observado no mundo real.
 O restante do raciocínio da primeira versão continua válido e verificado: `NrDuracaoMinutos`
 (`Agendamento.cs:12`) é duração **planejada** no momento de marcar a consulta, não medida. Os únicos
 timestamps reais de sessão são `DtInicioSessao`/`DtFimSessao` (`Agendamento.cs:30-31`), exclusivos
-de teleconsulta: `DtInicioSessao` é setado em `TeleconsultaService.cs:51` no momento em que a sala
-de vídeo é criada — mede duração da chamada, não "tempo que o paciente esperou antes de ser
-atendido". `DtFimSessao` nunca é atribuído em nenhum lugar do código de aplicação (`grep -rn
+de teleconsulta: `DtInicioSessao` é setado em `TeleconsultaService.cs:57` (REC-12, corrige m-3 de
+`g2-rec08.md` — a âncora dizia `:51`, moveu quando a REC-08 trocou `DateTime.UtcNow` por
+`_relogioClinica.Agora()`; reconfira com `grep -n DtInicioSessao TeleconsultaService.cs`) no
+momento em que a sala de vídeo é criada — mede duração da chamada, não "tempo que o paciente
+esperou antes de ser atendido". `DtFimSessao` nunca é atribuído em nenhum lugar do código de
+aplicação (`grep -rn
 "DtFimSessao" src/`, filtrando migrations, só retorna entidade + configuração EF + migrations — é
 coluna morta hoje). Nenhuma tabela do schema (a lista de 25 no topo deste documento) tem um par real
 de "hora de chegada" × "hora de início de atendimento" pra consulta presencial — só carimbos de

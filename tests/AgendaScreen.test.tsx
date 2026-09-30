@@ -1,12 +1,22 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import AgendaScreen from '../src/app/(app)/agenda';
 import { getMondayOf, addDays } from '../src/utils/date';
-import { layout } from '../src/theme/tokens';
+import { layout, lightColors } from '../src/theme/tokens';
 
 const mockAtualizarStatusMutate = jest.fn();
+// Fix wave G2 (m-6): AgendaScreen chama `mutateAsync` (não mais `mutate` com
+// callbacks por chamada) nos pontos de disparo Chegou/Faltou — ver
+// handleChegou/handleFaltou em agenda.tsx.
+const mockAtualizarStatusMutateAsync = jest.fn();
+// REC-12: useAgendaHoje/useCheckinAgendamento são chamados INCONDICIONALMENTE
+// por AgendaScreen (regra dos hooks), mesmo quando o modo default 'semana'
+// está ativo — sem mocká-los aqui, `undefined()` derruba todo render desta
+// suíte (mesmo padrão já documentado para useAtualizarStatusAgendamento).
+const mockCheckinMutate = jest.fn();
+const mockCheckinMutateAsync = jest.fn();
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: jest.fn(),
   // FM-04: AgendamentoStatusMenu (agora sempre montado dentro de
@@ -14,6 +24,8 @@ jest.mock('@hooks/useAgenda', () => ({
   // mocká-lo aqui, useMutation do @tanstack/react-query quebraria por
   // falta de QueryClientProvider no wrap() deste arquivo.
   useAtualizarStatusAgendamento: jest.fn(),
+  useAgendaHoje: jest.fn(),
+  useCheckinAgendamento: jest.fn(),
 }));
 
 // FM-04: AgendamentoStatusMenu usa useSafeAreaInsets — sem provider neste
@@ -31,9 +43,36 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
+// Fix wave G2 (I-1) — `useFocusEffect` real (react-navigation) roda a função
+// no foco e a limpeza no blur; este mock roda a função uma vez no mount (via
+// `useEffect(callback, [])`, mesmo padrão já usado em
+// `tests/touchTargetRegistry.tsx`) E guarda a função de limpeza em
+// `mockFocusEffectCleanups` para os testes simularem BLUR sem depender do
+// roteador real/Drawer (que os outros testes deste arquivo não montam —
+// mesma razão de `tutores/novo.tsx` ter um teste à parte com o roteador
+// real, `NovoTutorScreen.navigation.test.tsx`, fora do escopo desta fix
+// wave). `simulateBlur()` chama e ESVAZIA a lista — unmount real (RNTL)
+// continua limpando por conta própria via o retorno do `useEffect`.
+let mockFocusEffectCleanups: Array<() => void> = [];
+function simulateBlur() {
+  mockFocusEffectCleanups.forEach((cleanup) => cleanup());
+  mockFocusEffectCleanups = [];
+}
+jest.mock('expo-router', () => {
+  const ReactForMock = require('react');
+  return {
+    useRouter: () => ({ push: mockPush }),
+    useFocusEffect: (callback: () => void | (() => void)) => {
+      ReactForMock.useEffect(() => {
+        const cleanup = callback();
+        if (typeof cleanup === 'function') {
+          mockFocusEffectCleanups.push(cleanup);
+        }
+        return cleanup;
+      }, []);
+    },
+  };
+});
 
 // CQ-15: useWindowDimensions é o que useBreakpoint()/ScreenContainer consomem
 // (nunca Dimensions.get(), que não re-renderiza em resize de janela na web).
@@ -47,9 +86,16 @@ function setViewport(width: number, height: number) {
   mockUseWindowDimensions.mockReturnValue({ width, height, scale: 1, fontScale: 1 });
 }
 
-import { useAgendaSemana, useAtualizarStatusAgendamento } from '../src/hooks/useAgenda';
+import {
+  useAgendaSemana,
+  useAtualizarStatusAgendamento,
+  useAgendaHoje,
+  useCheckinAgendamento,
+} from '../src/hooks/useAgenda';
 const mockUseAgendaSemana = useAgendaSemana as jest.Mock;
 const mockUseAtualizarStatusAgendamento = useAtualizarStatusAgendamento as jest.Mock;
+const mockUseAgendaHoje = useAgendaHoje as jest.Mock;
+const mockUseCheckinAgendamento = useCheckinAgendamento as jest.Mock;
 
 const REFETCH = jest.fn().mockResolvedValue(undefined);
 
@@ -108,12 +154,34 @@ function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
 
+const REFETCH_HOJE = jest.fn().mockResolvedValue(undefined);
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocusEffectCleanups = [];
   REFETCH.mockResolvedValue(undefined);
+  REFETCH_HOJE.mockResolvedValue(undefined);
   setViewport(400, 800);
+  mockAtualizarStatusMutateAsync.mockResolvedValue(undefined);
+  mockCheckinMutateAsync.mockResolvedValue(undefined);
   mockUseAtualizarStatusAgendamento.mockReturnValue({
     mutate: mockAtualizarStatusMutate,
+    mutateAsync: mockAtualizarStatusMutateAsync,
+    isPending: false,
+    variables: undefined,
+  });
+  // REC-12: default 'modo semana' nunca lê estes dois — valores default
+  // inofensivos, sobrescritos nos testes do describe 'modo Hoje' abaixo.
+  mockUseAgendaHoje.mockReturnValue({
+    data: [],
+    isLoading: false,
+    isError: false,
+    refetch: REFETCH_HOJE,
+    dataHoje: '2026-09-28',
+  });
+  mockUseCheckinAgendamento.mockReturnValue({
+    mutate: mockCheckinMutate,
+    mutateAsync: mockCheckinMutateAsync,
     isPending: false,
     variables: undefined,
   });
@@ -321,5 +389,702 @@ describe('AgendaScreen — ScreenContainer adoption (CQ-15)', () => {
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
     expect(flatStyle.paddingHorizontal).toBe(0);
+  });
+});
+
+// ─── REC-12 — modo "Hoje" da agenda ─────────────────────────────────────────
+import { Alert } from 'react-native';
+jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+function agendamentoHoje(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: 30,
+    dtInicio: '2026-09-28T09:00:00.000Z',
+    nrDuracaoMinutos: 30,
+    sgStatus: 'AGENDADA',
+    dsStatusOrigem: 'AGENDADO',
+    nrVersion: 1,
+    pet: { id: 10, nmPet: 'Amora', nmEspecie: 'Cão', nmRaca: 'SRD' },
+    tutor: { id: 20, nmTutor: 'Beatriz Lopes', dsTelefone: '11999990001' },
+    veterinario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345' },
+    dsOrigem: 'PORTAL',
+    dsEtapaRecepcao: 'AGENDADO',
+    ...overrides,
+  };
+}
+
+describe('AgendaScreen — modo Hoje (REC-12)', () => {
+  beforeEach(() => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+  });
+
+  it('default é o modo Semana — a suíte pré-existente continua vendo o comportamento de sempre', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    expect(getByTestId('btn-prev-week')).toBeTruthy();
+    expect(queryByTestId('agenda-hoje-lista')).toBeNull();
+  });
+
+  it('alternar para "Hoje" troca a lista exibida', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje()],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('btn-prev-week')).toBeNull();
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
+    expect(getByTestId('agenda-hoje-card')).toBeTruthy();
+  });
+
+  // A-3: "a etapa de recepção é derivada NO SERVIDOR — o app só exibe".
+  // MORDIDA: se o app recalculasse a etapa a partir de dsStatus/timestamps em
+  // vez de ler `dsEtapaRecepcao` puro, esta fixture (CANCELADO com dtCheckin
+  // preenchido — combinação que só aconteceria por dado inconsistente, mas
+  // que prova exatamente QUAL fonte o app usa) mostraria "Chegou" em vez de
+  // "Cancelado".
+  it('mostra a etapa EXATA que veio do servidor, mesmo quando os timestamps sugerem outra coisa', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          dsEtapaRecepcao: 'CANCELADO',
+          dtCheckin: '2026-09-28T08:00:00',
+          dtInicioAtendimento: '2026-09-28T08:10:00',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('etapa-30')).toBeTruthy();
+    expect(queryByText('Cancelado')).toBeTruthy();
+    expect(queryByText('Chegou')).toBeNull();
+  });
+
+  // A-6: tempo de espera é POR LINHA e usa dtCheckin como origem — dois
+  // check-ins DIFERENTES no MESMO instante de render produzem textos
+  // DIFERENTES. Se a implementação usasse outro relógio (ex.: o instante em
+  // que o card montou) as duas linhas mostrariam o MESMO valor (~0min).
+  it('"esperando há N min" usa dtCheckin como origem — duas linhas com checkins diferentes mostram minutos diferentes', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+    try {
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({
+            id: 31,
+            dsEtapaRecepcao: 'CHEGOU',
+            dtCheckin: '2026-09-28T09:50:00', // 10 min atrás
+          }),
+          agendamentoHoje({
+            id: 32,
+            dsEtapaRecepcao: 'CHEGOU',
+            dtCheckin: '2026-09-28T09:00:00', // 60 min atrás
+          }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      expect(getByTestId('espera-31').props.children.join('')).toBe('Esperando há 10 min');
+      expect(getByTestId('espera-32').props.children.join('')).toBe('Esperando há 60 min');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('"esperando há" só aparece para etapa CHEGOU, não para as outras', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'CONFIRMADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('espera-30')).toBeNull();
+    expect(getByTestId('etapa-30')).toBeTruthy();
+  });
+
+  // Fix wave G2 (I-2, morde M2): a G2 mediu que o teste ACIMA não morde —
+  // `CONFIRMADO` sem `dtCheckin` já esconderia "esperando há" por FALTA de
+  // horário, não por checar a etapa (`etapa === 'CHEGOU' && a.dtCheckin ?`
+  // vira `a.dtCheckin ?` e a suíte continuava 1357/1357). Este teste usa
+  // `dtCheckin` PREENCHIDO numa etapa que NÃO é CHEGOU — cenário realista
+  // (FINALIZADO sempre tem `dtCheckin` de quando o paciente chegou) — só
+  // ele distingue "olha o dtCheckin" de "olha a etapa E o dtCheckin".
+  it('"esperando há" NÃO aparece em FINALIZADO mesmo com dtCheckin preenchido (morde M2)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 80,
+          dsEtapaRecepcao: 'FINALIZADO',
+          dtCheckin: '2026-09-28T08:00:00',
+          dtInicioAtendimento: '2026-09-28T08:10:00',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('espera-80')).toBeNull();
+    expect(getByTestId('etapa-80')).toBeTruthy();
+  });
+
+  // Fix wave G2 (I-2, morde M1): a G2 mediu que "mostra a urgência" só
+  // afirmava o rótulo fixo "Triagem da Luna" — `origemTone(a.dsOrigem, a.
+  // dsNivelUrgenciaOrigem)` virando `origemTone(a.dsOrigem, null)` mantinha
+  // a suíte 1357/1357 (a cor nunca era comparada). Este teste renderiza DUAS
+  // linhas com urgências DIFERENTES (ALTA/MEDIA) e compara a cor RESOLVIDA
+  // do chip (`borderColor`/`backgroundColor`, os mesmos tokens de
+  // `luna.tsx`: clay para ALTA, amber para MEDIA) — se as duas saírem
+  // iguais (ou iguais ao tom neutro `mute`), a mordida M1 pega aqui.
+  it('o selo TRIAGEM_LUNA muda de COR conforme o nível de urgência (morde M1)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 81,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'ALTA',
+        }),
+        agendamentoHoje({
+          id: 82,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'MEDIA',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+
+    const estiloAlta = StyleSheet.flatten(getByTestId('origem-81').props.style) as {
+      borderColor?: string;
+    };
+    const estiloMedia = StyleSheet.flatten(getByTestId('origem-82').props.style) as {
+      borderColor?: string;
+    };
+
+    expect(estiloAlta.borderColor).toBe(lightColors.clay);
+    expect(estiloMedia.borderColor).toBe(lightColors.amber);
+    expect(estiloAlta.borderColor).not.toBe(estiloMedia.borderColor);
+  });
+
+  // A-6: "nenhum KPI agregado". Uma tela com várias linhas nunca pode exibir
+  // média/taxa/percentual/ocupação — só dado por linha.
+  it('sem KPI agregado — nenhuma média/taxa/percentual aparece com múltiplas linhas', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({ id: 40, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:00:00' }),
+        agendamentoHoje({ id: 41, dsEtapaRecepcao: 'FINALIZADO' }),
+        agendamentoHoje({ id: 42, dsEtapaRecepcao: 'NAO_COMPARECEU' }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
+    // Fix wave G2 (m-5): `/médi[ao]/i` (acento OBRIGATÓRIO) não pega "medio"/
+    // "media" sem acento — `/m[eé]di[ao]/i` cobre as duas grafias.
+    expect(queryByText(/m[eé]di[ao]/i)).toBeNull();
+    expect(queryByText(/taxa/i)).toBeNull();
+    expect(queryByText(/ocupação/i)).toBeNull();
+    expect(queryByText(/%/)).toBeNull();
+  });
+
+  it('selo de origem TRIAGEM_LUNA mostra a urgência; PORTAL mostra "App do tutor"', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({
+          id: 50,
+          dsOrigem: 'TRIAGEM_LUNA',
+          dsNivelUrgenciaOrigem: 'ALTA',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('origem-50')).toBeTruthy();
+    expect(queryByText(/Triagem da Luna/)).toBeTruthy();
+  });
+
+  // Fix wave G2 (m-9, WCAG 1.4.1): o nível de urgência da triagem não pode
+  // depender SÓ da cor do selo (contraste 2.82-2.97, medido pelo G2) — tem
+  // que aparecer em TEXTO visível também. PORTAL/RECEPCAO não têm nível de
+  // urgência (a cor deles já é 'mute', neutra) e não devem ganhar sufixo.
+  it('o texto do selo de origem TRIAGEM_LUNA inclui o nível de urgência (morde m-9)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({ id: 90, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'ALTA' }),
+        agendamentoHoje({ id: 91, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'MEDIA' }),
+        agendamentoHoje({ id: 92, dsOrigem: 'PORTAL' }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByText } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+
+    // MORDIDA: sem `origemUrgenciaLabel`, os dois selos TRIAGEM_LUNA abaixo
+    // renderizariam o MESMO texto ("Triagem da Luna") — só a cor (já provada
+    // à parte, morde M1) distinguiria ALTA de MEDIA.
+    expect(queryByText('Triagem da Luna · Alta')).toBeTruthy();
+    expect(queryByText('Triagem da Luna · Média')).toBeTruthy();
+    expect(queryByText('Triagem da Luna')).toBeNull();
+    // PORTAL não tem urgência — texto fixo, sem sufixo.
+    expect(queryByText('App do tutor')).toBeTruthy();
+  });
+
+  // Fix wave G2 (m-6): a chamada agora vai por `mutateAsync` (sem 2º
+  // argumento de callbacks) — ver handleChegou em agenda.tsx.
+  it('botão "Chegou" chama checkinAgendamento (mutateAsync) com id e nrVersion corretos', async () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'AGENDADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-chegou-30'));
+    });
+    expect(mockCheckinMutateAsync).toHaveBeenCalledWith({ idAgendamento: 30, nrVersion: 1 });
+  });
+
+  // Mordida real do mordida "409 vira aviso e recarrega": simula o servidor
+  // devolvendo 409 pro clique de "Chegou" e confirma que o app avisa (não
+  // fica em silêncio). O "recarrega" está provado à parte, no nível do hook
+  // (useAgenda.test.ts::useCheckinAgendamento — onSettled invalida a query
+  // TAMBÉM no erro), porque aqui o hook está mockado por inteiro.
+  it('409 no "Chegou" mostra aviso de agendamento desatualizado', async () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ dsEtapaRecepcao: 'AGENDADO' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    mockCheckinMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('Conflito'), { status: 409, message: 'stale' }),
+    );
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-chegou-30'));
+    });
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Agendamento desatualizado',
+      expect.stringContaining('recarregada'),
+    );
+  });
+
+  it('botão "Faltou" chama atualizarStatusAgendamento (mutateAsync) com NAO_COMPARECEU', async () => {
+    mockUseAgendaHoje.mockReturnValue({
+      // etapa AGENDADO + horário 2h atrás -> mostrarFaltou = true.
+      data: [
+        agendamentoHoje({
+          dtInicio: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+          dsEtapaRecepcao: 'AGENDADO',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-faltou-30'));
+    });
+    expect(mockAtualizarStatusMutateAsync).toHaveBeenCalledWith({
+      idAgendamento: 30,
+      dsStatus: 'NAO_COMPARECEU',
+      nrVersion: 1,
+    });
+  });
+
+  // ─── Fix wave G2 (m-6) — mutateAsync não perde aviso em 2 chamadas rápidas ─
+  //
+  // G2 mediu: `pendingHojeId` é slot único e os callbacks eram passados ao
+  // `mutate` — TanStack v5 só resolve os callbacks da ÚLTIMA chamada em voo.
+  // Tocar "Chegou" na linha A e logo em seguida na linha B fazia um erro de A
+  // NÃO mostrar aviso nenhum (a lista ainda recarregava pelo `onSettled` do
+  // hook, mas o feedback visual se perdia). Com `mutateAsync`, cada chamada
+  // tem sua PRÓPRIA Promise — nenhuma pode "roubar" o catch da outra.
+  it('duas chamadas de "Chegou" em sequência rápida NÃO perdem o aviso de erro da primeira (morde m-6)', async () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [
+        agendamentoHoje({ id: 61, dsEtapaRecepcao: 'AGENDADO' }),
+        agendamentoHoje({
+          id: 62,
+          dsEtapaRecepcao: 'AGENDADO',
+          pet: { id: 11, nmPet: 'Bento', nmEspecie: 'Cão', nmRaca: 'SRD' },
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    // Linha A (61) falha com 422; linha B (62) resolve. Se o app ainda usasse
+    // `mutate` + callbacks por chamada, o `onError` de A seria sobrescrito
+    // pelo `onSuccess`/ausência de erro de B antes de disparar.
+    mockCheckinMutateAsync
+      .mockRejectedValueOnce(Object.assign(new Error('Falha A'), { status: 422, message: 'Falha A' }))
+      .mockResolvedValueOnce(undefined);
+
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-chegou-61'));
+      fireEvent.press(getByTestId('btn-chegou-62'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockCheckinMutateAsync).toHaveBeenCalledTimes(2);
+    // MORDIDA: com `mutate` + callback único perdido, este Alert.alert NUNCA
+    // seria chamado para a linha A — o aviso simplesmente sumiria.
+    expect(Alert.alert).toHaveBeenCalledWith('Não foi possível registrar a chegada', 'Falha A');
+  });
+
+  it('"Abrir prontuário" navega para consulta/[idPet] com idAgendamento', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje()],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-abrir-prontuario-30'));
+    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=30');
+  });
+
+  // Fix wave G2 (m-7, Minor): `AGENDAMENTO.ID_PET` é nullable no backend
+  // (`V1__initial_schema.sql:270`, `Agendamento.IdPet long?`) — sem produtor
+  // conhecido hoje (Java e REC-10 sempre exigem pet), mas latente. Sem
+  // `idPet`, o mapper põe `0` e "Abrir prontuário" levaria a `/consulta/0`
+  // (rota inválida). O botão fica DESABILITADO em vez de navegar.
+  it('"Abrir prontuário" fica desabilitado quando o item não tem idPet (morde m-7)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ id: 63, pet: { id: 0, nmPet: 'Sem pet', nmEspecie: '', nmRaca: '' } })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    const btn = getByTestId('btn-abrir-prontuario-63');
+    // MORDIDA: sem a guarda `temPet`, este `press` chamaria `router.push`
+    // normalmente e o teste abaixo falharia.
+    fireEvent.press(btn);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(btn.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
+  });
+
+  it('"Abrir prontuário" continua habilitado e navegando quando idPet existe', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ id: 64 })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    fireEvent.press(getByTestId('btn-abrir-prontuario-64'));
+    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=64');
+  });
+
+  // Fix wave G2 (m-8, Minor): URL assinada da foto (FT-04) tem validade —
+  // quando expira/falha, `<Image>` sem `onError` deixava um círculo vazio
+  // (`bgSunk`), sem o ícone de reserva que a ausência de foto já usa.
+  it('foto do pet quebrada (onError) troca para o ícone de reserva (morde m-8)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ id: 65, dsFotoThumbUrl: 'https://exemplo/foto-expirada.jpg' })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+
+    expect(getByTestId('foto-pet-65')).toBeTruthy();
+    expect(queryByTestId('foto-pet-fallback-65')).toBeNull();
+
+    fireEvent(getByTestId('foto-pet-65'), 'error');
+
+    // MORDIDA: sem o handler `onError`, o `<Image>` continuaria montado (e
+    // quebrado) em vez de dar lugar ao ícone de reserva.
+    expect(queryByTestId('foto-pet-65')).toBeNull();
+    expect(getByTestId('foto-pet-fallback-65')).toBeTruthy();
+  });
+
+  it('sem foto nenhuma, mostra direto o ícone de reserva (comportamento pré-existente preservado)', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [agendamentoHoje({ id: 66, dsFotoThumbUrl: undefined })],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(queryByTestId('foto-pet-66')).toBeNull();
+    expect(getByTestId('foto-pet-fallback-66')).toBeTruthy();
+  });
+
+  // Fix wave G2 (m-3, P2): erro de rede no modo "Hoje" renderizava o MESMO
+  // `empty-agenda` do estado vazio legítimo — "nenhuma consulta" é uma
+  // afirmação FALSA quando a chamada falhou.
+  describe('estado de erro (m-3)', () => {
+    it('mostra o estado de erro (não o vazio) quando isError=true', () => {
+      mockUseAgendaHoje.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      // MORDIDA: sem ler `isErrorHoje`, este cenário cairia no ramo
+      // `appointmentsHoje.length === 0` e mostraria `empty-agenda`.
+      expect(queryByTestId('empty-agenda')).toBeNull();
+      expect(getByTestId('agenda-hoje-erro')).toBeTruthy();
+      expect(getByTestId('btn-tentar-novo-hoje')).toBeTruthy();
+    });
+
+    it('"tentar de novo" dispara o refetch da agenda de hoje', async () => {
+      mockUseAgendaHoje.mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      await act(async () => {
+        fireEvent.press(getByTestId('btn-tentar-novo-hoje'));
+      });
+      expect(REFETCH_HOJE).toHaveBeenCalled();
+    });
+
+    it('sem erro (isError=false) e lista vazia continua mostrando o KCEmptyState de sempre', () => {
+      mockUseAgendaHoje.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      expect(queryByTestId('agenda-hoje-erro')).toBeNull();
+      expect(getByTestId('empty-agenda')).toBeTruthy();
+    });
+  });
+
+  it('estado vazio do modo Hoje usa o mesmo KCEmptyState da Semana', () => {
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(getByTestId('empty-agenda')).toBeTruthy();
+  });
+
+  // ─── Fix wave G2 (I-1) — tick local no modo Hoje ─────────────────────────
+  //
+  // G2 mediu (P1/P3, g2-rec12.md): sem tick nem refetchInterval, "Esperando
+  // há N min" e o gate de "Faltou" ficam CONGELADOS no valor do render
+  // anterior — o relógio pode andar 30min que a tela não muda sozinha. As 4
+  // mordidas abaixo (remover o `setInterval`, remover a dependência de
+  // `modo`/`focado`, ou não limpar no unmount/blur) precisam pegar.
+  describe('tick de 30s (I-1)', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('"esperando há" avança sozinho depois de 30 min, sem refetch', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 70, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:50:00' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.getByTestId('espera-70').props.children.join('')).toBe('Esperando há 10 min');
+
+      // Jest "modern" fake timers avançam o relógio JUNTO com o timer (o
+      // mesmo clock por trás de `advanceTimersByTime`) — `setSystemTime`
+      // pula direto pra 10:30; só falta UM tick (30s) pra disparar o
+      // `setInterval` e forçar o re-render (avançar mais 30min aqui
+      // somaria ao pulo, terminando em 11:00, não 10:30 — achado ao medir).
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:30:00'));
+        jest.advanceTimersByTime(30_000);
+      });
+
+      // MORDIDA: sem o tick, este texto continuaria "10 min" (era exatamente
+      // o que a sonda P1 do G2 media).
+      // 40min30s (o tick de 30s soma ao pulo pra 10:30 — precisa de pelo
+      // menos 1 tick pra disparar o setInterval), Math.round arredonda pra
+      // 41 (minutosEsperando, etapaRecepcao.ts).
+      expect(r.getByTestId('espera-70').props.children.join('')).toBe('Esperando há 41 min');
+      // refetch NÃO foi chamado — o número avançou só por re-render local.
+      expect(REFETCH_HOJE).not.toHaveBeenCalled();
+    });
+
+    it('"Faltou" aparece sozinho quando o horário marcado chega, sem re-render externo', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T09:59:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 71, dtInicio: '2026-09-28T10:00:00', dsEtapaRecepcao: 'AGENDADO' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.queryByTestId('btn-faltou-71')).toBeNull();
+
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:05:00'));
+        jest.advanceTimersByTime(30_000);
+      });
+
+      // MORDIDA: sem o tick, o botão continuaria ausente (era a sonda P3).
+      expect(r.getByTestId('btn-faltou-71')).toBeTruthy();
+    });
+
+    it('o intervalo é limpo ao DESMONTAR a tela', () => {
+      jest.useFakeTimers();
+      const clearSpy = jest.spyOn(global, 'clearInterval');
+      mockUseAgendaHoje.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      clearSpy.mockClear();
+
+      r.unmount();
+
+      expect(clearSpy).toHaveBeenCalled();
+    });
+
+    it('o intervalo é limpo ao PERDER O FOCO (react-navigation v7 não desmonta)', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-09-28T10:00:00'));
+      mockUseAgendaHoje.mockReturnValue({
+        data: [
+          agendamentoHoje({ id: 72, dsEtapaRecepcao: 'CHEGOU', dtCheckin: '2026-09-28T09:50:00' }),
+        ],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(r.getByTestId('espera-72').props.children.join('')).toBe('Esperando há 10 min');
+
+      act(() => {
+        simulateBlur();
+      });
+
+      act(() => {
+        jest.setSystemTime(new Date('2026-09-28T10:30:00'));
+        jest.advanceTimersByTime(30 * 60_000);
+      });
+
+      // Sem foco, o intervalo foi limpo — o texto NÃO avança mais.
+      expect(r.getByTestId('espera-72').props.children.join('')).toBe('Esperando há 10 min');
+    });
+
+    // Nota: não dá pra provar isto lendo o texto renderizado — "esperando"
+    // é recomputado do zero em QUALQUER render (inclusive um causado por
+    // outro motivo), então o texto sairia certo mesmo com um intervalo
+    // vazando por trás. A prova real é de CONTAGEM de chamadas.
+    it('trocar para o modo Semana limpa o intervalo do modo Hoje (setInterval/clearInterval)', () => {
+      jest.useFakeTimers();
+      const setSpy = jest.spyOn(global, 'setInterval');
+      const clearSpy = jest.spyOn(global, 'clearInterval');
+      mockUseAgendaHoje.mockReturnValue({
+        data: [],
+        isLoading: false,
+        isError: false,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const r = wrap(<AgendaScreen />);
+      setSpy.mockClear();
+      clearSpy.mockClear();
+
+      fireEvent.press(r.getByTestId('btn-modo-hoje'));
+      expect(setSpy).toHaveBeenCalledTimes(1);
+      expect(clearSpy).not.toHaveBeenCalled();
+
+      fireEvent.press(r.getByTestId('btn-modo-semana'));
+      // MORDIDA: sem `modo` na lista de dependências do efeito, esta
+      // chamada não aconteceria (o intervalo continuaria rodando fora do
+      // modo Hoje, gastando ciclo à toa numa tela que fica aberta o dia
+      // todo).
+      expect(clearSpy).toHaveBeenCalledTimes(1);
+    });
   });
 });

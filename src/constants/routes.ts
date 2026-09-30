@@ -33,8 +33,15 @@ export const ROUTES = {
     // um tutor existente" (busca + formulário de pet). Ponto de entrada:
     // botão "+ Novo" em pacientes/index.tsx (antes só um Alert).
     pacienteNovo: '/pacientes/novo' as Href,
-    // Idem: src/app/(app)/consulta/[idPet].tsx.
-    consulta: (idPet: number) => `/consulta/${idPet}` as Href,
+    // Idem: src/app/(app)/consulta/[idPet].tsx. REC-12: idAgendamento
+    // opcional (mesmo padrão de `teleorientacao` logo abaixo) — a linha da
+    // agenda "Hoje" passa o id do agendamento pra REC-13 chamar
+    // `/inicio-atendimento` UMA VEZ ao montar (REC-13 ainda não lê este
+    // parâmetro; carregá-lo aqui é forward-compat, não implementa REC-13).
+    consulta: (idPet: number, idAgendamento?: number) =>
+      (idAgendamento
+        ? `/consulta/${idPet}?idAgendamento=${idAgendamento}`
+        : `/consulta/${idPet}`) as Href,
     // idAgendamento é opcional: sem ele (entrada ad-hoc via ficha do pet) a tela não
     // consegue chamar api/v1/teleconsulta (exige um agendamento real no .NET).
     // Rota dinâmica (src/app/(app)/teleorientacao/[idPet].tsx), cast documentado como acima.
