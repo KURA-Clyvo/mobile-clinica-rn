@@ -15,7 +15,8 @@ const mockReplace = jest.fn();
 // REC-13: exportada como jest.fn() nomeada (não mais inline) para os testes
 // abaixo poderem sobrescrever o retorno por caso (idAgendamento presente/
 // ausente) via `mockUseLocalSearchParams.mockReturnValue(...)`.
-const mockUseLocalSearchParams = jest.fn(() => ({ idPet: '1' }));
+type ConsultaSearchParams = { idPet: string; idAgendamento?: string; nrVersion?: string };
+const mockUseLocalSearchParams = jest.fn<ConsultaSearchParams, []>(() => ({ idPet: '1' }));
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockUseLocalSearchParams(),
   useRouter: () => ({ back: mockBack, replace: mockReplace }),
