@@ -708,7 +708,17 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
     );
   });
 
-  it('remontar a tela (StrictMode double-invoke / re-render) NÃO duplica a chamada', () => {
+  // G2 REC-13 (achado M-2): este teste faz um RE-RENDER (`rerender`), não uma
+  // remontagem — quem garante a chamada única aqui é o array de dependências
+  // do `useEffect` (`idAgendamentoNum`/`nrVersionNum` não mudam), não o `ref`.
+  // O nome antigo citava "StrictMode double-invoke", mas este app NÃO usa
+  // `<React.StrictMode>` (`git grep "StrictMode" -- src` só acha texto de
+  // comentário) — o `ref` é defesa em profundidade para esse cenário
+  // hipotético, não a proteção medida por este teste. Uma REMONTAGEM de
+  // verdade (sair da tela e voltar) chama de novo por desenho — quem protege
+  // contra duplicar o efeito nesse caso é a idempotência do servidor
+  // (AgendaService.cs:472-473, ver comentário em consulta/[idPet].tsx).
+  it('re-render da tela com as mesmas props NÃO duplica a chamada (array de dependências do useEffect)', () => {
     mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
     const { rerender } = wrap(<ConsultaScreen />);
     expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
@@ -717,12 +727,13 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
     expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
   });
 
-  it('falha na chamada não bloqueia o prontuário: a tela renderiza normalmente e não crasha', async () => {
+  it('falha (não-409, ex.: 422 de status não elegível) não bloqueia o prontuário: a tela renderiza normalmente, sem Alert', async () => {
     mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockMutateIniciarAtendimento.mockImplementation(
       (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
-        opts?.onError?.(Object.assign(new Error('Conflito'), { status: 409 }));
+        opts?.onError?.(Object.assign(new Error('Etapa não elegível'), { status: 422 }));
       },
     );
 
@@ -737,7 +748,39 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
       '[REC-13] Falha ao registrar início de atendimento:',
       expect.any(Object),
     );
+    // G0/G2 classificam este caso (422, ex.: reabrir prontuário de
+    // agendamento já REALIZADO) como inofensivo -- não precisa de aviso
+    // visível, só diagnóstico.
+    expect(alertSpy).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  // G2 REC-13 (achado Important `I-1`): um 409 por `nrVersion` desatualizado
+  // (duas recepções/aparelhos tocando o mesmo agendamento) deixava a linha
+  // presa em `CHEGOU` na "Hoje", com "esperando há N min" subindo e NENHUM
+  // sinal visível (`console.warn` some em build de release). Mesmo padrão já
+  // usado NESTE APP para o MESMO 409, na MESMA entidade
+  // (agenda.tsx::handleChegou/handleFaltou, `agenda.tsx:747-752/776-781`).
+  it('409 por nrVersion desatualizado mostra Alert.alert (mesmo texto de agenda.tsx::handleChegou/handleFaltou) e não bloqueia o prontuário', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockMutateIniciarAtendimento.mockImplementation(
+      (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
+        opts?.onError?.(Object.assign(new Error('Conflito'), { status: 409 }));
+      },
+    );
+
+    const { getByTestId } = wrap(<ConsultaScreen />);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Agendamento desatualizado',
+      'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+    );
+    // Não bloqueia -- o formulário continua usável depois do Alert.
+    expect(getByTestId('btn-salvar')).toBeTruthy();
+
+    alertSpy.mockRestore();
   });
 });

@@ -211,16 +211,37 @@ export default function ConsultaScreen() {
   const { mutate: iniciarAtendimento } = useIniciarAtendimento();
 
   // REC-13 — marca o início do atendimento no servidor quando o prontuário é
-  // aberto pela linha da agenda "Hoje" (idAgendamento presente). Mesmo
-  // padrão de guarda por `ref` do redirect acima (FM-01): protege contra o
-  // double-invoke do StrictMode/re-render, chamando no máximo 1 vez por
-  // montagem — a idempotência do PRÓPRIO servidor (AgendaService.cs:472-473)
-  // é a segunda camada, não a única.
+  // aberto pela linha da agenda "Hoje" (idAgendamento presente). O `ref`
+  // evita uma 2ª chamada num RE-RENDER com as mesmas deps (é isso que o
+  // array de dependências abaixo já garante por construção, já que
+  // `idAgendamentoNum`/`nrVersionNum` não mudam durante a vida da tela) —
+  // ele NÃO é proteção contra StrictMode, que este app não usa (`git grep
+  // "StrictMode" -- src` só acha texto de comentário, nenhum
+  // `<React.StrictMode>` real). Numa REMONTAGEM de verdade (o vet sai da
+  // tela e volta), o `ref` nasce `false` de novo e a chamada SAI — a
+  // proteção contra duplicar `DtInicioAtendimento`/`NrVersion` nesse caso é
+  // a idempotência do PRÓPRIO servidor: `IniciarAtendimentoAsync`
+  // (AgendaService.cs:472-473) devolve o agendamento atual ANTES de checar
+  // versão quando `DtInicioAtendimento` já está preenchido — não sobrescreve
+  // o horário, não incrementa `NrVersion`, não falha com 409 mesmo que a
+  // versão tenha mudado nesse meio-tempo (G2 REC-13, frente 2).
   //
   // Falha NUNCA bloqueia o prontuário (aceite do backlog: "o vet atende de
-  // qualquer jeito") — sem toast/snackbar neste app, o aviso é um
-  // `console.warn` não-modal (mesmo padrão de KCIcon.tsx:217 para o caso
-  // análogo "algo divergiu, mas a tela segue normal").
+  // qualquer jeito"). G2 REC-13 (achado `I-1`): um 409 por `nrVersion`
+  // desatualizado (duas recepções/aparelhos tocando o mesmo agendamento)
+  // deixava a linha presa em `CHEGOU` na "Hoje" — `dsEtapaRecepcao` só vira
+  // `EM_ATENDIMENTO` quando `DtInicioAtendimento` é de fato gravado
+  // (CalcularEtapaRecepcao, AgendaService.cs:584) — com o "esperando há N
+  // min" (agenda.tsx:463-470) subindo e NENHUM sinal visível, porque
+  // `console.warn` sozinho não aparece em build de release. Mesmo padrão já
+  // usado NESTE MESMO ARQUIVO para o MESMO 409, na MESMA entidade
+  // (`handleChegou`/`handleFaltou`, agenda.tsx:747-752/776-781):
+  // `Alert.alert('Agendamento desatualizado', …)`. `console.warn` continua
+  // para diagnóstico; qualquer OUTRO erro (422 de status não elegível — ex.:
+  // reabrir prontuário de agendamento já `REALIZADO`, guarda de status vem
+  // antes da idempotente — ou 404) permanece só `console.warn`, sem Alert:
+  // são casos que o G0/G2 já classificaram como inofensivos e não fazem a
+  // linha "parecer" ativa quando não está, que é o dano real do 409.
   const jaIniciouAtendimento = useRef(false);
   useEffect(() => {
     if (!idAgendamentoNum || jaIniciouAtendimento.current) return;
@@ -230,6 +251,13 @@ export default function ConsultaScreen() {
       {
         onError: (err: unknown) => {
           console.warn('[REC-13] Falha ao registrar início de atendimento:', err);
+          const apiErr = err as { status?: number };
+          if (apiErr.status === 409) {
+            Alert.alert(
+              'Agendamento desatualizado',
+              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+            );
+          }
         },
       },
     );
