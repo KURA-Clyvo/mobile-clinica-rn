@@ -161,6 +161,21 @@ const PETS: PetResponse[] = [
     sgPorte: 'M',
     tutores: [{ idTutor: 201, nmTutor: 'Ana Beatriz', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
+  // REC-14 — pet SENTINELA para a mordida "pet não vinculado ao tutor" (422).
+  // `agenda.mock.ts::criarAgendamento` força este `idPet` a reprovar o vínculo mesmo
+  // quando `tutores` (abaixo) lista o tutor de verdade — precisa EXISTIR aqui (senão o
+  // lookup de `buscarPetArmazenadoPorId` devolve 404 antes de chegar na checagem de
+  // vínculo, mascarando o cenário que este sentinela existe pra testar).
+  {
+    id: 88888,
+    nmPet: 'Pet Sentinela Sem Vinculo',
+    nmEspecie: 'Cão',
+    nmRaca: 'SRD',
+    dtNascimento: '2020-01-01T00:00:00.000Z',
+    sgSexo: 'M',
+    sgPorte: 'M',
+    tutores: [{ idTutor: 900, nmTutor: 'Tutor Já Cadastrado', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
+  },
 ];
 
 const TIMELINES: Record<number, TimelineEventResponse[]> = {
