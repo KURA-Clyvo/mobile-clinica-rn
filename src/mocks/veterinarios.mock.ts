@@ -27,3 +27,11 @@ const VETERINARIOS: VeterinarioResponse[] = [
 export async function veterinarios(_config: InternalAxiosRequestConfig): Promise<VeterinarioResponse[]> {
   return VETERINARIOS;
 }
+
+// REC-14 — mesmo padrão de `pets.mock.ts::buscarPetArmazenadoPorId` /
+// `tutores.mock.ts::buscarTutorArmazenadoPorId`: exportado para
+// `agenda.mock.ts::criarAgendamento` resolver o nome do veterinário sem
+// duplicar esta lista.
+export function buscarVeterinarioArmazenadoPorId(id: number): VeterinarioResponse | undefined {
+  return VETERINARIOS.find((v) => v.id === id);
+}

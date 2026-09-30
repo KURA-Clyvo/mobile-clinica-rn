@@ -4,9 +4,11 @@ import {
   atualizarStatusAgendamento,
   checkinAgendamento,
   iniciarAtendimento,
+  criarAgendamento,
   type AtualizarStatusAgendamentoRequest,
   type CheckinAgendamentoRequest,
   type IniciarAtendimentoRequest,
+  type AgendamentoCreateWireDto,
 } from '@services/agenda.service';
 import { getMondayOf, getSundayOf, formatDateISO } from '@utils/date';
 
@@ -110,6 +112,22 @@ export function useIniciarAtendimento() {
       iniciarAtendimento(vars.idAgendamento, { nrVersion: vars.nrVersion }),
     retry: 0,
     onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['agenda'] });
+    },
+  });
+}
+
+// REC-14 — novo agendamento (formulário, "Encaixe agora", "Agendar" pela fila da Luna).
+// `retry: 0` mesmo padrão de todas as mutações acima: 400/404/422 não são transitórios.
+// `onSuccess` (não `onSettled`) invalida a agenda — diferente das mutações de status/
+// checkin/início, um POST que falhou não criou nada no servidor, então não há estado
+// desatualizado pra recarregar; invalidar em erro só gastaria uma rede a mais sem ganho.
+export function useCriarAgendamento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: AgendamentoCreateWireDto) => criarAgendamento(dto),
+    retry: 0,
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['agenda'] });
     },
   });

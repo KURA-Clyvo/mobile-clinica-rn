@@ -105,6 +105,24 @@ export function paraDataLocalSemFuso(date: Date): string {
   return `${formatDateISO(date)}T00:00:00`;
 }
 
+// REC-14 — mesma classe de bug do comentário acima, agora para
+// `AgendamentoCreateDto.DtAgendamento`: `AgendamentoCreateValidator.cs`
+// (backend-clinica-dotnet, origin/main 242be7d) RECUSA com 400 explícito
+// qualquer `Kind` diferente de `Unspecified` — ou seja, `toISOString()`
+// (que produz "Z", Kind=Utc do lado .NET) nunca pode alimentar este campo.
+// Preserva hora/minuto/segundo (diferente de `paraDataLocalSemFuso`, que
+// zera para meia-noite de propósito — aqui a hora É o dado). Mesma forma
+// que `agenda.mock.ts::naiveLocal` já produz para check-in/início de
+// atendimento — extraído aqui para não duplicar a lógica pela 3ª vez
+// (formulário de agendamento + "Encaixe agora").
+export function formatDateTimeLocalSemFuso(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  );
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getDate() === b.getDate() &&

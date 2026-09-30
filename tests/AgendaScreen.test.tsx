@@ -241,6 +241,19 @@ describe('AgendaScreen — loaded state', () => {
   });
 });
 
+// G2/A-2 (REC-14) — o ponto de entrada "Novo agendamento" da agenda não tinha NENHUM
+// teste. A G2 mediu que um `onPress={() => {}}` (botão morto) passava pela suíte
+// inteira sem nenhuma falha — este teste fecha o caso. Visível nos 2 modos (Semana e
+// Hoje, aditivo) — testado só no modo default (Semana) por ser onde o teste monta.
+describe('AgendaScreen — "Novo agendamento" entry point (G2/A-2)', () => {
+  it('navigates to the appointment form (no params) on "Novo agendamento" button tap', () => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    const { getByTestId } = wrap(<AgendaScreen />);
+    fireEvent.press(getByTestId('btn-novo-agendamento'));
+    expect(mockPush).toHaveBeenCalledWith('/agenda-novo');
+  });
+});
+
 // FM-04 — Ruling D-13: a ação de status mora no card da agenda. Estes testes
 // provam o ponto de entrada (o botão "Status" aparece só quando há transição
 // disponível) e a distinção visual do achado nº 2 (NAO_COMPARECEU != Cancelada).

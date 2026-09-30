@@ -385,6 +385,17 @@ export default function LunaScreen() {
     router.push(ROUTES.app.pacienteDetalhe(item.pets[0]!.id));
   };
 
+  // REC-14 — "Agendar" pela fila da Luna. `item.tutor === null` (E34: a triagem não
+  // sabe o pet, e aqui nem o tutor foi identificado) leva ao cadastro de tutor
+  // (REC-03) em vez do formulário de agendamento — o botão some nesse caso e vira
+  // "Cadastrar tutor" (ver JSX abaixo), nunca chama esta função.
+  const handleAgendar = (item: TriagemListaItem) => {
+    if (!item.tutor) return;
+    router.push(
+      ROUTES.app.agendaNovo({ idTutor: item.tutor.id, idTriagemOrigem: item.idTriagem }),
+    );
+  };
+
   // Luna fora do ar (indisponível — falha de rede/timeout genuína) cai no ramo visual
   // "Offline": vermelho. Nunca acessa oracle/kura_api sem antes confirmar que a união
   // não é {status:'indisponivel'}.
@@ -552,6 +563,29 @@ export default function LunaScreen() {
                     testID={`btn-abrir-paciente-${item.idTriagem}`}
                   >
                     {STRINGS.LUNA.ABRIR_PACIENTE}
+                  </KCButton>
+                )}
+                {/* REC-14 — E34: tutor identificado ⇒ "Agendar" (abre o formulário com
+                    idTutor/idTriagemOrigem preenchidos, pet fica em aberto — a triagem
+                    não sabe o pet); tutor null ⇒ "Cadastrar tutor" (leva à REC-03),
+                    NUNCA chama handleAgendar. */}
+                {item.tutor ? (
+                  <KCButton
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => handleAgendar(item)}
+                    testID={`btn-agendar-${item.idTriagem}`}
+                  >
+                    {STRINGS.LUNA.AGENDAR}
+                  </KCButton>
+                ) : (
+                  <KCButton
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => router.push(ROUTES.app.tutorNovo)}
+                    testID={`btn-cadastrar-tutor-${item.idTriagem}`}
+                  >
+                    {STRINGS.LUNA.CADASTRAR_TUTOR}
                   </KCButton>
                 )}
               </View>

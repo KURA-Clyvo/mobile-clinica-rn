@@ -161,6 +161,10 @@ import NovoTutorScreen from '../src/app/(app)/tutores/novo';
 // `NovoPacienteScreen`/`NovoTutorScreen` só pra alcançar o mesmo elemento.
 import NovoPacienteScreen from '../src/app/(app)/pacientes/novo';
 import { PetForm } from '../src/components/domain/PetForm';
+// REC-14 — mesmo racional do import acima: 2 tocáveis crus novos
+// (`NovoAgendamentoScreen#1/#2`, back button + item da lista de busca de
+// tutor).
+import NovoAgendamentoScreen from '../src/app/(app)/agenda-novo';
 
 // --- Mocks compartilhados — só o necessário pra renderizar AppHeader/
 // NavDrawer/WhatsAppModal fora do app real. Padrões copiados dos testes que
@@ -323,11 +327,18 @@ const mockUseCheckinAgendamentoReturn = jest.fn(() => ({
   isPending: false,
   variables: undefined,
 }));
+// REC-14: `(app)/agenda-novo.tsx` também chama `useCriarAgendamento()`
+// incondicionalmente — estendido, não recriado, mesmo dever dos hooks acima.
+const mockUseCriarAgendamentoReturn = jest.fn(() => ({
+  mutate: jest.fn(),
+  isPending: false,
+}));
 jest.mock('@hooks/useAgenda', () => ({
   useAgendaSemana: () => mockUseAgendaSemanaReturn(),
   useAtualizarStatusAgendamento: () => mockUseAtualizarStatusAgendamentoReturn(),
   useAgendaHoje: () => mockUseAgendaHojeReturn(),
   useCheckinAgendamento: () => mockUseCheckinAgendamentoReturn(),
+  useCriarAgendamento: () => mockUseCriarAgendamentoReturn(),
 }));
 
 // FM-02 — mesmo padrão dos blocos acima: mocka-se o HOOK, não o service, o
@@ -1866,6 +1877,53 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId } = wrap(<NovoPacienteScreen />);
       fireEvent.changeText(getByTestId('search-tutor-existente'), 'ana');
       return expectSemGeometriaExplicita(flat(getByTestId('tutor-item-42').props.style));
+    },
+  },
+
+  // REC-14 — 2 tocáveis crus em `(app)/agenda-novo.tsx::NovoAgendamentoScreen` (o
+  // formulário de novo agendamento). Renderizado SEM parâmetros de busca (mesmo caso
+  // de `mockUseLocalSearchParams` default, `{}`) — os efeitos que resolvem tutor/pet
+  // pré-preenchidos ficam inertes (guarda `if (!idPetTravado) return`), então nenhuma
+  // chamada de rede real acontece por trás deste render (`getTutorById`/`getPetById`
+  // não são mockados neste arquivo de propósito — não precisam ser, aqui).
+  '(app)/agenda-novo.tsx::NovoAgendamentoScreen#1': {
+    category: 'no-explicit-geometry',
+    expectedTestId: 'btn-voltar-agenda-novo-form',
+    reason:
+      'Botão de voltar do cabeçalho (`btn-voltar-agenda-novo-form`) não recebe `style` ' +
+      'nenhum — mesmo padrão de `NovoPacienteScreen#1/#2` (ícone solto, sem geometria ' +
+      'declarada). Não corrigido — candidato a follow-up conjunto.',
+    verify: () => {
+      // `mockUseLocalSearchParams` fica com `{ idPet: '1' }` desde as entradas de
+      // `PacienteDetailScreen` (linhas 1346/1363) — nenhuma limpa depois de setar, e
+      // este arquivo não tem `beforeEach` global. Reset explícito: esta tela LÊ
+      // `useLocalSearchParams` (as outras que rodam entre aquelas e esta não liam),
+      // então é a primeira a precisar disso.
+      mockUseLocalSearchParams.mockReturnValue({});
+      mockUseBuscarTutoresReturn.mockReturnValue({ data: [], isLoading: false });
+      const { getByTestId } = wrap(<NovoAgendamentoScreen />);
+      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-agenda-novo-form').props.style));
+    },
+  },
+
+  '(app)/agenda-novo.tsx::NovoAgendamentoScreen#2': {
+    category: 'no-explicit-geometry',
+    // Sem `expectedTestId`: testID é template string (`` `tutor-opcao-${item.id}` ``) —
+    // mesmo caso de `NovoPacienteScreen#3`.
+    reason:
+      'Item da lista de tutores encontrados na busca (`tutor-opcao-{id}`) — `itemRow: { ' +
+      'paddingHorizontal:12, paddingVertical:10, borderRadius:10, borderWidth:1 }`, sem ' +
+      'height/minHeight/width/minWidth. Mesmo padrão de `NovoPacienteScreen#3`. Não ' +
+      'corrigido — candidato a follow-up conjunto.',
+    verify: () => {
+      mockUseLocalSearchParams.mockReturnValue({});
+      mockUseBuscarTutoresReturn.mockReturnValue({
+        data: [{ id: 42, nmTutor: 'Ana Beatriz', nrCpf: '1', dsEmail: 'a@b.com', nrTelefone: '1', stAtiva: true }],
+        isLoading: false,
+      });
+      const { getByTestId } = wrap(<NovoAgendamentoScreen />);
+      fireEvent.changeText(getByTestId('search-tutor-novo-agendamento'), 'ana');
+      return expectSemGeometriaExplicita(flat(getByTestId('tutor-opcao-42').props.style));
     },
   },
 };

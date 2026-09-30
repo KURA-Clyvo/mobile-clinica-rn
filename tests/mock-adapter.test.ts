@@ -65,7 +65,10 @@ describe('mock-adapter', () => {
     const res = await resolveMock(makeConfig('/pets'));
     const data = res.data as unknown[];
     expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(12);
+    // REC-14: +2 sobre a baseline de 12 — pet 301 ("Rex", mesmo tutor/pet que
+    // `luna.mock.ts::TRIAGENS_FIXTURE` usa para o botão "Agendar" da fila da Luna) e pet
+    // 88888 (sentinela de teste para a mordida "pet não vinculado ao tutor", 422).
+    expect(data.length).toBe(14);
   });
 
   it('resolves /pets/1', async () => {

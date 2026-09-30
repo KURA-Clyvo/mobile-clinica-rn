@@ -68,6 +68,21 @@ export const ROUTES = {
         : `/teleorientacao/${idPet}`) as Href,
     // Idem: src/app/(app)/receituario/[idPet].tsx.
     receituario: (idPet: number) => `/receituario/${idPet}` as Href,
+    // REC-14: src/app/(app)/agenda-novo.tsx (arquivo FLAT, não pasta — — formulário de novo agendamento. Pontos de
+    // entrada: botão "Novo agendamento" em agenda.tsx (sem parâmetro nenhum); botão
+    // "Agendar" na ficha do paciente (`idPet` — pet já conhecido, etapa de escolha de pet
+    // fica travada); botão "Agendar" do card da fila da Luna (`idTutor` +
+    // `idTriagemOrigem` — a triagem NÃO sabe o pet, E34, então a etapa de pet continua
+    // aberta mesmo com `idTutor` preenchido). Todos os 3 parâmetros são opcionais e
+    // independentes entre si (mesmo padrão de `consulta`/`teleorientacao` acima).
+    agendaNovo: (opts?: { idPet?: number; idTutor?: number; idTriagemOrigem?: number }): Href => {
+      const params = new URLSearchParams();
+      if (opts?.idPet) params.set('idPet', String(opts.idPet));
+      if (opts?.idTutor) params.set('idTutor', String(opts.idTutor));
+      if (opts?.idTriagemOrigem) params.set('idTriagemOrigem', String(opts.idTriagemOrigem));
+      const qs = params.toString();
+      return (`/agenda-novo${qs ? `?${qs}` : ''}`) as Href;
+    },
     luna: '/luna',
     settings: '/settings',
     // FM-02: src/app/(app)/usuarios/index.tsx, tela restrita a GESTOR

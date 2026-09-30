@@ -8,7 +8,9 @@ import {
   getAgenda,
   atualizarStatusAgendamento,
   iniciarAtendimento,
+  criarAgendamento,
   getTransicoesPermitidas,
+  TIPOS_AGENDAMENTO_PERMITIDOS,
 } from '../src/services/agenda.service';
 import type { AgendaQuery } from '../src/types/api';
 
@@ -221,6 +223,102 @@ describe('iniciarAtendimento', () => {
     expect(result.nrVersion).toBe(2);
     expect(result.dtInicioAtendimento).toBe('2026-07-21T09:05:00');
     expect(result.dsEtapaRecepcao).toBe('EM_ATENDIMENTO');
+  });
+});
+
+// REC-14 — POST /api/v1/agendamentos (novo agendamento/encaixe/"Agendar" pela
+// triagem). Ver o PIN de contrato cross-repo em agenda.service.ts::criarAgendamento.
+describe('criarAgendamento', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls POST /api/v1/agendamentos with the exact body (RECEPCAO origin — no idTriagemOrigem sent)', async () => {
+    mockApiPost.mockResolvedValue({
+      data: {
+        idAgendamento: 90,
+        dtAgendamento: '2026-10-07T09:00:00',
+        duracaoMinutos: 30,
+        nmTutor: 'Carlos Mendes',
+        nmPet: 'Thor',
+        idVeterinario: 1,
+        nmVeterinario: 'Dr. Felipe Ferrete',
+        dsTipoConsulta: 'CONSULTA',
+        dsStatus: 'AGENDADO',
+        nrVersion: 0,
+        idPet: 1,
+        idTutor: 10,
+        dsOrigem: 'RECEPCAO',
+        dsEtapaRecepcao: 'AGENDADO',
+      },
+    });
+
+    const dto = {
+      idTutor: 10,
+      idPet: 1,
+      idVeterinario: 1,
+      dtAgendamento: '2026-10-07T09:00:00',
+      dsTipo: 'CONSULTA',
+    };
+
+    const result = await criarAgendamento(dto);
+
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/agendamentos', dto);
+    expect(result.id).toBe(90);
+    expect(result.dsOrigem).toBe('RECEPCAO');
+  });
+
+  // MORDIDA obrigatória do backlog (REC-14): "não mandar idTriagemOrigem ⇒ teste
+  // vermelho". Prova que `criarAgendamento` REPASSA `idTriagemOrigem` intacto no corpo
+  // — um bug que omitisse esse campo do payload (ex.: um `{ ...dto }` que esquecesse o
+  // campo, ou um destructuring que o descartasse) faria este `toHaveBeenCalledWith`
+  // falhar, porque o corpo esperado EXIGE a chave.
+  it('MORDIDA — forwards idTriagemOrigem in the body when present (dropping it would turn this red)', async () => {
+    mockApiPost.mockResolvedValue({
+      data: {
+        idAgendamento: 91,
+        dtAgendamento: '2026-10-07T09:00:00',
+        duracaoMinutos: 30,
+        nmTutor: 'Ana Beatriz',
+        nmPet: 'Rex',
+        idVeterinario: 1,
+        nmVeterinario: 'Dr. Felipe Ferrete',
+        dsTipoConsulta: 'CONSULTA',
+        dsStatus: 'AGENDADO',
+        nrVersion: 0,
+        idPet: 301,
+        idTutor: 201,
+        dsOrigem: 'TRIAGEM_LUNA',
+        dsNivelUrgenciaOrigem: 'ALTA',
+        dsEtapaRecepcao: 'AGENDADO',
+      },
+    });
+
+    const dto = {
+      idTutor: 201,
+      idPet: 301,
+      idVeterinario: 1,
+      dtAgendamento: '2026-10-07T09:00:00',
+      dsTipo: 'CONSULTA',
+      idTriagemOrigem: 501,
+    };
+
+    const result = await criarAgendamento(dto);
+
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/v1/agendamentos',
+      expect.objectContaining({ idTriagemOrigem: 501 }),
+    );
+    // A resposta mapeada carrega o selo/urgência que a agenda "Hoje" usa
+    // (AgendaHojeCard — dsOrigem/dsNivelUrgenciaOrigem).
+    expect(result.dsOrigem).toBe('TRIAGEM_LUNA');
+    expect(result.dsNivelUrgenciaOrigem).toBe('ALTA');
+  });
+
+  it('lists exactly the 6 tipos allowed by AgendamentoCreateValidator.TiposPermitidos', () => {
+    expect([...TIPOS_AGENDAMENTO_PERMITIDOS].sort()).toEqual(
+      ['CONSULTA', 'EXAME', 'PROCEDIMENTO', 'RETORNO', 'TELEORIENTACAO', 'VACINA'].sort(),
+    );
   });
 });
 

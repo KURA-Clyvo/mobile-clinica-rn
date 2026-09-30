@@ -460,6 +460,19 @@ export default function PacienteDetailScreen() {
         >
           Teleorient.
         </KCButton>
+        {/* REC-14 — entrada (b): pet já conhecido, a rota carrega `idPet` e o
+            formulário trava a etapa de escolha de pet (e o tutor, derivado do
+            pet). Sempre visível — não depende de `usuario` (ficha de
+            veterinário), mesmo critério de "Teleorient." acima. */}
+        <KCButton
+          variant="secondary"
+          size="sm"
+          disabled={!pet}
+          onPress={() => router.push(ROUTES.app.agendaNovo({ idPet: pet.id }))}
+          testID="btn-agendar"
+        >
+          Agendar
+        </KCButton>
         {usuario && (
           <KCButton
             variant="secondary"

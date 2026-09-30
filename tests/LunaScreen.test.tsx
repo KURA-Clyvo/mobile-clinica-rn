@@ -419,6 +419,29 @@ describe('LunaScreen', () => {
       const { queryByTestId } = wrap(<LunaScreen />);
       expect(queryByTestId('btn-abrir-paciente-503')).toBeNull();
     });
+
+    // REC-14 — "Agendar" (tutor identificado) leva ao formulário de agendamento com
+    // idTutor/idTriagemOrigem preenchidos; "Cadastrar tutor" (tutor null, E34) leva ao
+    // cadastro de tutor (REC-03), NUNCA ao formulário de agendamento.
+    it('"Agendar" appears when the item has a tutor and navigates with idTutor + idTriagemOrigem', () => {
+      const { getByTestId } = wrap(<LunaScreen />);
+      fireEvent.press(getByTestId('btn-agendar-501'));
+      expect(mockPush).toHaveBeenCalledWith('/agenda-novo?idTutor=201&idTriagemOrigem=501');
+    });
+
+    it('"Cadastrar tutor" (not "Agendar") appears when the item has no tutor, and navigates to tutor signup', () => {
+      const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
+      expect(queryByTestId('btn-agendar-502')).toBeNull();
+      expect(getByTestId('btn-cadastrar-tutor-502')).toBeTruthy();
+      fireEvent.press(getByTestId('btn-cadastrar-tutor-502'));
+      expect(mockPush).toHaveBeenCalledWith('/tutores/novo');
+    });
+
+    it('MORDIDA — "Cadastrar tutor" never opens the appointment form (no idTutor/idTriagemOrigem in the push)', () => {
+      const { getByTestId } = wrap(<LunaScreen />);
+      fireEvent.press(getByTestId('btn-cadastrar-tutor-502'));
+      expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('/agenda-novo'));
+    });
   });
 
   // CQ-07 (Bloco 0 §2, B0.5): G4r exige os 3 viewports por teste automatizado,

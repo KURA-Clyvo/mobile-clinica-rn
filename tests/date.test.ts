@@ -1,4 +1,10 @@
-import { firstName, HONORIFICOS, calcularIntervaloPeriodo, paraDataLocalSemFuso } from '../src/utils/date';
+import {
+  firstName,
+  HONORIFICOS,
+  calcularIntervaloPeriodo,
+  paraDataLocalSemFuso,
+  formatDateTimeLocalSemFuso,
+} from '../src/utils/date';
 
 // REC-04 fix wave (G2, m-2 — g2-rec04.md M4): `paraDataLocalSemFuso` existe
 // pra NUNCA reproduzir o deslocamento de `toISOString()` (UTC) em campos
@@ -22,6 +28,30 @@ describe('paraDataLocalSemFuso — REC-04 fix wave (m-2)', () => {
   it('meio-dia não é afetado (controle — nenhum deslocamento em horário "seguro")', () => {
     const data = new Date(2025, 8, 27, 12, 0);
     expect(paraDataLocalSemFuso(data)).toBe('2025-09-27T00:00:00');
+  });
+});
+
+// G2/A-3 (REC-14) — a G2 mediu que NENHUM teste unitário protegia
+// `formatDateTimeLocalSemFuso` diretamente: trocar a função por `date.toISOString()`
+// só era pego indiretamente pelo mock (`agenda.mock.ts`), e só depois do fix desta
+// fix wave (M-1/A-3) que ensinou o mock a recusar sufixo de fuso. Um teste de 2
+// linhas fecha o caso sem depender de mock nenhum — `AgendamentoCreateValidator.cs`
+// (backend-clinica-dotnet) recusa com 400 qualquer `DtAgendamento` com `Kind` !=
+// `Unspecified`, e é exatamente o sufixo "Z"/offset que denuncia isso.
+describe('formatDateTimeLocalSemFuso — REC-14 (G2/A-3)', () => {
+  it('nunca produz sufixo de fuso ("Z" ou offset) — mordida: toISOString() produziria', () => {
+    const data = new Date(2026, 9, 7, 9, 0, 0);
+    // Controle: a forma PROIBIDA (toISOString) de fato produz "Z" — se este controle
+    // falhar, a mordida abaixo não prova nada (armadilha v16).
+    expect(data.toISOString()).toMatch(/Z$/);
+    const resultado = formatDateTimeLocalSemFuso(data);
+    expect(resultado).not.toMatch(/(Z|[+-]\d{2}:?\d{2})$/);
+    expect(resultado).toBe('2026-10-07T09:00:00');
+  });
+
+  it('preserva hora/minuto/segundo (diferente de paraDataLocalSemFuso, que zera para meia-noite)', () => {
+    const data = new Date(2026, 9, 7, 14, 35, 42);
+    expect(formatDateTimeLocalSemFuso(data)).toBe('2026-10-07T14:35:42');
   });
 });
 

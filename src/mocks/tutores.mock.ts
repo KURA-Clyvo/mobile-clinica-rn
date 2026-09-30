@@ -77,6 +77,22 @@ export const CPF_MOCK_COM_CONTA = '22233344455';
 
 function buildTutoresArmazenados(): TutorArmazenado[] {
   return [
+    // REC-14 — MESMO tutor que `luna.mock.ts::TRIAGENS_FIXTURE` (item 501) e `byId()`
+    // (acima) já usam para "Ana Beatriz" (id 201): sem esta entrada, o botão "Agendar" da
+    // fila da Luna levaria a um formulário cujo `idTutor` pré-preenchido não existe no
+    // STORE que `agenda.mock.ts::criarAgendamento` consulta — 404 em modo mock para um
+    // fluxo que o próprio backlog pede como aceite. Ver pet 301 ("Rex") vinculado a este
+    // tutor em `pets.mock.ts`.
+    {
+      id: 201,
+      nmTutor: 'Ana Beatriz',
+      nrCpf: '12345678900',
+      dsEmail: 'ana.beatriz@example.com',
+      nrTelefone: '11988887777',
+      stAtiva: true,
+      semLinkConvite: false,
+      temConta: false,
+    },
     {
       id: 900,
       nmTutor: 'Tutor Já Cadastrado',
