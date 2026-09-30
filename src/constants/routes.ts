@@ -36,11 +36,28 @@ export const ROUTES = {
     // Idem: src/app/(app)/consulta/[idPet].tsx. REC-12: idAgendamento
     // opcional (mesmo padrão de `teleorientacao` logo abaixo) — a linha da
     // agenda "Hoje" passa o id do agendamento pra REC-13 chamar
-    // `/inicio-atendimento` UMA VEZ ao montar (REC-13 ainda não lê este
-    // parâmetro; carregá-lo aqui é forward-compat, não implementa REC-13).
-    consulta: (idPet: number, idAgendamento?: number) =>
+    // `/inicio-atendimento` UMA VEZ ao montar.
+    // REC-13: `nrVersion` também opcional — o endpoint exige lock otimista
+    // no corpo (`RegistrarEventoRecepcaoDto.NrVersion`) e a tela não tem
+    // outro jeito de conhecer a versão atual do agendamento; a linha da
+    // agenda "Hoje" já tem `a.nrVersion` em memória no momento do toque, daí
+    // vir pela query string em vez de um refetch antes de navegar. Sem ele
+    // (entrada sem `idAgendamento`, ou uma chamada antiga que ainda não
+    // manda o 3º argumento), a REC-13 envia `nrVersion: 0` e trata QUALQUER
+    // rejeição (inclusive 409, se o agendamento real já tiver avançado de
+    // versão) como aviso não-bloqueante — nunca crasha, só não conclui.
+    // G2 REC-13 (achado M-1): CORREÇÃO — este comentário chegou a alegar que
+    // "qualquer agendamento real (nrVersion >= 1) receberia 409 sempre" com
+    // o fallback `0`. Falso: `backend-tutor-java db/migration/V1__*.sql:277`
+    // declara `NR_VERSION NUMBER(10) DEFAULT 0 NOT NULL`, então um
+    // agendamento real recém-criado e nunca alterado ESTÁ em versão `0` — o
+    // fallback teria SUCESSO nesse caso, não 409. Sem impacto de
+    // comportamento hoje (nenhum call site real passa só 2 argumentos — ver
+    // frente 5 do g2-rec13.md), é achado de documentação, não de código.
+    consulta: (idPet: number, idAgendamento?: number, nrVersion?: number) =>
       (idAgendamento
-        ? `/consulta/${idPet}?idAgendamento=${idAgendamento}`
+        ? `/consulta/${idPet}?idAgendamento=${idAgendamento}` +
+          (typeof nrVersion === 'number' ? `&nrVersion=${nrVersion}` : '')
         : `/consulta/${idPet}`) as Href,
     // idAgendamento é opcional: sem ele (entrada ad-hoc via ficha do pet) a tela não
     // consegue chamar api/v1/teleconsulta (exige um agendamento real no .NET).

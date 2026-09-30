@@ -6,6 +6,7 @@ import {
   useAtualizarStatusAgendamento,
   useAgendaHoje,
   useCheckinAgendamento,
+  useIniciarAtendimento,
 } from '../src/hooks/useAgenda';
 import * as agendaService from '../src/services/agenda.service';
 import { getMondayOf, addDays, formatDateISO } from '../src/utils/date';
@@ -14,11 +15,13 @@ jest.mock('@services/agenda.service', () => ({
   getAgenda: jest.fn(),
   atualizarStatusAgendamento: jest.fn(),
   checkinAgendamento: jest.fn(),
+  iniciarAtendimento: jest.fn(),
 }));
 
 const mockGetAgenda = agendaService.getAgenda as jest.Mock;
 const mockAtualizarStatus = agendaService.atualizarStatusAgendamento as jest.Mock;
 const mockCheckin = agendaService.checkinAgendamento as jest.Mock;
+const mockIniciarAtendimento = agendaService.iniciarAtendimento as jest.Mock;
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -379,6 +382,51 @@ describe('useCheckinAgendamento', () => {
     const spy = jest.spyOn(qc, 'invalidateQueries');
 
     const { result } = renderHook(() => useCheckinAgendamento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['agenda'] });
+  });
+});
+
+// ─── REC-13: useIniciarAtendimento ──────────────────────────────────────────
+describe('useIniciarAtendimento', () => {
+  const VARS = { idAgendamento: 18, nrVersion: 2 };
+
+  it('encaminha idAgendamento e nrVersion ao service', async () => {
+    mockIniciarAtendimento.mockResolvedValue({ ...MOCK_APPOINTMENT, dsEtapaRecepcao: 'EM_ATENDIMENTO' });
+    const { wrapper } = makeWrapperComCliente();
+
+    const { result } = renderHook(() => useIniciarAtendimento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(mockIniciarAtendimento).toHaveBeenCalledWith(18, { nrVersion: 2 });
+  });
+
+  it('invalida a agenda (prefixo compartilhado com useAgendaHoje) no SUCESSO', async () => {
+    mockIniciarAtendimento.mockResolvedValue(MOCK_APPOINTMENT);
+    const { qc, wrapper } = makeWrapperComCliente();
+    qc.setQueryData(['agenda', 'hoje', '2026-09-28'], [MOCK_APPOINTMENT]);
+    expect(qc.getQueryState(['agenda', 'hoje', '2026-09-28'])?.isInvalidated).toBe(false);
+
+    const { result } = renderHook(() => useIniciarAtendimento(), { wrapper });
+    result.current.mutate(VARS);
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(qc.getQueryState(['agenda', 'hoje', '2026-09-28'])?.isInvalidated).toBe(true);
+  });
+
+  // Mesma classe de mordida de useCheckinAgendamento/useAtualizarStatusAgendamento
+  // acima: sem isto, um erro (ex.: 409/422 — que a tela trata como aviso
+  // não-bloqueante, ConsultaScreen.test.tsx) deixaria a linha presa num
+  // estado divergente até o usuário sair e voltar da tela.
+  it('invalida a agenda TAMBÉM no erro', async () => {
+    mockIniciarAtendimento.mockRejectedValue(Object.assign(new Error('Conflito'), { status: 409 }));
+    const { qc, wrapper } = makeWrapperComCliente();
+    const spy = jest.spyOn(qc, 'invalidateQueries');
+
+    const { result } = renderHook(() => useIniciarAtendimento(), { wrapper });
     result.current.mutate(VARS);
 
     await waitFor(() => expect(result.current.isError).toBe(true));

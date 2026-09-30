@@ -12,9 +12,23 @@ const mockBack = jest.fn();
 // tem ficha de veterinario. Sem ele, `router.replace` seria `undefined` e a
 // guarda quebraria -- e o teste falharia por um motivo diferente do real.
 const mockReplace = jest.fn();
+// REC-13: exportada como jest.fn() nomeada (não mais inline) para os testes
+// abaixo poderem sobrescrever o retorno por caso (idAgendamento presente/
+// ausente) via `mockUseLocalSearchParams.mockReturnValue(...)`.
+type ConsultaSearchParams = { idPet: string; idAgendamento?: string; nrVersion?: string };
+const mockUseLocalSearchParams = jest.fn<ConsultaSearchParams, []>(() => ({ idPet: '1' }));
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
   useRouter: () => ({ back: mockBack, replace: mockReplace }),
+}));
+
+// REC-13: hook de mutação mockado no nível do módulo — mesmo padrão de
+// useCheckinAgendamento em AgendaScreen.test.tsx (não exercita a cadeia real
+// service/mock aqui, que já é coberta por agenda.service.test.ts,
+// useAgenda.test.ts e mock-contract-audit.test.ts).
+const mockMutateIniciarAtendimento = jest.fn();
+jest.mock('@hooks/useAgenda', () => ({
+  useIniciarAtendimento: jest.fn(() => ({ mutate: mockMutateIniciarAtendimento })),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
@@ -114,6 +128,9 @@ beforeEach(() => {
   mockUseCriarConsulta.mockReturnValue({ mutate: mockMutateCriarConsulta, isPending: false });
   mockUseEnviarTranscricao.mockReturnValue({ mutate: mockMutateEnviarTranscricao, isPending: false });
   mockUseConfirmarSoap.mockReturnValue({ mutate: mockMutateConfirmarSoap, isPending: false });
+  // REC-13: default sem idAgendamento (fluxo antigo, pela ficha do
+  // paciente) -- cada teste que precisa do fluxo novo sobrescreve.
+  mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
 });
 
 function wrap(ui: React.ReactElement) {
@@ -647,5 +664,123 @@ describe('ConsultaScreen — avatar com foto real no header (FT-08, fix wave G2)
     mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
     const { queryByTestId } = wrap(<ConsultaScreen />);
     expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+  });
+});
+
+// ─── REC-13: início de atendimento ao montar o prontuário ──────────────────
+//
+// A linha da agenda "Hoje" abre consulta/[idPet]?idAgendamento=…&nrVersion=…
+// (agenda.tsx::handleAbrirProntuario); a ficha do paciente continua abrindo
+// só consulta/[idPet] (pacientes/[id].tsx, sem idAgendamento). A tela chama
+// `/inicio-atendimento` (via useIniciarAtendimento) UMA vez ao montar SE
+// idAgendamento existir; erro nunca bloqueia o formulário.
+describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
+  it('COM idAgendamento na query: chama iniciarAtendimento exatamente 1 vez ao montar, com idAgendamento e nrVersion', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledWith(
+      { idAgendamento: 30, nrVersion: 2 },
+      expect.any(Object),
+    );
+  });
+
+  // MORDIDA (aceite do backlog: "abrir sem idAgendamento não chama nada").
+  // Reproduzida manualmente nesta task: comentar a guarda
+  // `if (!idAgendamentoNum || ...) return;` em consulta/[idPet].tsx faz este
+  // teste falhar (a chamada acontece mesmo sem idAgendamento na query) — ver
+  // relatório da task para o registro da mordida.
+  it('SEM idAgendamento na query (fluxo antigo, pela ficha do paciente): NÃO chama iniciarAtendimento', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).not.toHaveBeenCalled();
+  });
+
+  it('SEM nrVersion na query (mas COM idAgendamento): chama com nrVersion 0, sem quebrar', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledWith(
+      { idAgendamento: 30, nrVersion: 0 },
+      expect.any(Object),
+    );
+  });
+
+  // G2 REC-13 (achado M-2): este teste faz um RE-RENDER (`rerender`), não uma
+  // remontagem — quem garante a chamada única aqui é o array de dependências
+  // do `useEffect` (`idAgendamentoNum`/`nrVersionNum` não mudam), não o `ref`.
+  // O nome antigo citava "StrictMode double-invoke", mas este app NÃO usa
+  // `<React.StrictMode>` (`git grep "StrictMode" -- src` só acha texto de
+  // comentário) — o `ref` é defesa em profundidade para esse cenário
+  // hipotético, não a proteção medida por este teste. Uma REMONTAGEM de
+  // verdade (sair da tela e voltar) chama de novo por desenho — quem protege
+  // contra duplicar o efeito nesse caso é a idempotência do servidor
+  // (AgendaService.cs:472-473, ver comentário em consulta/[idPet].tsx).
+  it('re-render da tela com as mesmas props NÃO duplica a chamada (array de dependências do useEffect)', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const { rerender } = wrap(<ConsultaScreen />);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+
+    rerender(<ConsultaScreen />);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha (não-409, ex.: 422 de status não elegível) não bloqueia o prontuário: a tela renderiza normalmente, sem Alert', async () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockMutateIniciarAtendimento.mockImplementation(
+      (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
+        opts?.onError?.(Object.assign(new Error('Etapa não elegível'), { status: 422 }));
+      },
+    );
+
+    const { getByTestId } = wrap(<ConsultaScreen />);
+
+    // A tela continua utilizável -- formulário renderiza, campos aceitam
+    // texto normalmente, nada crashou nem ficou preso.
+    expect(getByTestId('btn-salvar')).toBeTruthy();
+    fireEvent.changeText(getByTestId('field-motivo'), 'Consulta apesar do erro');
+    expect(getByTestId('field-motivo').props.value).toBe('Consulta apesar do erro');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[REC-13] Falha ao registrar início de atendimento:',
+      expect.any(Object),
+    );
+    // G0/G2 classificam este caso (422, ex.: reabrir prontuário de
+    // agendamento já REALIZADO) como inofensivo -- não precisa de aviso
+    // visível, só diagnóstico.
+    expect(alertSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  // G2 REC-13 (achado Important `I-1`): um 409 por `nrVersion` desatualizado
+  // (duas recepções/aparelhos tocando o mesmo agendamento) deixava a linha
+  // presa em `CHEGOU` na "Hoje", com "esperando há N min" subindo e NENHUM
+  // sinal visível (`console.warn` some em build de release). Mesmo padrão já
+  // usado NESTE APP para o MESMO 409, na MESMA entidade
+  // (agenda.tsx::handleChegou/handleFaltou, `agenda.tsx:747-752/776-781`).
+  it('409 por nrVersion desatualizado mostra Alert.alert (mesmo texto de agenda.tsx::handleChegou/handleFaltou) e não bloqueia o prontuário', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockMutateIniciarAtendimento.mockImplementation(
+      (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
+        opts?.onError?.(Object.assign(new Error('Conflito'), { status: 409 }));
+      },
+    );
+
+    const { getByTestId } = wrap(<ConsultaScreen />);
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Agendamento desatualizado',
+      'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+    );
+    // Não bloqueia -- o formulário continua usável depois do Alert.
+    expect(getByTestId('btn-salvar')).toBeTruthy();
+
+    alertSpy.mockRestore();
   });
 });

@@ -789,11 +789,13 @@ export default function AgendaScreen() {
     }
   };
 
-  // REC-13 (fora do escopo desta task — aqui só a navegação, ver brief:
-  // "a linha abre consulta/[idPet]?idAgendamento=…"). A chamada real de
-  // `/inicio-atendimento` ao montar é da REC-13, não desta task.
+  // REC-13: a chamada real de `/inicio-atendimento` acontece dentro de
+  // consulta/[idPet].tsx ao montar — aqui só a navegação, carregando
+  // `idAgendamento` e `nrVersion` (o valor EM MEMÓRIA desta linha da lista,
+  // não um refetch) pra tela poder chamar o endpoint com o lock otimista
+  // correto.
   const handleAbrirProntuario = (a: AgendamentoResponse) => {
-    router.push(ROUTES.app.consulta(a.pet.id, a.id));
+    router.push(ROUTES.app.consulta(a.pet.id, a.id, a.nrVersion));
   };
 
   const weekDays = React.useMemo(

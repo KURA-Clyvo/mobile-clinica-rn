@@ -3,8 +3,10 @@ import {
   getAgenda,
   atualizarStatusAgendamento,
   checkinAgendamento,
+  iniciarAtendimento,
   type AtualizarStatusAgendamentoRequest,
   type CheckinAgendamentoRequest,
+  type IniciarAtendimentoRequest,
 } from '@services/agenda.service';
 import { getMondayOf, getSundayOf, formatDateISO } from '@utils/date';
 
@@ -87,6 +89,25 @@ export function useCheckinAgendamento() {
   return useMutation({
     mutationFn: (vars: { idAgendamento: number } & CheckinAgendamentoRequest) =>
       checkinAgendamento(vars.idAgendamento, { nrVersion: vars.nrVersion }),
+    retry: 0,
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['agenda'] });
+    },
+  });
+}
+
+// REC-13 — início de atendimento (tela de prontuário, chamado uma vez ao
+// montar). Mesmo racional de `onSettled` de useCheckinAgendamento acima: o
+// caller (consulta/[idPet].tsx) trata o erro como aviso não-bloqueante
+// (nunca impede o vet de atender), então invalidar SEMPRE — sucesso ou
+// falha — garante que, se outro caminho (ex.: check-in feito à parte)
+// alterou o `nrVersion` nesse meio-tempo, a agenda relida traz o estado
+// real assim que o usuário voltar pra ela.
+export function useIniciarAtendimento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { idAgendamento: number } & IniciarAtendimentoRequest) =>
+      iniciarAtendimento(vars.idAgendamento, { nrVersion: vars.nrVersion }),
     retry: 0,
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['agenda'] });

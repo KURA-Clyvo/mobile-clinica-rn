@@ -25,6 +25,7 @@ import {
   useEnviarTranscricao,
   useConfirmarSoap,
 } from '@hooks/useEventosClinicos';
+import { useIniciarAtendimento } from '@hooks/useAgenda';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -153,8 +154,18 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function ConsultaScreen() {
-  const { idPet } = useLocalSearchParams<{ idPet: string }>();
+  const { idPet, idAgendamento, nrVersion } = useLocalSearchParams<{
+    idPet: string;
+    idAgendamento?: string;
+    nrVersion?: string;
+  }>();
   const petId = idPet ? parseInt(idPet, 10) : null;
+  // REC-13: `idAgendamento` só existe quando a tela é aberta pela linha da
+  // agenda "Hoje" (ROUTES.app.consulta com o 2º argumento — ver agenda.tsx::
+  // handleAbrirProntuario). Sem ele (fluxo antigo, pela ficha do paciente —
+  // pacientes/[id].tsx), a mordida do aceite exige NÃO chamar nada.
+  const idAgendamentoNum = idAgendamento ? parseInt(idAgendamento, 10) : null;
+  const nrVersionNum = nrVersion ? parseInt(nrVersion, 10) : 0;
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
@@ -197,6 +208,60 @@ export default function ConsultaScreen() {
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
   const { mutate: enviarTranscricao, isPending: isEnviandoAudio } = useEnviarTranscricao();
   const { mutate: confirmarSoap, isPending: isConfirmandoSoap } = useConfirmarSoap();
+  const { mutate: iniciarAtendimento } = useIniciarAtendimento();
+
+  // REC-13 — marca o início do atendimento no servidor quando o prontuário é
+  // aberto pela linha da agenda "Hoje" (idAgendamento presente). O `ref`
+  // evita uma 2ª chamada num RE-RENDER com as mesmas deps (é isso que o
+  // array de dependências abaixo já garante por construção, já que
+  // `idAgendamentoNum`/`nrVersionNum` não mudam durante a vida da tela) —
+  // ele NÃO é proteção contra StrictMode, que este app não usa (`git grep
+  // "StrictMode" -- src` só acha texto de comentário, nenhum
+  // `<React.StrictMode>` real). Numa REMONTAGEM de verdade (o vet sai da
+  // tela e volta), o `ref` nasce `false` de novo e a chamada SAI — a
+  // proteção contra duplicar `DtInicioAtendimento`/`NrVersion` nesse caso é
+  // a idempotência do PRÓPRIO servidor: `IniciarAtendimentoAsync`
+  // (AgendaService.cs:472-473) devolve o agendamento atual ANTES de checar
+  // versão quando `DtInicioAtendimento` já está preenchido — não sobrescreve
+  // o horário, não incrementa `NrVersion`, não falha com 409 mesmo que a
+  // versão tenha mudado nesse meio-tempo (G2 REC-13, frente 2).
+  //
+  // Falha NUNCA bloqueia o prontuário (aceite do backlog: "o vet atende de
+  // qualquer jeito"). G2 REC-13 (achado `I-1`): um 409 por `nrVersion`
+  // desatualizado (duas recepções/aparelhos tocando o mesmo agendamento)
+  // deixava a linha presa em `CHEGOU` na "Hoje" — `dsEtapaRecepcao` só vira
+  // `EM_ATENDIMENTO` quando `DtInicioAtendimento` é de fato gravado
+  // (CalcularEtapaRecepcao, AgendaService.cs:584) — com o "esperando há N
+  // min" (agenda.tsx:463-470) subindo e NENHUM sinal visível, porque
+  // `console.warn` sozinho não aparece em build de release. Mesmo padrão já
+  // usado NESTE MESMO ARQUIVO para o MESMO 409, na MESMA entidade
+  // (`handleChegou`/`handleFaltou`, agenda.tsx:747-752/776-781):
+  // `Alert.alert('Agendamento desatualizado', …)`. `console.warn` continua
+  // para diagnóstico; qualquer OUTRO erro (422 de status não elegível — ex.:
+  // reabrir prontuário de agendamento já `REALIZADO`, guarda de status vem
+  // antes da idempotente — ou 404) permanece só `console.warn`, sem Alert:
+  // são casos que o G0/G2 já classificaram como inofensivos e não fazem a
+  // linha "parecer" ativa quando não está, que é o dano real do 409.
+  const jaIniciouAtendimento = useRef(false);
+  useEffect(() => {
+    if (!idAgendamentoNum || jaIniciouAtendimento.current) return;
+    jaIniciouAtendimento.current = true;
+    iniciarAtendimento(
+      { idAgendamento: idAgendamentoNum, nrVersion: nrVersionNum },
+      {
+        onError: (err: unknown) => {
+          console.warn('[REC-13] Falha ao registrar início de atendimento:', err);
+          const apiErr = err as { status?: number };
+          if (apiErr.status === 409) {
+            Alert.alert(
+              'Agendamento desatualizado',
+              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+            );
+          }
+        },
+      },
+    );
+  }, [idAgendamentoNum, nrVersionNum, iniciarAtendimento]);
 
   const [idEventoClinico, setIdEventoClinico] = useState<number | null>(null);
   const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);

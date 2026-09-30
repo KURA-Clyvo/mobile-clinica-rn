@@ -794,7 +794,10 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     const { getByTestId } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-modo-hoje'));
     fireEvent.press(getByTestId('btn-abrir-prontuario-30'));
-    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=30');
+    // REC-13: nrVersion (1, valor em memória do fixture) agora vai junto,
+    // pra tela de consulta poder chamar /inicio-atendimento com o lock
+    // otimista correto.
+    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=30&nrVersion=1');
   });
 
   // Fix wave G2 (m-7, Minor): `AGENDAMENTO.ID_PET` é nullable no backend
@@ -831,7 +834,7 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     const { getByTestId } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-modo-hoje'));
     fireEvent.press(getByTestId('btn-abrir-prontuario-64'));
-    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=64');
+    expect(mockPush).toHaveBeenCalledWith('/consulta/10?idAgendamento=64&nrVersion=1');
   });
 
   // Fix wave G2 (m-8, Minor): URL assinada da foto (FT-04) tem validade —

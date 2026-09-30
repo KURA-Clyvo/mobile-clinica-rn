@@ -336,3 +336,62 @@ export async function checkin(config: InternalAxiosRequestConfig): Promise<Agend
 
   return { ...item };
 }
+
+// REC-13 — início de atendimento (chamado ao montar a tela de prontuário).
+// Mesmo padrão de `checkin` acima: mesma tabela de status elegíveis
+// (AGENDADO/CONFIRMADO — AgendaService.cs::StatusElegiveisParaEventoRecepcao,
+// compartilhada pelos dois endpoints reais), idempotente por presença de
+// `dtInicioAtendimento` (2ª chamada devolve o estado atual sem checar versão
+// nem sobrescrever o horário — AgendaService.cs:472-473), e NUNCA toca
+// `dtCheckin` (walk-in sem check-in prévio continua sem check-in —
+// AgendaService.cs:484). Etapa resultante é `EM_ATENDIMENTO`, espelhando
+// `CalcularEtapaRecepcao` (AgendaService.cs:584: `dtInicioAtendimento.HasValue
+// -> "EM_ATENDIMENTO"`), não `etapaMockParaStatus()` (que só deriva de
+// `dsStatus`, que este endpoint nunca muda).
+export async function iniciarAtendimento(
+  config: InternalAxiosRequestConfig,
+): Promise<AgendamentoItemApiDto> {
+  const match = config.url?.match(/\/agendamentos\/(\d+)\/inicio-atendimento$/);
+  const idAgendamento = match ? Number(match[1]) : 0;
+  const body = (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as {
+    nrVersion?: number;
+  };
+
+  const store = getStore();
+  const item = store.find((a) => a.idAgendamento === idAgendamento);
+  if (!item) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Agendamento ${idAgendamento} não encontrado`,
+    });
+  }
+
+  // Idempotente (REC-11): 2ª chamada devolve o estado atual sem checar
+  // versão nem sobrescrever o horário.
+  if (item.dtInicioAtendimento) {
+    return { ...item };
+  }
+
+  if (item.dsEtapaRecepcao !== 'AGENDADO' && item.dsEtapaRecepcao !== 'CONFIRMADO') {
+    return Promise.reject({
+      status: 422,
+      code: 'ETAPA_NAO_ELEGIVEL',
+      message: `Agendamento ${idAgendamento} não permite iniciar atendimento no estado atual.`,
+    });
+  }
+
+  if (typeof body.nrVersion === 'number' && body.nrVersion !== item.nrVersion) {
+    return Promise.reject({
+      status: 409,
+      code: 'CONFLITO_CONCORRENCIA',
+      message: `Agendamento ${idAgendamento} foi atualizado por outro processo. Releia antes de tentar de novo.`,
+    });
+  }
+
+  item.dtInicioAtendimento = naiveLocal(new Date());
+  item.dsEtapaRecepcao = 'EM_ATENDIMENTO';
+  item.nrVersion = item.nrVersion + 1;
+
+  return { ...item };
+}

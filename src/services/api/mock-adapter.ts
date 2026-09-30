@@ -30,6 +30,11 @@ const ROUTES: [RegExp, MockHandler][] = [
   // exclusiva de `/status$` acima por construção (sufixos diferentes,
   // ambos ancorados em `$`).
   [/\/agendamentos\/\d+\/checkin$/, agendaMock.checkin],
+  // REC-13: rota ABSOLUTA nova (AgendaController.cs, [HttpPost("~/api/v1/
+  // agendamentos/{id:long}/inicio-atendimento")]). Mutuamente exclusiva de
+  // `/status$` e `/checkin$` acima por construção (sufixos diferentes,
+  // todos ancorados em `$`).
+  [/\/agendamentos\/\d+\/inicio-atendimento$/, agendaMock.iniciarAtendimento],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],

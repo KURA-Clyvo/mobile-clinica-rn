@@ -242,3 +242,34 @@ export async function checkinAgendamento(
   );
   return mapAgendamentoItem(response.data);
 }
+
+// REC-13 — início de atendimento (chamado ao montar a tela de prontuário,
+// quando a navegação carrega `idAgendamento`). Rota ABSOLUTA, MESMO contrato
+// de `checkinAgendamento` acima — mesmo DTO (`RegistrarEventoRecepcaoDto`, só
+// `nrVersion`). FONTE: backend-clinica-dotnet
+// src/Kura.Api/Controllers/AgendaController.cs:120-129 (`[HttpPost("~/api/
+// v1/agendamentos/{id:long}/inicio-atendimento")]`), commit
+// 242be7d509f6… (`main`), conferido em 2026-09-30 — reconferir com
+// `git -C ../backend-clinica-dotnet show 242be7d:src/Kura.Api/Controllers/
+// AgendaController.cs | sed -n '120,129p'`.
+//
+// Idempotente no servidor: 2ª chamada com `DtInicioAtendimento` já
+// preenchido devolve o estado atual SEM checar `nrVersion`
+// (AgendaService.cs:472-473) — cobre a mordida "montar a tela 2× não
+// duplica" também do lado servidor, além da guarda de mount único do lado
+// app (ver consulta/[idPet].tsx). Permitido SEM check-in prévio (walk-in que
+// entra direto) — nunca toca `DtCheckin` como efeito colateral.
+export interface IniciarAtendimentoRequest {
+  nrVersion: number;
+}
+
+export async function iniciarAtendimento(
+  idAgendamento: number,
+  req: IniciarAtendimentoRequest,
+): Promise<AgendamentoResponse> {
+  const response = await apiClient.post<AgendamentoItemApiDto>(
+    `/api/v1/agendamentos/${idAgendamento}/inicio-atendimento`,
+    req,
+  );
+  return mapAgendamentoItem(response.data);
+}
