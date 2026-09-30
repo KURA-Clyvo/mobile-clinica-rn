@@ -63,6 +63,16 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que só ' +
       'toca mobile-clinica-rn) — mesmo candidato da REC-18 citado acima.',
   },
+  'agenda.service.ts::criarAgendamento': {
+    naoCoberto:
+      'REC-14 (KURA_BACKLOG_RECEPCAO, novo agendamento/encaixe/"Agendar" pela triagem) — ' +
+      'POST /api/v1/agendamentos (REC-10, backend-clinica-dotnet AgendaController.cs, ' +
+      'main @ 242be7d). smoke-contratos.sh (DevOps-Cloud) não tem check para ela hoje — ' +
+      'grep confirmado (`grep -n "agendamentos" scripts/smoke-contratos.sh` só acha o ' +
+      'bloco 14, que é mobile-tutor-rn/Java, endpoint DIFERENTE). Side-effecting, exige ' +
+      'tutor/pet/veterinário pré-existentes no seed — mesmo candidato da REC-18 citado ' +
+      'acima para as outras 2 entradas naoCoberto deste service.',
+  },
 
   // auth.service.ts
   'auth.service.ts::login': { coberto: 'auth/login (clinica)' },

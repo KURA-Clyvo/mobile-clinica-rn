@@ -58,6 +58,37 @@ export async function relatorioTriagens(
   };
 }
 
+// LU-09: itens extraídos para constante de módulo (REC-14) — antes viviam só dentro do
+// literal de retorno de `triagens()`; `agenda.mock.ts::criarAgendamento` (REC-14, botão
+// "Agendar" do card da fila) precisa resolver `idTutor`/`urgencia` da MESMA triagem que
+// a fila exibe, sem duplicar os 2 registros à mão (regra v7 — inventário à mão apodrece).
+const TRIAGENS_FIXTURE = [
+  {
+    idTriagem: 501,
+    dtTriagem: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+    urgencia: 'ALTA' as const,
+    sintomas: ['vômito', 'letargia'],
+    score: 87,
+    regrasVersao: '1.1',
+    encaminhadoVet: true,
+    tutor: { id: 201, nome: 'Ana Beatriz' },
+    pets: [{ id: 301, nome: 'Rex', especie: 'Cão' }],
+    trechoMensagem: 'Meu cachorro vomitou 3 vezes hoje e está muito quieto...',
+  },
+  {
+    idTriagem: 502,
+    dtTriagem: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    urgencia: 'MEDIA' as const,
+    sintomas: ['coceira'],
+    score: 34,
+    regrasVersao: '1.1',
+    encaminhadoVet: false,
+    tutor: null,
+    pets: [],
+    trechoMensagem: 'Notei que ela está se coçando bastante desde ontem...',
+  },
+];
+
 // LU-09: shape de FIO (TriagensListaApiResponse) do mesmo jeito que relatorioTriagens
 // acima — este mock É a resposta do .NET do ponto de vista de luna.service.ts, e
 // passa pelo MESMO tradutor (toTriagensListaResponse) que o modo real usaria. Um item
@@ -67,34 +98,22 @@ export async function triagens(
   _config: InternalAxiosRequestConfig,
 ): Promise<TriagensListaApiResponse> {
   return {
-    items: [
-      {
-        idTriagem: 501,
-        dtTriagem: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-        urgencia: 'ALTA',
-        sintomas: ['vômito', 'letargia'],
-        score: 87,
-        regrasVersao: '1.1',
-        encaminhadoVet: true,
-        tutor: { id: 201, nome: 'Ana Beatriz' },
-        pets: [{ id: 301, nome: 'Rex', especie: 'Cão' }],
-        trechoMensagem: 'Meu cachorro vomitou 3 vezes hoje e está muito quieto...',
-      },
-      {
-        idTriagem: 502,
-        dtTriagem: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-        urgencia: 'MEDIA',
-        sintomas: ['coceira'],
-        score: 34,
-        regrasVersao: '1.1',
-        encaminhadoVet: false,
-        tutor: null,
-        pets: [],
-        trechoMensagem: 'Notei que ela está se coçando bastante desde ontem...',
-      },
-    ],
+    items: TRIAGENS_FIXTURE,
     total: 2,
     page: 1,
     pageSize: 20,
   };
+}
+
+// REC-14 — exportado para `agenda.mock.ts::criarAgendamento` validar
+// `IdTriagemOrigem` (mesma checagem real: triagem existe? pertence ao
+// `IdTutor` do corpo?) e resolver a urgência que vira `DsNivelUrgenciaOrigem`
+// na resposta (`AgendaService.ToItemDto`, `a.TriagemOrigem?.DsNivelUrgencia`).
+// Mesmo padrão de `buscarTutorArmazenadoPorId`/`buscarPetArmazenadoPorId`.
+export function buscarTriagemMockPorId(
+  id: number,
+): { idTutor: number | null; urgencia: 'ALTA' | 'MEDIA' | 'BAIXA' } | undefined {
+  const item = TRIAGENS_FIXTURE.find((t) => t.idTriagem === id);
+  if (!item) return undefined;
+  return { idTutor: item.tutor?.id ?? null, urgencia: item.urgencia };
 }

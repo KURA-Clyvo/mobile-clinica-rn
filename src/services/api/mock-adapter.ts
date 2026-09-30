@@ -35,6 +35,11 @@ const ROUTES: [RegExp, MockHandler][] = [
   // `/status$` e `/checkin$` acima por construção (sufixos diferentes,
   // todos ancorados em `$`).
   [/\/agendamentos\/\d+\/inicio-atendimento$/, agendaMock.iniciarAtendimento],
+  // REC-14: POST /api/v1/agendamentos (AgendaController.cs, criação de agendamento —
+  // formulário novo, "Encaixe agora", "Agendar" pela fila da Luna). Mutuamente exclusiva
+  // das 3 entradas `/agendamentos\/\d+\/...$` acima por construção (esta não tem `\d+`
+  // antes do `$`, aquelas exigem).
+  [/\/agendamentos$/, agendaMock.criarAgendamento],
   [/\/dashboard\/hoje$/, dashboardMock.hoje],
   [/\/dashboard\/alertas$/, dashboardMock.alertas],
   [/\/dashboard\/recentes$/, dashboardMock.recentes],

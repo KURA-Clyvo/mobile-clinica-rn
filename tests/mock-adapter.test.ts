@@ -65,7 +65,9 @@ describe('mock-adapter', () => {
     const res = await resolveMock(makeConfig('/pets'));
     const data = res.data as unknown[];
     expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(12);
+    // REC-14: +1 (pet 301, "Rex") — mesmo tutor/pet que `luna.mock.ts::TRIAGENS_FIXTURE`
+    // usa, para o botão "Agendar" da fila da Luna ter um pet real pra oferecer.
+    expect(data.length).toBe(13);
   });
 
   it('resolves /pets/1', async () => {

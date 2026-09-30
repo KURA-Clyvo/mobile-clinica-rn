@@ -166,6 +166,31 @@ export const STRINGS = {
     erroHojeTitulo: 'Não foi possível carregar a agenda de hoje',
     erroHojeDesc: 'Verifique sua conexão e tente novamente.',
     tentarNovamente: 'Tentar de novo',
+    // REC-14
+    novoAgendamento: 'Novo agendamento',
+    agendar: 'Agendar',
+    encaixeAgora: 'Encaixe agora',
+    encaixeAgoraDesc: 'Agenda para agora e já registra a chegada do paciente.',
+  },
+  AGENDA_NOVO: {
+    TITLE: 'Novo agendamento',
+    STEP_TUTOR: 'Tutor',
+    STEP_PET: 'Pet',
+    STEP_VETERINARIO: 'Veterinário',
+    STEP_DATA_HORA: 'Data e hora',
+    STEP_TIPO: 'Tipo de atendimento',
+    OBSERVACOES: 'Observações (opcional)',
+    BUSCAR_TUTOR_PLACEHOLDER: 'Nome ou CPF do tutor',
+    SEM_TUTOR_SELECIONADO: 'Selecione um tutor para ver os pets dele.',
+    SEM_PET_PARA_TUTOR: 'Este tutor não tem pet cadastrado.',
+    SALVAR: 'Salvar agendamento',
+    // E34 — a triagem da Luna NÃO sabe o pet: o formulário aberto por "Agendar" na
+    // fila chega com o tutor preenchido e pede o pet mesmo assim.
+    TUTOR_NAO_IDENTIFICADO_TITULO: 'Tutor não identificado',
+    TUTOR_NAO_IDENTIFICADO_DESC:
+      'Esta triagem não tem um tutor cadastrado. Cadastre o tutor antes de agendar.',
+    CADASTRAR_TUTOR: 'Cadastrar tutor',
+    ERRO_GENERICO: 'Não foi possível criar o agendamento. Tente novamente.',
   },
   erros: {
     generico: 'Algo deu errado. Tente novamente.',
@@ -193,6 +218,9 @@ export const STRINGS = {
     FILA_ERRO: 'Não foi possível carregar as mensagens da Luna.',
     RESPONDER_WHATSAPP: 'Responder no WhatsApp',
     ABRIR_PACIENTE: 'Abrir paciente',
+    // REC-14 — "Agendar" (tutor identificado) / "Cadastrar tutor" (tutor null, E34).
+    AGENDAR: 'Agendar',
+    CADASTRAR_TUTOR: 'Cadastrar tutor',
     RELATORIO_TITLE: 'Relatório de Triagens',
     PERIODO_7: '7 dias',
     PERIODO_30: '30 dias',

@@ -146,6 +146,21 @@ const PETS: PetResponse[] = [
     sgPorte: 'P',
     tutores: [{ idTutor: 21, nmTutor: 'Thiago Nascimento', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
   },
+  // REC-14 — MESMO pet que `luna.mock.ts::TRIAGENS_FIXTURE` (item 501, tutor "Ana
+  // Beatriz"/id 201, já acrescentado a `tutores.mock.ts::buildTutoresArmazenados`) usa
+  // para "Rex" (id 301). Sem esta entrada, o formulário de agendamento aberto pelo botão
+  // "Agendar" da fila não teria NENHUM pet real para oferecer ao escolher o pet daquele
+  // tutor (E34 — a triagem não sabe o pet, a recepção escolhe na hora).
+  {
+    id: 301,
+    nmPet: 'Rex',
+    nmEspecie: 'Cão',
+    nmRaca: 'Vira-lata',
+    dtNascimento: '2021-05-10T00:00:00.000Z',
+    sgSexo: 'M',
+    sgPorte: 'M',
+    tutores: [{ idTutor: 201, nmTutor: 'Ana Beatriz', dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
+  },
 ];
 
 const TIMELINES: Record<number, TimelineEventResponse[]> = {
@@ -322,4 +337,14 @@ export async function uploadFoto(config: InternalAxiosRequestConfig): Promise<Pe
     dsFotoChave: `clinica/1/pet/${id}/${Date.now()}.webp`,
     dtFotoAtualizacao: new Date().toISOString(),
   };
+}
+
+// REC-14 — exportado para `agenda.mock.ts::criarAgendamento` resolver
+// nome/vínculo do pet ao montar a resposta de `POST /agendamentos` (mesmo
+// padrão de `tutores.mock.ts::buscarTutorArmazenadoPorId`, reaproveitado
+// por `pets.mock.ts::criar` acima). Devolve `undefined` quando o id não
+// existe — o chamador decide o que fazer (404, mesma semântica do
+// `AgendaService.CriarAsync` real recusando `IdPet` desconhecido).
+export function buscarPetArmazenadoPorId(id: number): PetResponse | undefined {
+  return PETS.find((p) => p.id === id);
 }

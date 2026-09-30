@@ -16,6 +16,7 @@ import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStat
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AgendamentoStatusMenu } from '@components/domain/AgendamentoStatusMenu';
@@ -850,6 +851,21 @@ export default function AgendaScreen() {
     // restaurar isso caso vire regressão visível de verdade.
     <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       <ModoAgendaToggle modo={modo} onChange={setModo} />
+
+      {/* REC-14 — KCButton (não TouchableOpacity cru): não acrescenta tocável novo ao
+          inventário de `touchTargetRegistry.tsx` (CQ-08). Visível nos 2 modos (Semana e
+          Hoje) — aditivo, mesmo cuidado que a REC-12 já teve com o resto desta tela. */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <KCButton
+          variant="secondary"
+          size="sm"
+          onPress={() => router.push(ROUTES.app.agendaNovo())}
+          testID="btn-novo-agendamento"
+          accessibilityLabel={STRINGS.agenda.novoAgendamento}
+        >
+          {STRINGS.agenda.novoAgendamento}
+        </KCButton>
+      </View>
 
       {modo === 'semana' && (
         <>

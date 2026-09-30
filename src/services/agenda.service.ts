@@ -273,3 +273,62 @@ export async function iniciarAtendimento(
   );
   return mapAgendamentoItem(response.data);
 }
+
+// ─── REC-14 — novo agendamento / encaixe / "Agendar" pela triagem ──────────
+//
+// 🔴 PIN DE CONTRATO CROSS-REPO — leia antes de editar este DTO/lista/tolerância.
+//
+// FONTE:   backend-clinica-dotnet
+//          src/Kura.Application/DTOs/Agenda/AgendamentoCreateDto.cs (POST /api/v1/agendamentos)
+//          src/Kura.Application/Validators/AgendamentoCreateValidator.cs (lista de tipos,
+//            máximo de bytes de DsObservacoes, exigência de Kind=Unspecified em DtAgendamento)
+//          src/Kura.Application/Services/AgendaService.cs:302-395 (CriarAsync — 404/422,
+//            tolerância de encaixe de 15 minutos, DsOrigem derivado de IdTriagemOrigem)
+// COMMIT:  242be7d509f6d3f1cfa45295949a5ae437c3fd60 (`main`)
+// CONFERIDO EM: 2026-09-30 — lido linha a linha na fonte para esta task (REC-14).
+//
+// COMO RECONFERIR:
+//   git -C ../backend-clinica-dotnet show \
+//     242be7d:src/Kura.Application/DTOs/Agenda/AgendamentoCreateDto.cs
+//   git -C ../backend-clinica-dotnet show \
+//     242be7d:src/Kura.Application/Validators/AgendamentoCreateValidator.cs
+//   git -C ../backend-clinica-dotnet show \
+//     242be7d:src/Kura.Application/Services/AgendaService.cs | sed -n '302,395p'
+//
+// `IdClinica` NUNCA aparece no corpo — vem sempre do JWT (mesma decisão documentada no
+// próprio DTO real). `DtAgendamento` tem que ser montado com
+// `utils/date.ts::formatDateTimeLocalSemFuso` (hora LOCAL de SP, sem "Z"/offset) — um
+// `toISOString()` aqui faria o validator recusar com 400 (Kind=Utc).
+export const TIPOS_AGENDAMENTO_PERMITIDOS = [
+  'CONSULTA',
+  'RETORNO',
+  'VACINA',
+  'EXAME',
+  'PROCEDIMENTO',
+  'TELEORIENTACAO',
+] as const;
+
+export type TipoAgendamento = (typeof TIPOS_AGENDAMENTO_PERMITIDOS)[number];
+
+// Máximo de bytes UTF-8 de `DsObservacoes` — `AgendamentoCreateValidator.MaxObservacoesBytes`.
+// Igual à mesma regra já aplicada a `DsObservacoes` de evento clínico (ver histórico do
+// CLAUDE.md, achado FIX_4/G2 I-2): a coluna Oracle é BYTE, não CHAR.
+export const AGENDAMENTO_OBSERVACOES_MAX_BYTES = 1000;
+
+export interface AgendamentoCreateWireDto {
+  idTutor: number;
+  idPet: number;
+  idVeterinario: number;
+  dtAgendamento: string;
+  duracao?: number;
+  dsTipo: TipoAgendamento | string;
+  dsObservacoes?: string;
+  idTriagemOrigem?: number;
+}
+
+export async function criarAgendamento(
+  dto: AgendamentoCreateWireDto,
+): Promise<AgendamentoResponse> {
+  const response = await apiClient.post<AgendamentoItemApiDto>('/api/v1/agendamentos', dto);
+  return mapAgendamentoItem(response.data);
+}

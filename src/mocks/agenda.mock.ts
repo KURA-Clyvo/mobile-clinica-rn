@@ -1,5 +1,14 @@
 import type { InternalAxiosRequestConfig } from 'axios';
-import type { AgendaApiResponseDto, AgendamentoItemApiDto } from '../services/agenda.service';
+import type {
+  AgendaApiResponseDto,
+  AgendamentoItemApiDto,
+  AgendamentoCreateWireDto,
+} from '../services/agenda.service';
+import { TIPOS_AGENDAMENTO_PERMITIDOS, AGENDAMENTO_OBSERVACOES_MAX_BYTES } from '../services/agenda.service';
+import { buscarTutorArmazenadoPorId } from './tutores.mock';
+import { buscarPetArmazenadoPorId } from './pets.mock';
+import { buscarVeterinarioArmazenadoPorId } from './veterinarios.mock';
+import { buscarTriagemMockPorId } from './luna.mock';
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -394,4 +403,163 @@ export async function iniciarAtendimento(
   item.nrVersion = item.nrVersion + 1;
 
   return { ...item };
+}
+
+// REC-14 — sentinela de teste: `idPet` que existe (`buscarPetArmazenadoPorId` acha),
+// mas que este mock simula como NÃO vinculado ao `idTutor` enviado — mesmo padrão de
+// `tutores.mock.ts::CPF_MOCK_DUPLICADO` (magic value dedicado a exercitar um ramo de
+// erro específico sem precisar montar um estado de store inteiro pra isso).
+export const ID_PET_MOCK_NAO_VINCULADO_AO_TUTOR = 88888;
+
+// Mesma regra de `AgendamentoCreateValidator.MaxObservacoesBytes` (Oracle
+// VARCHAR2 BYTE, não CHAR) — contagem manual de bytes UTF-8 em vez de
+// `TextEncoder` (nem sempre polyfillado no runtime de teste) ou
+// `unescape(encodeURIComponent())` (depreciado).
+function contarBytesUtf8(texto: string): number {
+  let bytes = 0;
+  for (const char of texto) {
+    const codePoint = char.codePointAt(0) ?? 0;
+    if (codePoint <= 0x7f) bytes += 1;
+    else if (codePoint <= 0x7ff) bytes += 2;
+    else if (codePoint <= 0xffff) bytes += 3;
+    else bytes += 4;
+  }
+  return bytes;
+}
+
+let _proximoIdAgendamentoCriado = 9000;
+
+// REC-14 — POST /api/v1/agendamentos. Espelha `AgendamentoCreateValidator.cs` (forma) e
+// `AgendaService.CriarAsync` (regras relacionais + tolerância de encaixe) — ver o PIN de
+// contrato cross-repo em `agenda.service.ts::criarAgendamento`. Ordem das checagens
+// replica a ordem real do service: tutor -> pet -> vínculo -> veterinário -> triagem de
+// origem -> tolerância de horário -> forma (tipo/duração/observações) — na prática pouco
+// importa pra este mock (nenhum teste depende da ORDEM dos 4xx), mas manter a mesma ordem
+// facilita comparar os dois lados quando o contrato mudar de novo.
+export async function criarAgendamento(
+  config: InternalAxiosRequestConfig,
+): Promise<AgendamentoItemApiDto> {
+  const body = (
+    typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})
+  ) as AgendamentoCreateWireDto;
+
+  const tutor = buscarTutorArmazenadoPorId(body.idTutor);
+  if (!tutor) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Tutor ${body.idTutor} não encontrado`,
+    });
+  }
+
+  const pet = buscarPetArmazenadoPorId(body.idPet);
+  if (!pet) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Pet ${body.idPet} não encontrado`,
+    });
+  }
+
+  const petVinculado =
+    body.idPet !== ID_PET_MOCK_NAO_VINCULADO_AO_TUTOR &&
+    pet.tutores.some((t) => t.idTutor === body.idTutor);
+  if (!petVinculado) {
+    return Promise.reject({
+      status: 422,
+      code: 'REGRA_DE_NEGOCIO',
+      message: `Pet ${body.idPet} não está vinculado ao tutor ${body.idTutor}.`,
+    });
+  }
+
+  const veterinario = buscarVeterinarioArmazenadoPorId(body.idVeterinario);
+  if (!veterinario) {
+    return Promise.reject({
+      status: 404,
+      code: 'NOT_FOUND',
+      message: `Veterinario ${body.idVeterinario} não encontrado`,
+    });
+  }
+
+  let dsNivelUrgenciaOrigem: string | null = null;
+  if (typeof body.idTriagemOrigem === 'number') {
+    const triagem = buscarTriagemMockPorId(body.idTriagemOrigem);
+    if (!triagem) {
+      return Promise.reject({
+        status: 404,
+        code: 'NOT_FOUND',
+        message: `TriagemLuna ${body.idTriagemOrigem} não encontrada`,
+      });
+    }
+    if (triagem.idTutor !== body.idTutor) {
+      return Promise.reject({
+        status: 422,
+        code: 'REGRA_DE_NEGOCIO',
+        message: `Triagem ${body.idTriagemOrigem} não pertence ao tutor ${body.idTutor}.`,
+      });
+    }
+    dsNivelUrgenciaOrigem = triagem.urgencia;
+  }
+
+  const agora = new Date();
+  const dtAgendamento = new Date(body.dtAgendamento);
+  if (dtAgendamento.getTime() < agora.getTime() - 15 * 60 * 1000) {
+    return Promise.reject({
+      status: 422,
+      code: 'REGRA_DE_NEGOCIO',
+      message: "'DtAgendamento' não pode ser mais de 15 minutos no passado (tolerância de encaixe).",
+    });
+  }
+
+  if (!TIPOS_AGENDAMENTO_PERMITIDOS.includes(body.dsTipo as (typeof TIPOS_AGENDAMENTO_PERMITIDOS)[number])) {
+    return Promise.reject({
+      status: 400,
+      code: 'VALIDACAO',
+      message: `'DsTipo' deve ser um de: ${TIPOS_AGENDAMENTO_PERMITIDOS.join(', ')}.`,
+    });
+  }
+
+  if (typeof body.duracao === 'number' && (body.duracao < 5 || body.duracao > 480)) {
+    return Promise.reject({
+      status: 400,
+      code: 'VALIDACAO',
+      message: "'Duracao' deve estar entre 5 e 480 minutos.",
+    });
+  }
+
+  if (body.dsObservacoes && contarBytesUtf8(body.dsObservacoes) > AGENDAMENTO_OBSERVACOES_MAX_BYTES) {
+    return Promise.reject({
+      status: 400,
+      code: 'VALIDACAO',
+      message: `'DsObservacoes' deve ter no máximo ${AGENDAMENTO_OBSERVACOES_MAX_BYTES} bytes UTF-8.`,
+    });
+  }
+
+  const idAgendamento = _proximoIdAgendamentoCriado++;
+  const novo: AgendamentoItemApiDto = {
+    idAgendamento,
+    dtAgendamento: body.dtAgendamento,
+    duracaoMinutos: body.duracao ?? 30,
+    nmTutor: tutor.nmTutor,
+    nmPet: pet.nmPet,
+    idVeterinario: veterinario.id,
+    nmVeterinario: veterinario.nmVeterinario,
+    dsTipoConsulta: body.dsTipo,
+    dsStatus: 'AGENDADO',
+    nrVersion: 0,
+    idPet: pet.id,
+    idTutor: tutor.id,
+    dtCheckin: null,
+    dtInicioAtendimento: null,
+    // A-1: SEMPRE explícito, mesma regra do backend real — presença de
+    // `idTriagemOrigem` é o que decide a origem, nunca o inverso.
+    dsOrigem: typeof body.idTriagemOrigem === 'number' ? 'TRIAGEM_LUNA' : 'RECEPCAO',
+    dsNivelUrgenciaOrigem,
+    dsRespostaConfirmacao: null,
+    dsEtapaRecepcao: 'AGENDADO',
+    dsFotoThumbUrl: pet.dsFotoThumbUrl ?? null,
+  };
+
+  getStore().push(novo);
+  return novo;
 }
