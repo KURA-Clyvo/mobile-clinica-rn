@@ -20,7 +20,12 @@
 //     -> todo alerta virava 'RETORNO_PENDENTE' e todo agendamento recente saía com
 //     nmPet/nmTipoConsulta undefined e sgStatus fixo em 'AGENDADA'.
 import { getHoje, getAlertas, getRecentes } from '../src/services/dashboard.service';
-import { getAgenda, atualizarStatusAgendamento, checkinAgendamento } from '../src/services/agenda.service';
+import {
+  getAgenda,
+  atualizarStatusAgendamento,
+  checkinAgendamento,
+  iniciarAtendimento,
+} from '../src/services/agenda.service';
 import { login, registerClinica } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline, uploadFoto } from '../src/services/pets.service';
 import type { FotoVarianteGerada } from '../src/utils/fotoPet';
@@ -176,6 +181,31 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       // incrementar nrVersion de novo.
       const segunda = await checkinAgendamento(alvo!.id, { nrVersion: atualizado.nrVersion });
       expect(segunda.dtCheckin).toBe(atualizado.dtCheckin);
+      expect(segunda.nrVersion).toBe(atualizado.nrVersion);
+    });
+
+    // REC-13 — mesma disciplina dos dois testes acima: cadeia REAL (service ->
+    // apiClient -> mock-adapter -> agenda.mock.ts::iniciarAtendimento), sem
+    // jest.mock do apiClient. Prova G4b para o par novo desta task.
+    it('iniciarAtendimento executa sem lançar, marca dtInicioAtendimento e devolve etapa EM_ATENDIMENTO', async () => {
+      const agenda = await getAgenda({ dataInicio: '2020-01-01', dataFim: '2030-01-01' });
+      const alvo = agenda.find((a) => a.dsEtapaRecepcao === 'AGENDADO');
+      expect(alvo).toBeDefined();
+
+      const atualizado = await iniciarAtendimento(alvo!.id, { nrVersion: alvo!.nrVersion });
+
+      expect(atualizado.id).toBe(alvo!.id);
+      expect(atualizado.dsEtapaRecepcao).toBe('EM_ATENDIMENTO');
+      expect(atualizado.dtInicioAtendimento).toBeDefined();
+      // Walk-in sem check-in prévio (A-3, AgendaService.cs:484): este
+      // endpoint NUNCA preenche dtCheckin como efeito colateral.
+      expect(atualizado.dtCheckin).toBeUndefined();
+      expect(atualizado.nrVersion).toBe(alvo!.nrVersion + 1);
+
+      // Idempotente (REC-11): 2ª chamada devolve o MESMO dtInicioAtendimento,
+      // sem incrementar nrVersion de novo.
+      const segunda = await iniciarAtendimento(alvo!.id, { nrVersion: atualizado.nrVersion });
+      expect(segunda.dtInicioAtendimento).toBe(atualizado.dtInicioAtendimento);
       expect(segunda.nrVersion).toBe(atualizado.nrVersion);
     });
   });

@@ -7,12 +7,14 @@ import { apiClient } from '../src/services/api/client';
 import {
   getAgenda,
   atualizarStatusAgendamento,
+  iniciarAtendimento,
   getTransicoesPermitidas,
 } from '../src/services/agenda.service';
 import type { AgendaQuery } from '../src/types/api';
 
 const mockApiGet = apiClient.get as jest.Mock;
 const mockApiPatch = apiClient.patch as jest.Mock;
+const mockApiPost = apiClient.post as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -181,6 +183,44 @@ describe('atualizarStatusAgendamento', () => {
       nrVersion: 1,
       dsObservacao: 'Tutor cancelou por telefone',
     });
+  });
+});
+
+// REC-13 — POST na rota ABSOLUTA de início de atendimento, mesmo contrato
+// de checkinAgendamento (mesmo DTO, só nrVersion).
+describe('iniciarAtendimento', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('calls POST on the absolute /api/v1/agendamentos/{id}/inicio-atendimento route with the exact body', async () => {
+    mockApiPost.mockResolvedValue({
+      data: {
+        idAgendamento: 42,
+        dtAgendamento: '2026-07-21T09:00:00Z',
+        duracaoMinutos: 30,
+        nmTutor: 'Carlos Mendes',
+        nmPet: 'Thor',
+        idVeterinario: 1,
+        nmVeterinario: 'Dr. Felipe Ferrete',
+        dsTipoConsulta: 'Consulta de Retorno',
+        dsStatus: 'CONFIRMADO',
+        nrVersion: 2,
+        dtInicioAtendimento: '2026-07-21T09:05:00',
+        dsEtapaRecepcao: 'EM_ATENDIMENTO',
+      },
+    });
+
+    const result = await iniciarAtendimento(42, { nrVersion: 1 });
+
+    expect(mockApiPost).toHaveBeenCalledWith('/api/v1/agendamentos/42/inicio-atendimento', {
+      nrVersion: 1,
+    });
+    // A resposta já vem mapeada (AgendamentoResponse), com nrVersion
+    // ATUALIZADO (2, incrementado pelo servidor) — não o nrVersion enviado.
+    expect(result.nrVersion).toBe(2);
+    expect(result.dtInicioAtendimento).toBe('2026-07-21T09:05:00');
+    expect(result.dsEtapaRecepcao).toBe('EM_ATENDIMENTO');
   });
 });
 

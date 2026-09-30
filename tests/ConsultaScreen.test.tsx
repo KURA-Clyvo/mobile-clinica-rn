@@ -12,9 +12,22 @@ const mockBack = jest.fn();
 // tem ficha de veterinario. Sem ele, `router.replace` seria `undefined` e a
 // guarda quebraria -- e o teste falharia por um motivo diferente do real.
 const mockReplace = jest.fn();
+// REC-13: exportada como jest.fn() nomeada (não mais inline) para os testes
+// abaixo poderem sobrescrever o retorno por caso (idAgendamento presente/
+// ausente) via `mockUseLocalSearchParams.mockReturnValue(...)`.
+const mockUseLocalSearchParams = jest.fn(() => ({ idPet: '1' }));
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
+  useLocalSearchParams: () => mockUseLocalSearchParams(),
   useRouter: () => ({ back: mockBack, replace: mockReplace }),
+}));
+
+// REC-13: hook de mutação mockado no nível do módulo — mesmo padrão de
+// useCheckinAgendamento em AgendaScreen.test.tsx (não exercita a cadeia real
+// service/mock aqui, que já é coberta por agenda.service.test.ts,
+// useAgenda.test.ts e mock-contract-audit.test.ts).
+const mockMutateIniciarAtendimento = jest.fn();
+jest.mock('@hooks/useAgenda', () => ({
+  useIniciarAtendimento: jest.fn(() => ({ mutate: mockMutateIniciarAtendimento })),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
@@ -114,6 +127,9 @@ beforeEach(() => {
   mockUseCriarConsulta.mockReturnValue({ mutate: mockMutateCriarConsulta, isPending: false });
   mockUseEnviarTranscricao.mockReturnValue({ mutate: mockMutateEnviarTranscricao, isPending: false });
   mockUseConfirmarSoap.mockReturnValue({ mutate: mockMutateConfirmarSoap, isPending: false });
+  // REC-13: default sem idAgendamento (fluxo antigo, pela ficha do
+  // paciente) -- cada teste que precisa do fluxo novo sobrescreve.
+  mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
 });
 
 function wrap(ui: React.ReactElement) {
@@ -647,5 +663,80 @@ describe('ConsultaScreen — avatar com foto real no header (FT-08, fix wave G2)
     mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: false });
     const { queryByTestId } = wrap(<ConsultaScreen />);
     expect(queryByTestId('kc-pet-portrait-foto')).toBeNull();
+  });
+});
+
+// ─── REC-13: início de atendimento ao montar o prontuário ──────────────────
+//
+// A linha da agenda "Hoje" abre consulta/[idPet]?idAgendamento=…&nrVersion=…
+// (agenda.tsx::handleAbrirProntuario); a ficha do paciente continua abrindo
+// só consulta/[idPet] (pacientes/[id].tsx, sem idAgendamento). A tela chama
+// `/inicio-atendimento` (via useIniciarAtendimento) UMA vez ao montar SE
+// idAgendamento existir; erro nunca bloqueia o formulário.
+describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
+  it('COM idAgendamento na query: chama iniciarAtendimento exatamente 1 vez ao montar, com idAgendamento e nrVersion', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledWith(
+      { idAgendamento: 30, nrVersion: 2 },
+      expect.any(Object),
+    );
+  });
+
+  // MORDIDA (aceite do backlog: "abrir sem idAgendamento não chama nada").
+  // Reproduzida manualmente nesta task: comentar a guarda
+  // `if (!idAgendamentoNum || ...) return;` em consulta/[idPet].tsx faz este
+  // teste falhar (a chamada acontece mesmo sem idAgendamento na query) — ver
+  // relatório da task para o registro da mordida.
+  it('SEM idAgendamento na query (fluxo antigo, pela ficha do paciente): NÃO chama iniciarAtendimento', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).not.toHaveBeenCalled();
+  });
+
+  it('SEM nrVersion na query (mas COM idAgendamento): chama com nrVersion 0, sem quebrar', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30' });
+    wrap(<ConsultaScreen />);
+
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledWith(
+      { idAgendamento: 30, nrVersion: 0 },
+      expect.any(Object),
+    );
+  });
+
+  it('remontar a tela (StrictMode double-invoke / re-render) NÃO duplica a chamada', () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const { rerender } = wrap(<ConsultaScreen />);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+
+    rerender(<ConsultaScreen />);
+    expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
+  });
+
+  it('falha na chamada não bloqueia o prontuário: a tela renderiza normalmente e não crasha', async () => {
+    mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockMutateIniciarAtendimento.mockImplementation(
+      (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
+        opts?.onError?.(Object.assign(new Error('Conflito'), { status: 409 }));
+      },
+    );
+
+    const { getByTestId } = wrap(<ConsultaScreen />);
+
+    // A tela continua utilizável -- formulário renderiza, campos aceitam
+    // texto normalmente, nada crashou nem ficou preso.
+    expect(getByTestId('btn-salvar')).toBeTruthy();
+    fireEvent.changeText(getByTestId('field-motivo'), 'Consulta apesar do erro');
+    expect(getByTestId('field-motivo').props.value).toBe('Consulta apesar do erro');
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[REC-13] Falha ao registrar início de atendimento:',
+      expect.any(Object),
+    );
+
+    warnSpy.mockRestore();
   });
 });

@@ -25,6 +25,7 @@ import {
   useEnviarTranscricao,
   useConfirmarSoap,
 } from '@hooks/useEventosClinicos';
+import { useIniciarAtendimento } from '@hooks/useAgenda';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -153,8 +154,18 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function ConsultaScreen() {
-  const { idPet } = useLocalSearchParams<{ idPet: string }>();
+  const { idPet, idAgendamento, nrVersion } = useLocalSearchParams<{
+    idPet: string;
+    idAgendamento?: string;
+    nrVersion?: string;
+  }>();
   const petId = idPet ? parseInt(idPet, 10) : null;
+  // REC-13: `idAgendamento` só existe quando a tela é aberta pela linha da
+  // agenda "Hoje" (ROUTES.app.consulta com o 2º argumento — ver agenda.tsx::
+  // handleAbrirProntuario). Sem ele (fluxo antigo, pela ficha do paciente —
+  // pacientes/[id].tsx), a mordida do aceite exige NÃO chamar nada.
+  const idAgendamentoNum = idAgendamento ? parseInt(idAgendamento, 10) : null;
+  const nrVersionNum = nrVersion ? parseInt(nrVersion, 10) : 0;
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
@@ -197,6 +208,32 @@ export default function ConsultaScreen() {
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
   const { mutate: enviarTranscricao, isPending: isEnviandoAudio } = useEnviarTranscricao();
   const { mutate: confirmarSoap, isPending: isConfirmandoSoap } = useConfirmarSoap();
+  const { mutate: iniciarAtendimento } = useIniciarAtendimento();
+
+  // REC-13 — marca o início do atendimento no servidor quando o prontuário é
+  // aberto pela linha da agenda "Hoje" (idAgendamento presente). Mesmo
+  // padrão de guarda por `ref` do redirect acima (FM-01): protege contra o
+  // double-invoke do StrictMode/re-render, chamando no máximo 1 vez por
+  // montagem — a idempotência do PRÓPRIO servidor (AgendaService.cs:472-473)
+  // é a segunda camada, não a única.
+  //
+  // Falha NUNCA bloqueia o prontuário (aceite do backlog: "o vet atende de
+  // qualquer jeito") — sem toast/snackbar neste app, o aviso é um
+  // `console.warn` não-modal (mesmo padrão de KCIcon.tsx:217 para o caso
+  // análogo "algo divergiu, mas a tela segue normal").
+  const jaIniciouAtendimento = useRef(false);
+  useEffect(() => {
+    if (!idAgendamentoNum || jaIniciouAtendimento.current) return;
+    jaIniciouAtendimento.current = true;
+    iniciarAtendimento(
+      { idAgendamento: idAgendamentoNum, nrVersion: nrVersionNum },
+      {
+        onError: (err: unknown) => {
+          console.warn('[REC-13] Falha ao registrar início de atendimento:', err);
+        },
+      },
+    );
+  }, [idAgendamentoNum, nrVersionNum, iniciarAtendimento]);
 
   const [idEventoClinico, setIdEventoClinico] = useState<number | null>(null);
   const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);
