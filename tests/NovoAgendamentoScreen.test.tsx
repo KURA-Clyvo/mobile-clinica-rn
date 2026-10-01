@@ -225,6 +225,28 @@ describe('NovoAgendamentoScreen', () => {
     expect(criado?.tutor.id).toBe(14);
   });
 
+  // REC-17 (G2, I-3) — plano B: a linha "Pediu para remarcar" que o PRÓPRIO mock de agenda
+  // oferece (REMARCAR) tem de abrir o formulário com pet e tutor RESOLVIDOS, e salvar sem
+  // 404. Parte da linha real do mock, não de ids escritos à mão no teste.
+  it('Remarcar from the mock agenda REMARCAR row opens the form with pet and tutor resolved and saves', async () => {
+    const hoje = formatDateISO(new Date());
+    const linha = (await getAgenda({ dataInicio: hoje, dataFim: hoje })).find(
+      (a) => a.dsRespostaConfirmacao === 'REMARCAR',
+    );
+    expect(linha).toBeDefined();
+    mockSearchParams = { idPet: String(linha!.pet.id), idTutor: String(linha!.tutor.id) };
+    const { getByTestId, getByText } = wrap(<NovoAgendamentoScreen />);
+
+    await waitFor(() => expect(getByText(linha!.pet.nmPet)).toBeTruthy());
+    await waitFor(() => expect(getByText(linha!.tutor.nmTutor)).toBeTruthy());
+    fireEvent.press(getByTestId('vet-opcao-1'));
+    fireEvent.press(getByTestId('tipo-opcao-CONSULTA'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-agendamento'));
+    });
+    await waitFor(() => expect(getByTestId('btn-voltar-agenda-novo')).toBeTruthy());
+  });
+
   // MORDIDA obrigatória do backlog (REC-14): "não mandar idTriagemOrigem ⇒ teste
   // vermelho" — a versão de tela desta mordida. Prova que o formulário deriva
   // `idTriagemOrigem` do parâmetro de rota e SÓ o inclui quando ele existe. Uma mutação

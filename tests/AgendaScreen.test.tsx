@@ -1138,7 +1138,16 @@ describe('AgendaScreen — selo da resposta do tutor (REC-17)', () => {
 
   function abrirSemana(resposta: string | null | undefined, extra: Record<string, unknown> = {}) {
     mockUseAgendaSemana.mockReturnValue(
-      makeDefaultHookReturn([{ ...MOCK_APPOINTMENT_TODAY, dsRespostaConfirmacao: resposta, ...extra }]),
+      makeDefaultHookReturn([
+        {
+          ...MOCK_APPOINTMENT_TODAY,
+          // m-1 (G2): tutor.id ≠ pet.id, senão trocar idPet/idTutor no push passaria.
+          tutor: { ...MOCK_APPOINTMENT_TODAY.tutor, id: 7 },
+          dsEtapaRecepcao: 'AGENDADO',
+          dsRespostaConfirmacao: resposta,
+          ...extra,
+        },
+      ]),
     );
     mockUseAgendaHoje.mockReturnValue({
       data: [],
@@ -1154,7 +1163,7 @@ describe('AgendaScreen — selo da resposta do tutor (REC-17)', () => {
     ['Hoje', (v: string | null | undefined, extra: Record<string, unknown> = {}) =>
       abrirHoje(agendamentoHoje({ dsRespostaConfirmacao: v, ...extra })), 30, '/agenda-novo?idPet=10&idTutor=20'],
     ['Semana', (v: string | null | undefined, extra: Record<string, unknown> = {}) =>
-      abrirSemana(v, extra), 1, '/agenda-novo?idPet=1&idTutor=1'],
+      abrirSemana(v, extra), 1, '/agenda-novo?idPet=1&idTutor=7'],
   ] as const)('visão %s', (_nome, abrir, id, hrefEsperado) => {
     it('SIM mostra "Confirmou pelo WhatsApp" e NÃO oferece "Remarcar"', () => {
       const { getByTestId, queryByTestId, queryByText } = abrir('SIM');
@@ -1184,6 +1193,26 @@ describe('AgendaScreen — selo da resposta do tutor (REC-17)', () => {
       fireEvent.press(getByTestId(`btn-remarcar-${id}`));
       expect(mockPush).toHaveBeenCalledTimes(1);
       expect(mockPush).toHaveBeenCalledWith(hrefEsperado);
+    });
+
+    // I-1 (G2): o servidor NÃO muda ST_STATUS no check-in/início (AgendaService.cs:140-145
+    // @ 81d5a58) — a linha segue AGENDADO/CONFIRMADO e só a ETAPA muda. Combinação real.
+    it.each([
+      ['CHEGOU', 'AGENDADO', { dtCheckin: '2026-09-28T08:50:00.000Z' }],
+      ['CHEGOU', 'CONFIRMADO', { dtCheckin: '2026-09-28T08:50:00.000Z' }],
+      [
+        'EM_ATENDIMENTO',
+        'AGENDADO',
+        { dtCheckin: '2026-09-28T08:50:00.000Z', dtInicioAtendimento: '2026-09-28T09:05:00.000Z' },
+      ],
+    ])('REMARCAR com etapa %s e status %s (como o servidor manda) mantém o selo e SEM "Remarcar"', (etapa, status, ts) => {
+      const { getByTestId, queryByTestId } = abrir('REMARCAR', {
+        dsEtapaRecepcao: etapa,
+        dsStatusOrigem: status,
+        ...ts,
+      });
+      expect(getByTestId(`resposta-tutor-${id}`)).toBeTruthy();
+      expect(queryByTestId(`btn-remarcar-${id}`)).toBeNull();
     });
 
     it('REMARCAR em linha que já está CANCELADA mantém o selo mas não oferece "Remarcar"', () => {

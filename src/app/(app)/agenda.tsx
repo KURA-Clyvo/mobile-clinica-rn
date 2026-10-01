@@ -451,7 +451,7 @@ function RespostaTutorSelo({ appointment: a }: { appointment: AgendamentoRespons
   const router = useRouter();
   const selo = seloRespostaTutor(a.dsRespostaConfirmacao);
   if (!selo) return null;
-  const mostrarRemarcar = podeOferecerRemarcar(a.dsRespostaConfirmacao, a.dsStatusOrigem);
+  const mostrarRemarcar = podeOferecerRemarcar(a.dsRespostaConfirmacao, a.dsEtapaRecepcao);
   return (
     <View style={styles.hojeBadgeRow}>
       <KCChip tone={selo.tone} testID={`resposta-tutor-${a.id}`}>

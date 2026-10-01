@@ -40,17 +40,21 @@ export function seloRespostaTutor(
   }
 }
 
-// REMARCAR não muda o status no servidor, então o pedido continua gravado mesmo
-// depois que a linha já andou (check-in, atendimento, cancelamento). A ação só
-// faz sentido enquanto a consulta ainda está de pé para ser remarcada.
-const STATUS_REMARCAVEIS = ['AGENDADO', 'CONFIRMADO'];
+// REMARCAR não muda o status no servidor, e check-in/início de atendimento TAMBÉM
+// não (AgendaService.cs:140-145 @ 81d5a58: "Check-in e início NÃO transicionam
+// ST_STATUS (A-2) ... é DsEtapaRecepcao quem muda"). Então a ação NÃO pode decidir por
+// `dsStatusOrigem`: um pet que já chegou ou está em atendimento continua AGENDADO/
+// CONFIRMADO ali. A etapa (derivada no servidor, A-3) é a fonte; só enquanto ela for
+// AGENDADO ou CONFIRMADO a consulta ainda está de pé para ser remarcada. Fora disso
+// (CHEGOU, EM_ATENDIMENTO, FINALIZADO, NAO_COMPARECEU, CANCELADO) o selo fica e a ação some.
+const ETAPAS_REMARCAVEIS = ['AGENDADO', 'CONFIRMADO'];
 
 export function podeOferecerRemarcar(
   dsRespostaConfirmacao: string | null | undefined,
-  dsStatusOrigem: string,
+  dsEtapaRecepcao: string,
 ): boolean {
   return (
     seloRespostaTutor(dsRespostaConfirmacao)?.oferecerRemarcar === true &&
-    STATUS_REMARCAVEIS.includes(dsStatusOrigem)
+    ETAPAS_REMARCAVEIS.includes(dsEtapaRecepcao)
   );
 }

@@ -141,11 +141,13 @@ function buildTodayReceptionAppointments(
     // AGENDADO, sem check-in, origem PORTAL, com foto.
     {
       idAgendamento: 16, dtAgendamento: makeHojeAt(9), duracaoMinutos: 30, dsStatus: 'AGENDADO',
-      nmPet: 'Amora', nmTutor: 'Beatriz Lopes', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
-      idPet: 116, idTutor: 216, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
-      // REC-17: REMARCAR NÃO muda o status (LunaService.cs:519-523 @ 81d5a58) — a linha segue AGENDADO.
+      nmPet: 'Rex', nmTutor: 'Ana Beatriz', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
+      idPet: 301, idTutor: 201, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
+      // REC-17: pet 301/tutor 201 (Rex / Ana Beatriz) EXISTEM em pets.mock/tutores.mock — o "Remarcar"
+      // abre o formulário com pet e tutor resolvidos (G2 I-3: 116/216 não existiam => 404 no plano B).
+      // REMARCAR NÃO muda o status (LunaService.cs:519-523 @ 81d5a58) — a linha segue AGENDADO.
       dsRespostaConfirmacao: 'REMARCAR',
-      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/116/thumb.webp',
+      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/301/thumb.webp',
     },
     // CONFIRMADO, sem check-in, origem RECEPCAO, sem foto (fallback).
     {

@@ -122,6 +122,42 @@ describe('agenda.service', () => {
   });
 });
 
+// REC-17 (G2, I-2) — `mapAgendamentoItem` é o ÚNICO caminho do valor do servidor até
+// o selo da resposta do tutor (inclusive em modo mock, que devolve o shape wire). Sem este
+// teste, o campo podia deixar de ser repassado e a suíte inteira seguia verde (medido).
+// Valores gravados por LunaService.cs:505-532 @ 81d5a58 (SIM|CANCELAR|REMARCAR) ou null.
+describe('getAgenda — dsRespostaConfirmacao (REC-17)', () => {
+  const baseItem = {
+    dtAgendamento: '2026-09-28T09:00:00',
+    duracaoMinutos: 30,
+    nmTutor: 't',
+    nmPet: 'p',
+    idVeterinario: 1,
+    nmVeterinario: 'v',
+    dsTipoConsulta: 'c',
+    dsStatus: 'AGENDADO',
+    nrVersion: 1,
+    dsEtapaRecepcao: 'AGENDADO',
+  };
+
+  it.each([
+    ['SIM', 'SIM'],
+    ['REMARCAR', 'REMARCAR'],
+    ['CANCELAR', 'CANCELAR'],
+    [null, undefined],
+  ])('wire %p chega ao app como %p', async (wire, esperado) => {
+    mockApiGet.mockResolvedValue({
+      data: {
+        dataInicio: 'x',
+        dataFim: 'x',
+        agendamentos: [{ ...baseItem, idAgendamento: 1, dsRespostaConfirmacao: wire }],
+      },
+    });
+    const result = await getAgenda({ dataInicio: '2026-09-28', dataFim: '2026-09-28' });
+    expect(result[0]!.dsRespostaConfirmacao).toBe(esperado);
+  });
+});
+
 describe('atualizarStatusAgendamento', () => {
   beforeEach(() => {
     jest.clearAllMocks();

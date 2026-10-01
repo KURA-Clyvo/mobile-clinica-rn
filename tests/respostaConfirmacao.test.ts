@@ -27,19 +27,21 @@ describe('seloRespostaTutor (REC-17)', () => {
   );
 });
 
+// O 2º parâmetro é a ETAPA (dsEtapaRecepcao), não o ST_STATUS: o servidor não muda o
+// status no check-in/início (AgendaService.cs:140-145 @ 81d5a58).
 describe('podeOferecerRemarcar (REC-17)', () => {
-  it.each(['AGENDADO', 'CONFIRMADO'])('REMARCAR + status %s => oferece', (status) => {
-    expect(podeOferecerRemarcar('REMARCAR', status)).toBe(true);
+  it.each(['AGENDADO', 'CONFIRMADO'])('REMARCAR + etapa %s => oferece', (etapa) => {
+    expect(podeOferecerRemarcar('REMARCAR', etapa)).toBe(true);
   });
 
-  it.each(['CANCELADO', 'REALIZADO', 'NAO_COMPARECEU', 'EM_ATENDIMENTO'])(
-    'REMARCAR + status %s => não oferece (REMARCAR não muda status, o pedido fica gravado depois que a linha andou)',
-    (status) => {
-      expect(podeOferecerRemarcar('REMARCAR', status)).toBe(false);
+  it.each(['CHEGOU', 'EM_ATENDIMENTO', 'FINALIZADO', 'NAO_COMPARECEU', 'CANCELADO'])(
+    'REMARCAR + etapa %s => não oferece (o pedido fica gravado depois que a linha andou)',
+    (etapa) => {
+      expect(podeOferecerRemarcar('REMARCAR', etapa)).toBe(false);
     },
   );
 
-  it('SIM nunca oferece, mesmo em status remarcável', () => {
+  it('SIM nunca oferece, mesmo em etapa remarcável', () => {
     expect(podeOferecerRemarcar('SIM', 'AGENDADO')).toBe(false);
   });
 });
