@@ -43,6 +43,7 @@ import {
   podeRegistrarChegada,
   podeMarcarFalta,
 } from '@utils/etapaRecepcao';
+import { seloRespostaTutor, podeOferecerRemarcar } from '@utils/respostaConfirmacao';
 import { STRINGS } from '@constants/strings';
 import type { AgendamentoResponse } from '../../types/api';
 // FM-04 (revisão pós-medição do maestro): statusTone/statusLabel eram locais
@@ -440,6 +441,39 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
   );
 }
 
+// REC-17 — selo da resposta do tutor ao lembrete D-1 + ação "Remarcar".
+// Componente-função PRÓPRIO (mesma razão de `ModoAgendaToggle`/`AgendaHojeCard`):
+// compartilhado pelos DOIS cards (Hoje e Semana) e com chave própria
+// `RespostaTutorSelo#1` na descoberta de touchables, sem rebindar as existentes.
+function RespostaTutorSelo({ appointment: a }: { appointment: AgendamentoResponse }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  const router = useRouter();
+  const selo = seloRespostaTutor(a.dsRespostaConfirmacao);
+  if (!selo) return null;
+  const mostrarRemarcar = podeOferecerRemarcar(a.dsRespostaConfirmacao, a.dsStatusOrigem);
+  return (
+    <View style={styles.hojeBadgeRow}>
+      <KCChip tone={selo.tone} testID={`resposta-tutor-${a.id}`}>
+        {selo.label}
+      </KCChip>
+      {mostrarRemarcar && (
+        <TouchableOpacity
+          style={styles.hojeActionBtnSecondary}
+          // Só `idPet`/`idTutor`: são os únicos dados do agendamento que o
+          // formulário da REC-14 consome (veterinário/tipo/data ficam à escolha
+          // da recepção, que vai combinar o novo horário com o tutor).
+          onPress={() => router.push(ROUTES.app.agendaNovo({ idPet: a.pet.id, idTutor: a.tutor.id }))}
+          testID={`btn-remarcar-${a.id}`}
+          accessibilityLabel={`Remarcar consulta de ${a.pet.nmPet}`}
+        >
+          <Text style={styles.hojeActionBtnTextSecondary}>Remarcar</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 interface AgendaHojeCardProps {
   appointment: AgendamentoResponse;
   onChegou: (appointment: AgendamentoResponse) => void;
@@ -531,6 +565,7 @@ function AgendaHojeCard({
               {origemTexto}
             </KCChip>
           </View>
+          <RespostaTutorSelo appointment={a} />
           {espera !== null && (
             <Text style={styles.hojeEsperaText} testID={`espera-${a.id}`}>
               Esperando há {espera} min
@@ -619,6 +654,7 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
             </Text>
           )}
           <Text style={styles.tutorText} numberOfLines={1}>{a.tutor.nmTutor}</Text>
+          <RespostaTutorSelo appointment={a} />
           {(temTeleconsulta || temAcoesStatus) && (
             <View style={styles.actionsRow}>
               {temTeleconsulta && (

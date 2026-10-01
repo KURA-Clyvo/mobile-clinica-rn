@@ -143,6 +143,8 @@ function buildTodayReceptionAppointments(
       idAgendamento: 16, dtAgendamento: makeHojeAt(9), duracaoMinutos: 30, dsStatus: 'AGENDADO',
       nmPet: 'Amora', nmTutor: 'Beatriz Lopes', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
       idPet: 116, idTutor: 216, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
+      // REC-17: REMARCAR NÃO muda o status (LunaService.cs:519-523 @ 81d5a58) — a linha segue AGENDADO.
+      dsRespostaConfirmacao: 'REMARCAR',
       dsFotoThumbUrl: 'https://cdn.kura.dev/pets/116/thumb.webp',
     },
     // CONFIRMADO, sem check-in, origem RECEPCAO, sem foto (fallback).
@@ -150,6 +152,8 @@ function buildTodayReceptionAppointments(
       idAgendamento: 17, dtAgendamento: makeHojeAt(9, 30), duracaoMinutos: 30, dsStatus: 'CONFIRMADO',
       nmPet: 'Bento', nmTutor: 'Caio Ramos', dsTipoConsulta: 'Vacinação', nrVersion: 1, ...vetBase,
       idPet: 117, idTutor: 217, dsOrigem: 'RECEPCAO', dsEtapaRecepcao: 'CONFIRMADO',
+      // REC-17: SIM leva o status a CONFIRMADO (LunaService.cs:506-512 @ 81d5a58).
+      dsRespostaConfirmacao: 'SIM',
     },
     // CHEGOU (dtCheckin preenchido há ~12min) — origem TRIAGEM_LUNA, urgência ALTA.
     {
@@ -186,6 +190,8 @@ function buildTodayReceptionAppointments(
       nmPet: 'Duke', nmTutor: 'Helena Vidal', dsTipoConsulta: 'Consulta Geral', nrVersion: 2, ...vetBase,
       idPet: 122, idTutor: 222, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'BAIXA',
       dsEtapaRecepcao: 'CANCELADO',
+      // REC-17: CANCELAR leva o status a CANCELADO (LunaService.cs:514-517 @ 81d5a58); sem selo na UI.
+      dsRespostaConfirmacao: 'CANCELAR',
     },
   ];
 }

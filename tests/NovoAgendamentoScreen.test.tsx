@@ -205,6 +205,26 @@ describe('NovoAgendamentoScreen', () => {
     expect(queryByTestId('pet-opcao-301')).toBeNull();
   });
 
+  // REC-17 ("Remarcar" da linha do tutor): idPet + idTutor juntos. O pet 4 (Nina) tem
+  // 2 tutores no mock — principal 13 (Marcos) e co-tutor 14 (Fernanda). Quem respondeu
+  // ao lembrete foi o 14; o agendamento tem de nascer no nome DELE, não do principal.
+  // Lê de volta pela agenda (payload real gravado), não só o rótulo da tela.
+  it('opened with idPet AND idTutor (Remarcar): the requested tutor wins over the pet principal', async () => {
+    mockSearchParams = { idPet: '4', idTutor: '14' };
+    const { getByTestId, getByText } = wrap(<NovoAgendamentoScreen />);
+
+    await waitFor(() => expect(getByText('Fernanda Oliveira')).toBeTruthy());
+    fireEvent.press(getByTestId('vet-opcao-1'));
+    fireEvent.press(getByTestId('tipo-opcao-CONSULTA'));
+    await act(async () => {
+      fireEvent.press(getByTestId('btn-salvar-agendamento'));
+    });
+    await waitFor(() => expect(getByTestId('btn-voltar-agenda-novo')).toBeTruthy());
+
+    const criado = await buscarAgendamentoCriadoHoje('Nina', 1);
+    expect(criado?.tutor.id).toBe(14);
+  });
+
   // MORDIDA obrigatória do backlog (REC-14): "não mandar idTriagemOrigem ⇒ teste
   // vermelho" — a versão de tela desta mordida. Prova que o formulário deriva
   // `idTriagemOrigem` do parâmetro de rota e SÓ o inclui quando ele existe. Uma mutação

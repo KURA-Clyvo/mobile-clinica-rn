@@ -171,16 +171,23 @@ export default function NovoAgendamentoScreen() {
     getPetById(idPetTravado)
       .then((pet) => {
         setNomePet(pet.nmPet);
-        const principal = pet.tutores.find((t) => t.stPrincipal) ?? pet.tutores[0];
-        if (principal) {
-          setIdTutor(principal.idTutor);
-          setNomeTutor(principal.nmTutor);
+        // REC-17 ("Remarcar" da linha do tutor): quando a tela abre com `idPet` E
+        // `idTutor`, o tutor pedido (quem respondeu ao lembrete) vale mais que o
+        // principal do pet — um pet com 2 tutores remarcaria no nome errado.
+        // Sem `idTutor` (ficha do paciente) o comportamento é o de sempre.
+        const escolhido =
+          (idTutorPreenchido ? pet.tutores.find((t) => t.idTutor === idTutorPreenchido) : undefined) ??
+          pet.tutores.find((t) => t.stPrincipal) ??
+          pet.tutores[0];
+        if (escolhido) {
+          setIdTutor(escolhido.idTutor);
+          setNomeTutor(escolhido.nmTutor);
         }
       })
       .catch(() => {
         /* pet inexistente — a tela continua utilizável, o submit vai falhar com 404 real */
       });
-  }, [idPetTravado]);
+  }, [idPetTravado, idTutorPreenchido]);
 
   // Tutor preenchido pela fila da Luna: resolve o nome pra exibir (a fila nunca
   // carrega nome de exibição formatado além do que o card já mostrou).
