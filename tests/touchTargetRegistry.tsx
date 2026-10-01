@@ -1234,6 +1234,27 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
+  // REC-17 — botão "Remarcar" do selo da resposta do tutor (`RespostaTutorSelo`,
+  // compartilhado pelos cards Hoje e Semana). Reaproveita o estilo
+  // `hojeActionBtnSecondary` (minHeight/minWidth 44 explícitos).
+  '(app)/agenda.tsx::RespostaTutorSelo#1': {
+    category: 'meets-min',
+    verify: () => {
+      mockUseAgendaHojeReturn.mockReturnValue({
+        data: [{ ...AGENDAMENTO_HOJE_AMBOS_BOTOES, dsRespostaConfirmacao: 'REMARCAR' }],
+        isLoading: false,
+        isError: false,
+        refetch: jest.fn(),
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      const estilo = flat(getByTestId('btn-remarcar-501').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
   // Fix wave G2 (m-3) — botão "Tentar de novo" do estado de erro do modo
   // "Hoje". Vive DIRETO dentro de `AgendaScreen` (não num componente-função
   // próprio, ao contrário de `ModoAgendaToggle`/`AgendaHojeCard`) porque só

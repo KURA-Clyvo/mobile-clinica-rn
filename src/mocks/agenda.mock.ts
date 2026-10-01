@@ -141,15 +141,21 @@ function buildTodayReceptionAppointments(
     // AGENDADO, sem check-in, origem PORTAL, com foto.
     {
       idAgendamento: 16, dtAgendamento: makeHojeAt(9), duracaoMinutos: 30, dsStatus: 'AGENDADO',
-      nmPet: 'Amora', nmTutor: 'Beatriz Lopes', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
-      idPet: 116, idTutor: 216, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
-      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/116/thumb.webp',
+      nmPet: 'Rex', nmTutor: 'Ana Beatriz', dsTipoConsulta: 'Consulta Geral', nrVersion: 1, ...vetBase,
+      idPet: 301, idTutor: 201, dsOrigem: 'PORTAL', dsEtapaRecepcao: 'AGENDADO',
+      // REC-17: pet 301/tutor 201 (Rex / Ana Beatriz) EXISTEM em pets.mock/tutores.mock — o "Remarcar"
+      // abre o formulário com pet e tutor resolvidos (G2 I-3: 116/216 não existiam => 404 no plano B).
+      // REMARCAR NÃO muda o status (LunaService.cs:519-523 @ 81d5a58) — a linha segue AGENDADO.
+      dsRespostaConfirmacao: 'REMARCAR',
+      dsFotoThumbUrl: 'https://cdn.kura.dev/pets/301/thumb.webp',
     },
     // CONFIRMADO, sem check-in, origem RECEPCAO, sem foto (fallback).
     {
       idAgendamento: 17, dtAgendamento: makeHojeAt(9, 30), duracaoMinutos: 30, dsStatus: 'CONFIRMADO',
       nmPet: 'Bento', nmTutor: 'Caio Ramos', dsTipoConsulta: 'Vacinação', nrVersion: 1, ...vetBase,
       idPet: 117, idTutor: 217, dsOrigem: 'RECEPCAO', dsEtapaRecepcao: 'CONFIRMADO',
+      // REC-17: SIM leva o status a CONFIRMADO (LunaService.cs:506-512 @ 81d5a58).
+      dsRespostaConfirmacao: 'SIM',
     },
     // CHEGOU (dtCheckin preenchido há ~12min) — origem TRIAGEM_LUNA, urgência ALTA.
     {
@@ -186,6 +192,8 @@ function buildTodayReceptionAppointments(
       nmPet: 'Duke', nmTutor: 'Helena Vidal', dsTipoConsulta: 'Consulta Geral', nrVersion: 2, ...vetBase,
       idPet: 122, idTutor: 222, dsOrigem: 'TRIAGEM_LUNA', dsNivelUrgenciaOrigem: 'BAIXA',
       dsEtapaRecepcao: 'CANCELADO',
+      // REC-17: CANCELAR leva o status a CANCELADO (LunaService.cs:514-517 @ 81d5a58); sem selo na UI.
+      dsRespostaConfirmacao: 'CANCELAR',
     },
   ];
 }

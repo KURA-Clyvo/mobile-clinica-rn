@@ -963,6 +963,11 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
   // `modo`/`focado`, ou não limpar no unmount/blur) precisam pegar.
   describe('tick de 30s (I-1)', () => {
     afterEach(() => {
+      // REC-17: o teste de `setInterval`/`clearInterval` abaixo espiona o global
+      // sobre timers falsos; sem restaurar o spy ANTES de voltar aos timers reais,
+      // `setInterval`/`clearInterval` ficam `not defined` para todo teste seguinte
+      // do arquivo que abra o modo Hoje (medido ao acrescentar o describe da REC-17).
+      jest.restoreAllMocks();
       jest.useRealTimers();
     });
 
@@ -1101,6 +1106,123 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
       // modo Hoje, gastando ciclo à toa numa tela que fica aberta o dia
       // todo).
       expect(clearSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// REC-17 — selo da resposta do tutor ao lembrete D-1, nas DUAS visões (Hoje e
+// Semana). O valor vem do servidor (LunaService.cs:505-532 @ 81d5a58); a tela só
+// traduz. Cada asserção abaixo lê o texto/payload REAL renderizado, não só "a tela
+// apareceu" (lição da REC-14).
+describe('AgendaScreen — selo da resposta do tutor (REC-17)', () => {
+  const VALORES_SEM_SELO: Array<[string, string | null | undefined]> = [
+    ['null', null],
+    ['undefined (campo ausente)', undefined],
+    ['CANCELAR (status já mostra Cancelado)', 'CANCELAR'],
+    ['valor desconhecido', 'XPTO'],
+  ];
+
+  function abrirHoje(item: ReturnType<typeof agendamentoHoje>) {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    mockUseAgendaHoje.mockReturnValue({
+      data: [item],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const r = wrap(<AgendaScreen />);
+    fireEvent.press(r.getByTestId('btn-modo-hoje'));
+    return r;
+  }
+
+  function abrirSemana(resposta: string | null | undefined, extra: Record<string, unknown> = {}) {
+    mockUseAgendaSemana.mockReturnValue(
+      makeDefaultHookReturn([
+        {
+          ...MOCK_APPOINTMENT_TODAY,
+          // m-1 (G2): tutor.id ≠ pet.id, senão trocar idPet/idTutor no push passaria.
+          tutor: { ...MOCK_APPOINTMENT_TODAY.tutor, id: 7 },
+          dsEtapaRecepcao: 'AGENDADO',
+          dsRespostaConfirmacao: resposta,
+          ...extra,
+        },
+      ]),
+    );
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    return wrap(<AgendaScreen />);
+  }
+
+  describe.each([
+    ['Hoje', (v: string | null | undefined, extra: Record<string, unknown> = {}) =>
+      abrirHoje(agendamentoHoje({ dsRespostaConfirmacao: v, ...extra })), 30, '/agenda-novo?idPet=10&idTutor=20'],
+    ['Semana', (v: string | null | undefined, extra: Record<string, unknown> = {}) =>
+      abrirSemana(v, extra), 1, '/agenda-novo?idPet=1&idTutor=7'],
+  ] as const)('visão %s', (_nome, abrir, id, hrefEsperado) => {
+    it('SIM mostra "Confirmou pelo WhatsApp" e NÃO oferece "Remarcar"', () => {
+      const { getByTestId, queryByTestId, queryByText } = abrir('SIM');
+      expect(getByTestId(`resposta-tutor-${id}`)).toBeTruthy();
+      expect(queryByText('Confirmou pelo WhatsApp')).toBeTruthy();
+      expect(queryByText('Pediu para remarcar')).toBeNull();
+      expect(queryByTestId(`btn-remarcar-${id}`)).toBeNull();
+    });
+
+    it('REMARCAR mostra "Pediu para remarcar" e oferece "Remarcar"', () => {
+      const { getByTestId, queryByText } = abrir('REMARCAR');
+      expect(queryByText('Pediu para remarcar')).toBeTruthy();
+      expect(queryByText('Confirmou pelo WhatsApp')).toBeNull();
+      expect(getByTestId(`btn-remarcar-${id}`)).toBeTruthy();
+    });
+
+    it.each(VALORES_SEM_SELO)('%s => sem selo, sem botão e sem crash', (_rotulo, valor) => {
+      const { queryByTestId, queryByText } = abrir(valor);
+      expect(queryByTestId(`resposta-tutor-${id}`)).toBeNull();
+      expect(queryByTestId(`btn-remarcar-${id}`)).toBeNull();
+      expect(queryByText('Confirmou pelo WhatsApp')).toBeNull();
+      expect(queryByText('Pediu para remarcar')).toBeNull();
+    });
+
+    it('"Remarcar" navega para o formulário da REC-14 com idPet e idTutor DA LINHA', () => {
+      const { getByTestId } = abrir('REMARCAR');
+      fireEvent.press(getByTestId(`btn-remarcar-${id}`));
+      expect(mockPush).toHaveBeenCalledTimes(1);
+      expect(mockPush).toHaveBeenCalledWith(hrefEsperado);
+    });
+
+    // I-1 (G2): o servidor NÃO muda ST_STATUS no check-in/início (AgendaService.cs:140-145
+    // @ 81d5a58) — a linha segue AGENDADO/CONFIRMADO e só a ETAPA muda. Combinação real.
+    it.each([
+      ['CHEGOU', 'AGENDADO', { dtCheckin: '2026-09-28T08:50:00.000Z' }],
+      ['CHEGOU', 'CONFIRMADO', { dtCheckin: '2026-09-28T08:50:00.000Z' }],
+      [
+        'EM_ATENDIMENTO',
+        'AGENDADO',
+        { dtCheckin: '2026-09-28T08:50:00.000Z', dtInicioAtendimento: '2026-09-28T09:05:00.000Z' },
+      ],
+    ])('REMARCAR com etapa %s e status %s (como o servidor manda) mantém o selo e SEM "Remarcar"', (etapa, status, ts) => {
+      const { getByTestId, queryByTestId } = abrir('REMARCAR', {
+        dsEtapaRecepcao: etapa,
+        dsStatusOrigem: status,
+        ...ts,
+      });
+      expect(getByTestId(`resposta-tutor-${id}`)).toBeTruthy();
+      expect(queryByTestId(`btn-remarcar-${id}`)).toBeNull();
+    });
+
+    it('REMARCAR em linha que já está CANCELADA mantém o selo mas não oferece "Remarcar"', () => {
+      const { getByTestId, queryByTestId } = abrir('REMARCAR', {
+        dsStatusOrigem: 'CANCELADO',
+        sgStatus: 'CANCELADA',
+        dsEtapaRecepcao: 'CANCELADO',
+      });
+      expect(getByTestId(`resposta-tutor-${id}`)).toBeTruthy();
+      expect(queryByTestId(`btn-remarcar-${id}`)).toBeNull();
     });
   });
 });
