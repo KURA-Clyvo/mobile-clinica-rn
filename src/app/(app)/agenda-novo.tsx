@@ -192,13 +192,16 @@ export default function NovoAgendamentoScreen() {
   // Tutor preenchido pela fila da Luna: resolve o nome pra exibir (a fila nunca
   // carrega nome de exibição formatado além do que o card já mostrou).
   useEffect(() => {
-    if (!idTutorPreenchido) return;
+    // Com `idPet` também travado, o efeito do pet acima já resolve o nome do
+    // tutor a partir de `pet.tutores` — rodar os dois deixaria o nome na mão
+    // de quem respondesse por último.
+    if (!idTutorPreenchido || idPetTravado) return;
     getTutorById(idTutorPreenchido)
       .then((tutor) => setNomeTutor(tutor.nmTutor))
       .catch(() => {
         /* tutor inexistente — submit vai falhar com 404 real */
       });
-  }, [idTutorPreenchido]);
+  }, [idTutorPreenchido, idPetTravado]);
 
   const handleBuscaChange = (texto: string) => {
     setBusca(texto);

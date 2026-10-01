@@ -963,6 +963,11 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
   // `modo`/`focado`, ou não limpar no unmount/blur) precisam pegar.
   describe('tick de 30s (I-1)', () => {
     afterEach(() => {
+      // REC-17: o teste de `setInterval`/`clearInterval` abaixo espiona o global
+      // sobre timers falsos; sem restaurar o spy ANTES de voltar aos timers reais,
+      // `setInterval`/`clearInterval` ficam `not defined` para todo teste seguinte
+      // do arquivo que abra o modo Hoje (medido ao acrescentar o describe da REC-17).
+      jest.restoreAllMocks();
       jest.useRealTimers();
     });
 

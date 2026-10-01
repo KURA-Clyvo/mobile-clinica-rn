@@ -93,6 +93,19 @@ function buildTutoresArmazenados(): TutorArmazenado[] {
       semLinkConvite: false,
       temConta: false,
     },
+    // REC-17 — co-tutor (CUIDADOR) do pet 4 ("Nina") em `pets.mock.ts`, que só existia
+    // lá: sem esta entrada, `criarAgendamento` devolvia 404 "Tutor 14 não encontrado" para
+    // o fluxo "Remarcar" (idPet + idTutor) quando quem respondeu era o co-tutor.
+    {
+      id: 14,
+      nmTutor: 'Fernanda Oliveira',
+      nrCpf: '98765432100',
+      dsEmail: 'fernanda.oliveira@example.com',
+      nrTelefone: '11977776666',
+      stAtiva: true,
+      semLinkConvite: false,
+      temConta: false,
+    },
     {
       id: 900,
       nmTutor: 'Tutor Já Cadastrado',
