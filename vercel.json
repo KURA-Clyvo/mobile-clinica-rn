@@ -12,11 +12,11 @@
     },
     {
       "source": "/proxy/clinica/:path*",
-      "destination": "http://kura-alpha-clinica-api.eastus2.azurecontainer.io:8080/:path*"
+      "destination": "https://SUBSTITUIR-PELO-TUNEL.trycloudflare.com/clinica/:path*"
     },
     {
       "source": "/proxy/luna/:path*",
-      "destination": "http://kura-alpha-luna-ai.eastus2.azurecontainer.io:8000/:path*"
+      "destination": "https://SUBSTITUIR-PELO-TUNEL.trycloudflare.com/luna/:path*"
     },
     {
       "source": "/consulta/:idPet",
