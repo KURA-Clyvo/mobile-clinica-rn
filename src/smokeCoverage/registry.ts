@@ -27,51 +27,19 @@ export type CoverageEntry =
 export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
   // agenda.service.ts
   'agenda.service.ts::getAgenda': { coberto: 'agenda (GET)' },
+  // As 4 rotas abaixo eram `naoCoberto` até o bloco 25 da REC-18 mesclar em DevOps-Cloud
+  // main @ 892e885 (REC-19). Agora o gate exige que cada nome exista de fato no script.
   'agenda.service.ts::atualizarStatusAgendamento': {
-    naoCoberto:
-      'FM-04 (KURA_BACKLOG_FIN, ciclo metade cliente) — primeiro PATCH deste repo, ' +
-      'PATCH /api/v1/agendamentos/{id}/status (rota ABSOLUTA, fora de /api/v1/agenda; ' +
-      'ver AgendaController.cs). smoke-contratos.sh (DevOps-Cloud) não tem check para ' +
-      'ela hoje — grep confirmado (`grep -n "agendamentos.*status" scripts/smoke-' +
-      'contratos.sh` -> 0 linhas). Side-effecting (grava ST_STATUS/NR_VERSION no ' +
-      'Oracle real) e exige controle de concorrência otimista (NrVersion lido de uma ' +
-      'chamada anterior) — não é um GET idempotente como os outros checks. Estender ' +
-      'smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que só ' +
-      'toca mobile-clinica-rn) — candidato a follow-up, provavelmente FM-09 (o gate de ' +
-      'contrato do ciclo FIN) ou uma task própria em DevOps-Cloud.',
+    coberto: 'rec-18/agendamentos/{id}/status (PATCH, cancelar)',
   },
   'agenda.service.ts::checkinAgendamento': {
-    naoCoberto:
-      'REC-12 (KURA_BACKLOG_RECEPCAO, tela "Hoje" da recepção) — POST /api/v1/agendamentos/' +
-      '{id}/checkin (rota ABSOLUTA nova, REC-11, backend-clinica-dotnet AgendaController.cs, ' +
-      'ainda em branch origin/feat/rec-11-eventos-recepcao, não em main). ' +
-      'smoke-contratos.sh (DevOps-Cloud) não tem check para ela hoje — mesma razão de ' +
-      'atualizarStatusAgendamento acima: side-effecting, exige lock otimista (NrVersion de ' +
-      'uma leitura anterior) e um agendamento em AGENDADO/CONFIRMADO pré-existente no seed. ' +
-      'Estender smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task — ' +
-      'entra pela REC-18 (config da D-1, smoke e seed da demo), que já lista REC-10/REC-11 ' +
-      'como os checks novos a acrescentar.',
+    coberto: 'rec-18/agendamentos/{id}/checkin (POST)',
   },
   'agenda.service.ts::iniciarAtendimento': {
-    naoCoberto:
-      'REC-13 (KURA_BACKLOG_RECEPCAO, prontuário aberto pela linha da recepção marca o ' +
-      'início) — POST /api/v1/agendamentos/{id}/inicio-atendimento (rota ABSOLUTA nova, ' +
-      'REC-11, backend-clinica-dotnet AgendaController.cs). smoke-contratos.sh ' +
-      '(DevOps-Cloud) não tem check para ela hoje — mesma razão de checkinAgendamento ' +
-      'acima: side-effecting, exige lock otimista (NrVersion de uma leitura anterior) e um ' +
-      'agendamento em AGENDADO/CONFIRMADO pré-existente no seed. Estender ' +
-      'smoke-contratos.sh é mudança em DevOps-Cloud, fora do escopo desta task (que só ' +
-      'toca mobile-clinica-rn) — mesmo candidato da REC-18 citado acima.',
+    coberto: 'rec-18/agendamentos/{id}/inicio-atendimento (POST)',
   },
   'agenda.service.ts::criarAgendamento': {
-    naoCoberto:
-      'REC-14 (KURA_BACKLOG_RECEPCAO, novo agendamento/encaixe/"Agendar" pela triagem) — ' +
-      'POST /api/v1/agendamentos (REC-10, backend-clinica-dotnet AgendaController.cs, ' +
-      'main @ 242be7d). smoke-contratos.sh (DevOps-Cloud) não tem check para ela hoje — ' +
-      'grep confirmado (`grep -n "agendamentos" scripts/smoke-contratos.sh` só acha o ' +
-      'bloco 14, que é mobile-tutor-rn/Java, endpoint DIFERENTE). Side-effecting, exige ' +
-      'tutor/pet/veterinário pré-existentes no seed — mesmo candidato da REC-18 citado ' +
-      'acima para as outras 2 entradas naoCoberto deste service.',
+    coberto: 'rec-18/agendamentos (POST, hoje, recepcao)',
   },
 
   // auth.service.ts
