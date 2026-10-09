@@ -1,6 +1,6 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import { WhatsAppModal } from '../src/components/domain/WhatsAppModal';
 
@@ -35,6 +35,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseEnviarWhatsApp.mockReturnValue({ mutate: mockMutate, isPending: false });
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('WhatsAppModal', () => {
   it('does not render content when visible=false', () => {
@@ -107,11 +113,11 @@ describe('WhatsAppModal', () => {
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
+    expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Mensagem enviada' }]);
     expect(mockOnClose).toHaveBeenCalled();
   });
 
   it('shows a degraded alert and does not close when Luna is offline (status indisponivel)', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     mockMutate.mockImplementation(
       (_req: unknown, { onSuccess }: { onSuccess: (r: { status: string }) => void }) =>
         onSuccess({ status: 'indisponivel' }),
@@ -120,7 +126,7 @@ describe('WhatsAppModal', () => {
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
-    expect(alertSpy).toHaveBeenCalledWith('Luna indisponível', expect.any(String));
+    expect(fb.avisos).toEqual([{ titulo: 'Luna indisponível', mensagem: expect.any(String) }]);
     expect(mockOnClose).not.toHaveBeenCalled();
   });
 
@@ -130,7 +136,6 @@ describe('WhatsAppModal', () => {
   // o `else if (result.motivo)` para o `else` único antigo, este teste falha nominalmente
   // (título volta a ser "Luna indisponível" mesmo com motivo presente).
   it('shows a distinct, honest title for a real send failure (502, motivo present) — does NOT say "Luna indisponível"', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
     mockMutate.mockImplementation(
       (_req: unknown, { onSuccess }: { onSuccess: (r: { status: string; motivo?: string }) => void }) =>
         onSuccess({
@@ -142,11 +147,13 @@ describe('WhatsAppModal', () => {
       <WhatsAppModal {...BASE_PROPS} mensagemDefault="Mensagem" />,
     );
     fireEvent.press(getByTestId('btn-enviar-whatsapp'));
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Falha ao enviar mensagem',
-      'A Luna não conseguiu enviar a mensagem agora (falha no envio pelo WhatsApp).',
-    );
-    const tituloUsado = alertSpy.mock.calls[0]![0];
+    expect(fb.avisos).toEqual([
+      {
+        titulo: 'Falha ao enviar mensagem',
+        mensagem: 'A Luna não conseguiu enviar a mensagem agora (falha no envio pelo WhatsApp).',
+      },
+    ]);
+    const tituloUsado = fb.avisos[0]!.titulo;
     expect(tituloUsado).not.toBe('Luna indisponível');
     expect(mockOnClose).not.toHaveBeenCalled();
   });

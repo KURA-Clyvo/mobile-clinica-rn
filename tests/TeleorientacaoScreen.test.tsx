@@ -1,6 +1,7 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, Linking, StyleSheet } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import TeleorientacaoScreen from '../src/app/(app)/teleorientacao/[idPet]';
 import { useAuthStore } from '../src/store/authStore';
@@ -68,6 +69,12 @@ beforeEach(() => {
   mockUseTeleconsulta.mockReturnValue({ query: IDLE_QUERY, mutation: IDLE_MUTATION });
 });
 
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
+
 describe('TeleorientacaoScreen', () => {
   it('renders CFMV banner with exact titulo', () => {
     const { getByTestId } = wrap(<TeleorientacaoScreen />);
@@ -96,25 +103,21 @@ describe('TeleorientacaoScreen', () => {
     expect(corpo.props.children).toBe(CFMV_TELEORIENTACAO_BANNER.corpo);
   });
 
-  it('pressing Encerrar shows Alert with confirmation', () => {
-    const alertSpy = jest.spyOn(Alert, 'alert');
+  it('pressing Encerrar pede confirmação (verbo "Encerrar", destrutivo)', async () => {
     const { getByTestId } = wrap(<TeleorientacaoScreen />);
     fireEvent.press(getByTestId('btn-encerrar'));
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Encerrar sessão?',
-      expect.any(String),
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Cancelar' }),
-        expect.objectContaining({ text: 'Encerrar' }),
-      ]),
-    );
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toEqual({
+      titulo: 'Encerrar sessão?',
+      mensagem: expect.any(String),
+      verbo: 'Encerrar',
+      destrutivo: true,
+    });
+    expect(mockBack).not.toHaveBeenCalled(); // cancelado por padrão
   });
 
   it('confirming Encerrar calls router.back()', async () => {
-    jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
-      const encerrar = buttons?.find((b) => b.text === 'Encerrar');
-      encerrar?.onPress?.();
-    });
+    fb.responder({ confirmar: true });
     const { getByTestId } = wrap(<TeleorientacaoScreen />);
     fireEvent.press(getByTestId('btn-encerrar'));
     await waitFor(() => expect(mockBack).toHaveBeenCalled());

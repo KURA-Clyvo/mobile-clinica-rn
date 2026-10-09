@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { TrocarSenhaModal } from '../src/components/domain/TrocarSenhaModal';
@@ -19,6 +20,12 @@ function wrap(ui: React.ReactElement) {
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('TrocarSenhaModal', () => {
   it('mostra o e-mail do usuário alvo', () => {
@@ -55,11 +62,11 @@ describe('TrocarSenhaModal', () => {
       expect.objectContaining({ onSuccess: expect.any(Function), onError: expect.any(Function) }),
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+    expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Senha alterada: ativo@kura.vet' }]);
   });
 
-  it('um erro (400 senha inválida) aparece via Alert, e o modal NÃO fecha', async () => {
+  it('um erro (400 senha inválida) aparece via avisar(), e o modal NÃO fecha', async () => {
     const onClose = jest.fn();
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
     mockMutateTrocarSenha.mockImplementation((_vars, { onError }) =>
       onError({ status: 400, code: 'SENHA_INVALIDA', message: 'A senha precisa ter pelo menos 6 caracteres.' }),
     );
@@ -71,9 +78,8 @@ describe('TrocarSenhaModal', () => {
       fireEvent.press(getByTestId('btn-confirmar-trocar-senha'));
     });
     await waitFor(() =>
-      expect(spyAlert).toHaveBeenCalledWith('Erro', 'A senha precisa ter pelo menos 6 caracteres.'),
+      expect(fb.avisos).toContainEqual({ titulo: 'Erro', mensagem: 'A senha precisa ter pelo menos 6 caracteres.' }),
     );
     expect(onClose).not.toHaveBeenCalled();
-    spyAlert.mockRestore();
   });
 });

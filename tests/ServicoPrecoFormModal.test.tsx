@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { ServicoPrecoFormModal } from '../src/components/domain/ServicoPrecoFormModal';
@@ -32,6 +33,12 @@ function wrap(ui: React.ReactElement) {
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('ServicoPrecoFormModal — modo criação', () => {
   it('inicia com campos vazios', () => {
@@ -140,9 +147,8 @@ describe('ServicoPrecoFormModal — modo edição', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('erro de negócio (422) aparece via Alert, sem fechar o modal', async () => {
+  it('erro de negócio (422) aparece via avisar(), sem fechar o modal', async () => {
     const onClose = jest.fn();
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
     mockMutateAtualizar.mockImplementation((_vars, { onError }) =>
       onError({ status: 422, code: 'NOME_EM_USO', message: 'Já existe um serviço ATIVO com este nome nesta clínica.' }),
     );
@@ -154,9 +160,8 @@ describe('ServicoPrecoFormModal — modo edição', () => {
       fireEvent.press(getByTestId('btn-salvar-servico'));
     });
 
-    expect(spyAlert).toHaveBeenCalledWith('Erro', 'Já existe um serviço ATIVO com este nome nesta clínica.');
+    expect(fb.avisos).toContainEqual({ titulo: 'Erro', mensagem: 'Já existe um serviço ATIVO com este nome nesta clínica.' });
     expect(onClose).not.toHaveBeenCalled();
-    spyAlert.mockRestore();
   });
 });
 

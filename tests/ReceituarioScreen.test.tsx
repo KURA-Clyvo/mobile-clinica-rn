@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { simularFeedback } from './helpers_feedback';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import ReceituarioScreen from '../src/app/(app)/receituario/[idPet]';
@@ -165,6 +166,12 @@ function emitirReceitaComSucesso(idEventoClinico = 100) {
       opts?.onSuccess?.({ idEventoClinico, idPrescricao: 200 }),
   );
 }
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('ReceituarioScreen', () => {
   it('shows validation error when submitting without medication', async () => {
@@ -360,7 +367,6 @@ describe('ReceituarioScreen', () => {
   // (502, Twilio rejeita o destinatário).
   it('sem telefone disponível, avisa e NÃO abre o modal do WhatsApp', async () => {
     mockGetTutorById.mockResolvedValue({ id: 10, nmTutor: 'Carlos', nrTelefone: 'Não informado' });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     emitirReceitaComSucesso();
     const { getByTestId, queryByTestId } = wrap(<ReceituarioScreen />);
     fireEvent.changeText(getByTestId('search-med'), 'amox');
@@ -373,10 +379,12 @@ describe('ReceituarioScreen', () => {
       fireEvent.press(getByTestId('btn-whatsapp'));
     });
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Telefone não cadastrado',
-      expect.stringContaining('não tem telefone cadastrado'),
-    );
+    expect(fb.avisos).toEqual([
+      {
+        titulo: 'Telefone não cadastrado',
+        mensagem: expect.stringContaining('não tem telefone cadastrado'),
+      },
+    ]);
     expect(queryByTestId('whatsapp-modal')).toBeNull();
   });
 
@@ -451,8 +459,7 @@ describe('ReceituarioScreen', () => {
     expect(queryByTestId('btn-baixar-pdf')).toBeNull();
   });
 
-  it('shows an alert when baixarReceituario fails', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('shows an aviso when baixarReceituario fails', async () => {
     mockMutateBaixarReceituario.mockImplementation(
       (_vars: unknown, opts: { onError?: () => void }) => opts?.onError?.(),
     );
@@ -468,9 +475,11 @@ describe('ReceituarioScreen', () => {
     fireEvent.press(getByTestId('btn-baixar-pdf'));
 
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Erro', expect.stringContaining('PDF'));
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Erro',
+        mensagem: expect.stringContaining('PDF'),
+      });
     });
-    alertSpy.mockRestore();
   });
 
   it('calls router.back() when pressing "Voltar ao paciente"', async () => {

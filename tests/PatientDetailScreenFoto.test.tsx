@@ -7,8 +7,9 @@
 //   K — trocar `Platform.OS === 'web'` por `=== 'nenhum'` (câmera oferecida
 //       na web, que não tem fluxo de câmera nativo confiável)
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemeProvider } from '../src/theme';
 import PatientDetailScreen from '../src/app/(app)/pacientes/[id]';
@@ -136,11 +137,16 @@ function mockUploadFalhandoCom(status: number | undefined) {
   return mutate;
 }
 
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
+
 describe('PatientDetailScreen — mensagem de erro do upload de foto (m-1, fix wave G2)', () => {
   it('MORDIDA J — 413 mostra "imagem grande demais", não a mensagem genérica nem a de 400', async () => {
     setPlatform('web');
     mockUploadFalhandoCom(413);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     await act(async () => {
@@ -148,14 +154,16 @@ describe('PatientDetailScreen — mensagem de erro do upload de foto (m-1, fix w
     });
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('', 'Essa imagem é grande demais. Tente uma foto menor.'),
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Foto do pet',
+        mensagem: 'Essa imagem é grande demais. Tente uma foto menor.',
+      }),
     );
   });
 
   it('400 mostra "não foi possível processar essa imagem"', async () => {
     setPlatform('web');
     mockUploadFalhandoCom(400);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     await act(async () => {
@@ -163,17 +171,16 @@ describe('PatientDetailScreen — mensagem de erro do upload de foto (m-1, fix w
     });
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith(
-        '',
-        'Não foi possível processar essa imagem. Tente outra foto.',
-      ),
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Foto do pet',
+        mensagem: 'Não foi possível processar essa imagem. Tente outra foto.',
+      }),
     );
   });
 
   it('status desconhecido (nem 400 nem 413) mostra a mensagem genérica', async () => {
     setPlatform('web');
     mockUploadFalhandoCom(500);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     await act(async () => {
@@ -181,67 +188,78 @@ describe('PatientDetailScreen — mensagem de erro do upload de foto (m-1, fix w
     });
 
     await waitFor(() =>
-      expect(alertSpy).toHaveBeenCalledWith('', 'Não foi possível enviar a foto. Tente novamente.'),
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Foto do pet',
+        mensagem: 'Não foi possível enviar a foto. Tente novamente.',
+      }),
     );
   });
 
-  it('sucesso mostra "Foto atualizada com sucesso."', async () => {
+  it('sucesso mostra o toast "Foto atualizada"', async () => {
     setPlatform('web');
     const mutate = jest.fn(
       (_vars: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.(),
     );
     mockUseUploadFotoPet.mockReturnValue({ mutate, isPending: false });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     await act(async () => {
       fireEvent.press(getByTestId('btn-foto'));
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('', 'Foto atualizada com sucesso.'));
+    await waitFor(() =>
+      expect(fb.toasts).toContainEqual({ tipo: 'sucesso', texto: 'Foto atualizada' }),
+    );
   });
 });
 
 describe('PatientDetailScreen — câmera nunca oferecida na web (m-1, fix wave G2)', () => {
-  it('MORDIDA K — na WEB, tocar em "Foto" vai direto pra galeria, SEM mostrar Alert com opção de Câmera', async () => {
+  it('MORDIDA K — na WEB, tocar em "Foto" vai direto pra galeria, SEM mostrar a escolha com opção de Câmera', async () => {
     setPlatform('web');
     mockUploadFalhandoCom(undefined);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     await act(async () => {
       fireEvent.press(getByTestId('btn-foto'));
     });
 
-    // Nenhum Alert.alert de ESCOLHA é mostrado na web — a única chamada
+    // Nenhuma ESCOLHA (escolher()) é mostrado na web — a única chamada
     // possível é a de RESULTADO do upload (que aqui nem chega a acontecer
     // antes desta asserção, porque queremos capturar o instante da escolha).
     // Verificação direta: a galeria foi acionada sem nenhum diálogo prévio.
     await waitFor(() => expect(mockRequestMediaLibraryPermissions).toHaveBeenCalled());
-    const chamadasDeEscolha = alertSpy.mock.calls.filter(
-      (chamada) => chamada[0] === 'Foto do pet',
-    );
-    expect(chamadasDeEscolha).toHaveLength(0);
+    expect(fb.escolhas).toHaveLength(0);
     expect(mockLaunchCamera).not.toHaveBeenCalled();
   });
 
-  it('controle positivo — no NATIVO, tocar em "Foto" mostra Alert com Galeria/Câmera/Cancelar', async () => {
+  it('controle positivo — no NATIVO, tocar em "Foto" oferece Galeria/Câmera (e Cancelar do host)', async () => {
     setPlatform('ios');
     mockUploadFalhandoCom(undefined);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(<PatientDetailScreen />);
 
     fireEvent.press(getByTestId('btn-foto'));
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Foto do pet',
-      'Escolha a origem da imagem',
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Galeria' }),
-        expect.objectContaining({ text: 'Câmera' }),
-        expect.objectContaining({ text: 'Cancelar' }),
-      ]),
-    );
+    await waitFor(() => expect(fb.escolhas).toHaveLength(1));
+    expect(fb.escolhas[0]).toEqual({
+      titulo: 'Foto do pet',
+      mensagem: 'Escolha a origem da imagem',
+      opcoes: [
+        { id: 'galeria', rotulo: 'Galeria' },
+        { id: 'camera', rotulo: 'Câmera' },
+      ],
+    });
+  });
+
+  it('no NATIVO, escolher "Câmera" abre a câmera e não a galeria', async () => {
+    setPlatform('ios');
+    mockUploadFalhandoCom(undefined);
+    fb.responder({ escolher: 'camera' });
+    const { getByTestId } = wrap(<PatientDetailScreen />);
+
+    fireEvent.press(getByTestId('btn-foto'));
+
+    await waitFor(() => expect(mockRequestCameraPermissions).toHaveBeenCalled());
+    expect(mockRequestMediaLibraryPermissions).not.toHaveBeenCalled();
   });
 });
 

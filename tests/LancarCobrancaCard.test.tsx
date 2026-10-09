@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { LancarCobrancaCard } from '../src/components/domain/LancarCobrancaCard';
@@ -55,6 +55,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockServicos = [SERVICO_A, SERVICO_B];
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('LancarCobrancaCard — baixo atrito (brief §1)', () => {
   it('botão começa DESABILITADO sem nenhuma origem de valor (nem serviço, nem valor avulso)', () => {
@@ -284,8 +290,7 @@ describe('LancarCobrancaCard — envio', () => {
     expect(getByTestId('input-valor-cobranca').props.value).toBe('');
   });
 
-  it('422 SERVICO_DESATIVADO: Alert com a mensagem do backend, desmarca o serviço e invalida a query servicos-preco', async () => {
-    const spyAlert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('422 SERVICO_DESATIVADO: aviso com a mensagem do backend, desmarca o serviço e invalida a query servicos-preco', async () => {
     mockMutateLancar.mockImplementation((_vars, { onError }) =>
       onError({
         status: 422,
@@ -303,14 +308,16 @@ describe('LancarCobrancaCard — envio', () => {
       fireEvent.press(getByTestId('btn-lancar-cobranca'));
     });
 
-    expect(spyAlert).toHaveBeenCalledWith(
-      'Erro',
-      'Este serviço de preço está DESATIVADO e não pode originar novos lançamentos. ' +
+    expect(fb.avisos).toEqual([
+      {
+        titulo: 'Erro',
+        mensagem:
+          'Este serviço de preço está DESATIVADO e não pode originar novos lançamentos. ' +
         'Reative-o na tabela de preços, ou lance a cobrança com vlCobrado avulso.',
-    );
+      },
+    ]);
     expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['servicos-preco'] });
     // Sem confirmação local nenhuma -- o lançamento NÃO aconteceu.
     expect(() => getByTestId('cobranca-confirmacao')).toThrow();
-    spyAlert.mockRestore();
   });
 });

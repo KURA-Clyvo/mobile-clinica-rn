@@ -162,6 +162,25 @@ const USOS: Uso[] = [
   },
   { arq: TELE, ancora: /color: colors\.videoText,\s*\},\s*videoSubtitle/, texto: 'videoText', fundo: 'videoBg' },
   { arq: TELE, ancora: /backgroundColor: colors\.videoBg/, texto: 'videoText', fundo: 'videoBg' },
+  // BR-CLI-T02: sheet de confirmação e toast, ambos sobre bgElev.
+  {
+    arq: 'components/feedback/ConfirmHost.tsx',
+    ancora: /backgroundColor: colors\.bgElev,[\s\S]*titulo: .*color: colors\.text \}/,
+    texto: 'text',
+    fundo: 'bgElev',
+  },
+  {
+    arq: 'components/feedback/ConfirmHost.tsx',
+    ancora: /backgroundColor: colors\.bgElev,[\s\S]*mensagem: .*color: colors\.textSoft/,
+    texto: 'textSoft',
+    fundo: 'bgElev',
+  },
+  {
+    arq: 'components/feedback/Toast.tsx',
+    ancora: /backgroundColor: colors\.bgElev,\s*\},\s*texto: .*color: colors\.text,/,
+    texto: 'text',
+    fundo: 'bgElev',
+  },
   // I-4: botão secondary "Tentar novamente" dentro do vídeo, com fundo surface próprio.
   {
     arq: TELE,

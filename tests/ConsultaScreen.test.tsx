@@ -1,6 +1,7 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { StyleSheet, Alert } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import ConsultaScreen from '../src/app/(app)/consulta/[idPet]';
@@ -147,6 +148,12 @@ function criarConsultaComSucesso(getByTestId: ReturnType<typeof wrap>['getByTest
   fireEvent.changeText(getByTestId('field-dsAnamnese'), 'Animal ativo');
   fireEvent.press(getByTestId('btn-salvar'));
 }
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('ConsultaScreen', () => {
   it('shows motivo validation error when motivo is empty', async () => {
@@ -329,15 +336,14 @@ describe('ConsultaScreen', () => {
       // Os outros 3 continuam iguais ao rascunho — badge continua oculto.
       expect(queryByTestId('luna-badge-O')).toBeNull();
 
-      jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
-        const substituir = buttons?.find((b) => b.text === 'Substituir');
-        substituir?.onPress?.();
-      });
+      fb.responder({ confirmar: true });
       fireEvent.press(getByTestId('luna-badge-S'));
 
       // Restaura o rascunho REAL — nunca o texto fixo que
       // `mocks/luna.mock.ts::SOAP_SUGESTOES.S` devolvia antes do LU-10.
-      expect(getByTestId('field-soap-s').props.value).toBe('Subjetivo real da transcrição');
+      await waitFor(() =>
+        expect(getByTestId('field-soap-s').props.value).toBe('Subjetivo real da transcrição'),
+      );
       expect(getByTestId('field-soap-s').props.value).not.toBe(
         'Tutor relata apatia há 2 dias e diminuição do apetite.',
       );
@@ -398,17 +404,13 @@ describe('ConsultaScreen', () => {
       // O vet edita o campo do card (diverge do rascunho) com texto próprio.
       fireEvent.changeText(getByTestId('field-soap-s'), 'Já digitado pelo vet');
 
-      const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
       fireEvent.press(getByTestId('luna-badge-S'));
 
-      expect(alertSpy).toHaveBeenCalledWith(
-        'Substituir texto atual?',
-        expect.any(String),
-        expect.arrayContaining([
-          expect.objectContaining({ text: 'Cancelar' }),
-          expect.objectContaining({ text: 'Substituir' }),
-        ]),
-      );
+      await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+      expect(fb.confirmacoes[0]).toMatchObject({
+        titulo: 'Substituir texto atual?',
+        verbo: 'Substituir',
+      });
       // Sem confirmar, o texto digitado pelo vet permanece intacto.
       expect(getByTestId('field-soap-s').props.value).toBe('Já digitado pelo vet');
     });
@@ -441,16 +443,14 @@ describe('ConsultaScreen', () => {
       fireEvent.changeText(getByTestId('field-soap-a'), 'editado a');
       fireEvent.changeText(getByTestId('field-soap-p'), 'editado p');
 
-      jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-        const substituir = buttons?.find((b) => b.text === 'Substituir');
-        substituir?.onPress?.();
-      });
+      fb.responder({ confirmar: true });
 
       fireEvent.press(getByTestId('luna-badge-S'));
       fireEvent.press(getByTestId('luna-badge-O'));
       fireEvent.press(getByTestId('luna-badge-A'));
       fireEvent.press(getByTestId('luna-badge-P'));
 
+      await waitFor(() => expect(getByTestId('field-soap-p').props.value).toBe('draft p'));
       expect(getByTestId('field-soap-s').props.value).toBe('draft s');
       expect(getByTestId('field-soap-o').props.value).toBe('draft o');
       expect(getByTestId('field-soap-a').props.value).toBe('draft a');
@@ -481,11 +481,9 @@ describe('ConsultaScreen', () => {
       });
 
       fireEvent.changeText(getByTestId('field-soap-s'), 'texto que o vet vai descartar');
-      jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
-        const substituir = buttons?.find((b) => b.text === 'Substituir');
-        substituir?.onPress?.();
-      });
+      fb.responder({ confirmar: true });
       fireEvent.press(getByTestId('luna-badge-S'));
+      await waitFor(() => expect(getByTestId('field-soap-s').props.value).toBe('Rascunho real da Luna'));
 
       mockMutateConfirmarSoap.mockImplementation(
         (_vars: unknown, opts: { onSuccess?: () => void }) => {
@@ -727,10 +725,9 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
     expect(mockMutateIniciarAtendimento).toHaveBeenCalledTimes(1);
   });
 
-  it('falha (não-409, ex.: 422 de status não elegível) não bloqueia o prontuário: a tela renderiza normalmente, sem Alert', async () => {
+  it('falha (não-409, ex.: 422 de status não elegível) não bloqueia o prontuário: a tela renderiza normalmente, sem aviso', async () => {
     mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockMutateIniciarAtendimento.mockImplementation(
       (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
         opts?.onError?.(Object.assign(new Error('Etapa não elegível'), { status: 422 }));
@@ -751,10 +748,9 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
     // G0/G2 classificam este caso (422, ex.: reabrir prontuário de
     // agendamento já REALIZADO) como inofensivo -- não precisa de aviso
     // visível, só diagnóstico.
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(fb.avisos).toEqual([]);
 
     warnSpy.mockRestore();
-    alertSpy.mockRestore();
   });
 
   // G2 REC-13 (achado Important `I-1`): um 409 por `nrVersion` desatualizado
@@ -763,9 +759,8 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
   // sinal visível (`console.warn` some em build de release). Mesmo padrão já
   // usado NESTE APP para o MESMO 409, na MESMA entidade
   // (agenda.tsx::handleChegou/handleFaltou, `agenda.tsx:747-752/776-781`).
-  it('409 por nrVersion desatualizado mostra Alert.alert (mesmo texto de agenda.tsx::handleChegou/handleFaltou) e não bloqueia o prontuário', () => {
+  it('409 por nrVersion desatualizado mostra avisar() (mesmo texto de agenda.tsx::handleChegou/handleFaltou) e não bloqueia o prontuário', () => {
     mockUseLocalSearchParams.mockReturnValue({ idPet: '1', idAgendamento: '30', nrVersion: '2' });
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     mockMutateIniciarAtendimento.mockImplementation(
       (_vars: unknown, opts: { onError?: (err: unknown) => void }) => {
         opts?.onError?.(Object.assign(new Error('Conflito'), { status: 409 }));
@@ -774,13 +769,15 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
 
     const { getByTestId } = wrap(<ConsultaScreen />);
 
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Agendamento desatualizado',
-      'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-    );
-    // Não bloqueia -- o formulário continua usável depois do Alert.
+    expect(fb.avisos).toEqual([
+      {
+        titulo: 'Agendamento desatualizado',
+        mensagem:
+          'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+      },
+    ]);
+    // Não bloqueia -- o formulário continua usável depois do aviso.
     expect(getByTestId('btn-salvar')).toBeTruthy();
 
-    alertSpy.mockRestore();
   });
 });
