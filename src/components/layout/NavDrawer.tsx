@@ -235,9 +235,10 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
     <View style={styles.container} testID="nav-drawer">
       <SafeAreaView style={styles.header} edges={['top']}>
         {/* Marca canônica em knockout (ruling D-3, dev VsClaude,
-            KURA_BACKLOG_CLINICA_1, CQ-12): fundo do header é colors.primary
-            (ocean), então a marca precisa de colors.textOnPrimary para não
-            violar contraste mínimo 4.5:1. Aposenta o ícone de pata antigo. */}
+            KURA_BACKLOG_CLINICA_1, CQ-12). Cores por tema via tokens `nav*`
+            (BR-CLI-T01): no claro o fundo é ocean e a marca vai em knockout;
+            no escuro ("Noite") o fundo é `surface`. O par navBrand/navBg é
+            provado em tests/contrast.test.ts. Aposenta o ícone de pata antigo. */}
         <KuraMark size={32} color={colors.navBrand} />
         <Text style={styles.brandName}>{STRINGS.app.name}</Text>
       </SafeAreaView>

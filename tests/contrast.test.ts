@@ -162,6 +162,13 @@ const USOS: Uso[] = [
   },
   { arq: TELE, ancora: /color: colors\.videoText,\s*\},\s*videoSubtitle/, texto: 'videoText', fundo: 'videoBg' },
   { arq: TELE, ancora: /backgroundColor: colors\.videoBg/, texto: 'videoText', fundo: 'videoBg' },
+  // I-4: botão secondary "Tentar novamente" dentro do vídeo, com fundo surface próprio.
+  {
+    arq: TELE,
+    ancora: /style=\{\{ backgroundColor: colors\.surface \}\}\s*onPress=\{\(\) => criarSalaMutation\.mutate\(\)\}\s*testID="btn-tentar-novamente"/,
+    texto: 'text',
+    fundo: 'surface',
+  },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {
@@ -203,7 +210,11 @@ describe('gate: amber/clay (e aliases de mesmo hex) nunca como cor de texto', ()
   // texto reprova, 2.85-3.11). No escuro `danger` coincide com `clay` e é texto legítimo
   // (5.99 sobre surface) — por isso a comparação é só no claro. Tintas *Ink ficam de fora.
   const hexes = new Set([TEMAS.claro.amber, TEMAS.claro.clay]);
-  const chaves = Object.keys(TEMAS.claro).filter((k) => !/Ink$/.test(k) && hexes.has(TEMAS.claro[k]));
+  // M-6 (re-G2): `textMute` também é proibido como texto (3.99 claro / 4.31 escuro) — use `textMuteInk`.
+  const chaves = [
+    ...Object.keys(TEMAS.claro).filter((k) => !/Ink$/.test(k) && hexes.has(TEMAS.claro[k])),
+    'textMute',
+  ];
   const re = new RegExp(`(?<![A-Za-z])color[:=]\\s*\\{?\\s*colors\\.(${chaves.join('|')})\\b`);
 
   it('varre arquivos de src/ (controle: a varredura enxerga o tokens.ts)', () => {
@@ -231,6 +242,8 @@ describe('gate: amber/clay (e aliases de mesmo hex) nunca como cor de texto', ()
     expect(re.test('      color: colors.clay,')).toBe(true);
     expect(re.test('      color: colors.warning,')).toBe(true);
     expect(re.test('<KCIcon color={colors.amber} />')).toBe(true);
+    expect(re.test('      color: colors.textMute,')).toBe(true);
+    expect(re.test('      color: colors.textMuteInk,')).toBe(false); // a tinta ink é a permitida
     expect(re.test('      borderColor: colors.clay,')).toBe(false); // borderColor não é texto
   });
 });

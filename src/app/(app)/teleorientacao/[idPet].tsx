@@ -233,6 +233,9 @@ export default function TeleorientacaoScreen() {
               <KCButton
                 variant="secondary"
                 size="sm"
+                // I-4 (re-G2 BR-CLI-T01): fundo `surface` próprio — o `secondary` herdava o
+                // `videoBg` (= primary no claro) e o texto ficava a 1.58:1.
+                style={{ backgroundColor: colors.surface }}
                 onPress={() => criarSalaMutation.mutate()}
                 testID="btn-tentar-novamente"
               >
