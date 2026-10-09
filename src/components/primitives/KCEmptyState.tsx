@@ -43,7 +43,7 @@ const makeStyles = (colors: typeof lightColors) =>
     description: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       textAlign: 'center',
       marginTop: 4,
     },
@@ -71,7 +71,7 @@ export function KCEmptyState({ icon, title, description, action, style, testID }
 
   return (
     <View style={[styles.container, style]} testID={testID}>
-      <KCIcon name={icon} size={40} color={colors.textMute} />
+      <KCIcon name={icon} size={40} color={colors.textMuteInk} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.description}>{description}</Text>
       {action && (

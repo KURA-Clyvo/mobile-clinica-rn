@@ -10,6 +10,10 @@ export const lightColors = {
   amberPale: '#FBF0DB',
   clay: '#D9624A',
   clayPale: '#F7E5DF',
+  // Tintas "ink": versões de TEXTO de amber/clay/textMute (DS KURA, 2026-10-09).
+  // `amber`/`clay`/`textMute` ficam só para preenchimento e grafismo.
+  amberInk: '#96610A',
+  clayInk: '#A34A38',
 
   bg: '#F8F2E6',
   bgElev: '#FFFCF7',
@@ -19,11 +23,14 @@ export const lightColors = {
 
   border: '#EDE3CD',
   borderStrong: '#D9CDB0',
+  // Limite de campo/botão secundário (WCAG 1.4.11, >= 3:1). Proposta do DS.
+  borderControl: '#93856A',
   borderFocus: '#1A3A52',
 
   text: '#1B1006',
   textSoft: '#4A3418',
   textMute: '#8A7458',
+  textMuteInk: '#7C684F',
 
   success: '#4A6944',
   successBg: '#E0ECDB',
@@ -33,43 +40,76 @@ export const lightColors = {
   dangerBg: '#F7E5DF',
   info: '#2D5E7E',
   infoBg: '#D8E8F2',
+
+  // Chrome de navegação e área de vídeo POR TEMA (BR-CLI-T01 fix wave, I-2).
+  // Claro = painel ocean (valores de antes, sem mudança visual). Escuro = canvas
+  // ClinicaNoite: barra em `surface`, borda `border`, itens `textSoft`, ativo
+  // `primaryPale`/`primary`; vídeo em `bgSunk` (ocean claro seria painel azul grande).
+  navBg: '#1A3A52',
+  navEdge: '#1A3A52',
+  navBorder: '#2D5E7E',
+  navText: '#FFFCF7',
+  navBrand: '#FFFCF7',
+  navActiveBg: '#2D5E7E',
+  navActiveText: '#FFFCF7',
+  videoBg: '#1A3A52',
+  videoText: '#FFFCF7',
 };
 
+// Tema "Noite" (DS KURA, tokens de 2026-10-09). Substitui o marinho antigo, que
+// reprovava 21 pares de contraste (auditoria BR-CLI F5). Primária da clínica = ocean escuro.
 export const darkColors: typeof lightColors = {
-  primary: '#4A8AB5',
-  primarySoft: '#5A9DC8',
-  primaryPale: '#1A3A52',
-  textOnPrimary: '#FFFCF7',
+  primary: '#6FA8C8',
+  primarySoft: '#4A8AAB',
+  primaryPale: '#1A2A38',
+  textOnPrimary: '#14110C',
 
-  sage: '#6A9964',
-  sagePale: '#1E3A1C',
-  amber: '#E8A030',
-  amberPale: '#3A2800',
-  clay: '#E8826A',
-  clayPale: '#3A1510',
+  sage: '#8FB088',
+  sagePale: '#1F2A1B',
+  amber: '#E89C20',
+  amberPale: '#3A2810',
+  clay: '#E07D62',
+  clayPale: '#3A1E16',
+  amberInk: '#E89C20',
+  clayInk: '#E07D62',
 
-  bg: '#0F1F2E',
-  bgElev: '#16293B',
-  bgSunk: '#0A1520',
-  surface: '#16293B',
-  surface2: '#1C3248',
+  bg: '#14110C',
+  bgElev: '#1F1A12',
+  bgSunk: '#0E0C08',
+  surface: '#1F1A12',
+  surface2: '#2A2418',
 
-  border: '#1E3A52',
-  borderStrong: '#2D5070',
-  borderFocus: '#4A8AB5',
+  border: '#2A2418',
+  borderStrong: '#3D3424',
+  // Proposta do DS (não existia no código).
+  borderControl: '#7A6C50',
+  // O DS define border-focus escuro em amber para o TUTOR; na clínica o foco é ocean.
+  borderFocus: '#6FA8C8',
 
-  text: '#F0EAD8',
-  textSoft: '#C8B898',
-  textMute: '#7A8A98',
+  text: '#F0E8D8',
+  textSoft: '#C8BCA0',
+  textMute: '#8A7E62',
+  // Proposta do DS para o escuro (clareia textMute para passar 4.5:1).
+  textMuteInk: '#9A8E72',
 
-  success: '#6A9964',
-  successBg: '#1E3A1C',
-  warning: '#E8A030',
-  warningBg: '#3A2800',
-  danger: '#D06A50',
-  dangerBg: '#3A1510',
-  info: '#5A9DC8',
-  infoBg: '#1A3A52',
+  success: '#8FB088',
+  successBg: '#1F2A1B',
+  warning: '#E89C20',
+  warningBg: '#3A2810',
+  danger: '#E07D62',
+  dangerBg: '#3A1E16',
+  info: '#6FA8C8',
+  infoBg: '#1A2A38',
+
+  navBg: '#1F1A12',
+  navEdge: '#2A2418',
+  navBorder: '#2A2418',
+  navText: '#C8BCA0',
+  navBrand: '#F0E8D8',
+  navActiveBg: '#1A2A38',
+  navActiveText: '#6FA8C8',
+  videoBg: '#0E0C08',
+  videoText: '#F0E8D8',
 };
 
 export const spacing = {

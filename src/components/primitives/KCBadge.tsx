@@ -36,7 +36,7 @@ const makeStyles = (colors: typeof lightColors) =>
 export function KCBadge({ count, dot = false, color, style }: KCBadgeProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const bgColor = color ?? colors.clay;
+  const bgColor = color ?? colors.clayInk;
 
   if (dot) {
     return <View style={[styles.dot, { backgroundColor: bgColor }, style]} testID="kc-badge-dot" />;

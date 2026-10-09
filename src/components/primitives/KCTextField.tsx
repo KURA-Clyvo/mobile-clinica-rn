@@ -49,7 +49,7 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.surface,
     },
     inputContainerNormal: {
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
     },
     inputContainerFocused: {
       borderColor: colors.borderFocus,
@@ -86,7 +86,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     helperText: {
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       fontFamily: 'Lexend_400Regular',
     },
     eyeButton: {
@@ -94,7 +94,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     eyeText: {
       fontSize: 16,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
   });
 
@@ -140,7 +140,7 @@ export function KCTextField({
         <TextInput
           style={[styles.input, multiline && styles.inputMultiline]}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMute}
+          placeholderTextColor={colors.textMuteInk}
           value={value}
           onChangeText={onChangeText}
           onFocus={() => setIsFocused(true)}

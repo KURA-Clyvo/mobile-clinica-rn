@@ -83,7 +83,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     petInfo: { flex: 1, marginLeft: 10 },
     petName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     form: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
     fieldLabel: {
       fontFamily: 'Lexend_500Medium',
@@ -100,7 +100,7 @@ const makeStyles = (colors: typeof lightColors) =>
       minHeight: 100,
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 12,
       fontFamily: 'Lexend_400Regular',
@@ -143,13 +143,13 @@ const makeStyles = (colors: typeof lightColors) =>
     transcricaoPreview: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       fontStyle: 'italic',
     },
     transcricaoIndisponivel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
   });
 

@@ -75,20 +75,25 @@ export const NAV_ITEMS: NavItem[] = [
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: colors.primary },
+    container: {
+      flex: 1,
+      backgroundColor: colors.navBg,
+      borderRightWidth: 1,
+      borderRightColor: colors.navEdge,
+    },
     header: {
       paddingHorizontal: 20,
       paddingTop: 12,
       paddingBottom: 24,
       borderBottomWidth: 1,
-      borderBottomColor: colors.primarySoft,
+      borderBottomColor: colors.navBorder,
       alignItems: 'flex-start',
       gap: 8,
     },
     brandName: {
       fontFamily: 'Cormorant_500Medium',
       fontSize: 28,
-      color: colors.textOnPrimary,
+      color: colors.navBrand,
     },
     nav: { flex: 1 },
     navContent: { paddingTop: 8, paddingBottom: 8 },
@@ -99,7 +104,7 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingVertical: 14,
       paddingHorizontal: 20,
     },
-    navItemActive: { backgroundColor: colors.primarySoft },
+    navItemActive: { backgroundColor: colors.navActiveBg },
     // Repõe o feedback visual de toque que o TouchableOpacity dava de graça
     // (activeOpacity padrão) — Pressable não tem isso embutido, então sem
     // este estilo trocar TouchableOpacity por Pressable seria regressão de
@@ -113,12 +118,12 @@ const makeStyles = (colors: typeof lightColors) =>
     navLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
-      color: colors.textOnPrimary,
+      color: colors.navText,
     },
-    navLabelActive: { fontFamily: 'Lexend_500Medium' },
+    navLabelActive: { fontFamily: 'Lexend_500Medium', color: colors.navActiveText },
     footer: {
       borderTopWidth: 1,
-      borderTopColor: colors.primarySoft,
+      borderTopColor: colors.navBorder,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: 8,
@@ -130,13 +135,12 @@ const makeStyles = (colors: typeof lightColors) =>
     userName: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 14,
-      color: colors.textOnPrimary,
+      color: colors.navBrand,
     },
     userCrmv: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textOnPrimary,
-      opacity: 0.7,
+      color: colors.navText,
       marginTop: 2,
     },
   });
@@ -192,7 +196,7 @@ function NavDrawerItem({
   const itemStyle = StyleSheet.flatten([
     styles.navItem,
     isActive && styles.navItemActive,
-    getWebInteractionStyle(webInteraction, colors.textOnPrimary),
+    getWebInteractionStyle(webInteraction, colors.navText),
     pressed && styles.navItemPressed,
   ]);
 
@@ -209,7 +213,11 @@ function NavDrawerItem({
         accessibilityRole="menuitem"
         testID={`nav-item-${item.name}`}
       >
-        <KCIcon name={item.icon} size={20} color={colors.textOnPrimary} />
+        <KCIcon
+          name={item.icon}
+          size={20}
+          color={isActive ? colors.navActiveText : colors.navText}
+        />
         <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
       </Pressable>
     </Link>
@@ -227,10 +235,11 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
     <View style={styles.container} testID="nav-drawer">
       <SafeAreaView style={styles.header} edges={['top']}>
         {/* Marca canônica em knockout (ruling D-3, dev VsClaude,
-            KURA_BACKLOG_CLINICA_1, CQ-12): fundo do header é colors.primary
-            (ocean), então a marca precisa de colors.textOnPrimary para não
-            violar contraste mínimo 4.5:1. Aposenta o ícone de pata antigo. */}
-        <KuraMark size={32} color={colors.textOnPrimary} />
+            KURA_BACKLOG_CLINICA_1, CQ-12). Cores por tema via tokens `nav*`
+            (BR-CLI-T01): no claro o fundo é ocean e a marca vai em knockout;
+            no escuro ("Noite") o fundo é `surface`. O par navBrand/navBg é
+            provado em tests/contrast.test.ts. Aposenta o ícone de pata antigo. */}
+        <KuraMark size={32} color={colors.navBrand} />
         <Text style={styles.brandName}>{STRINGS.app.name}</Text>
       </SafeAreaView>
 
@@ -285,12 +294,12 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
             onMouseLeave={logoutInteraction.onMouseLeave}
             onFocus={logoutInteraction.onFocus}
             onBlur={logoutInteraction.onBlur}
-            style={getWebInteractionStyle(logoutInteraction, colors.textOnPrimary)}
+            style={getWebInteractionStyle(logoutInteraction, colors.navText)}
             testID="nav-drawer-logout"
             accessibilityRole="button"
             accessibilityLabel={STRINGS.configuracoes.sair}
           >
-            <KCIcon name="close" size={20} color={colors.textOnPrimary} />
+            <KCIcon name="close" size={20} color={colors.navText} />
           </TouchableOpacity>
         </SafeAreaView>
       )}

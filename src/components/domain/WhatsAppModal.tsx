@@ -53,11 +53,11 @@ const makeStyles = (colors: typeof lightColors) =>
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16, paddingBottom: 8 },
     recipientRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     recipientName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    recipientPet: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    recipientPet: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginBottom: 4,
     },
     messageInput: {
@@ -68,14 +68,14 @@ const makeStyles = (colors: typeof lightColors) =>
       textAlignVertical: 'top',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 12,
     },
     charCount: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       alignSelf: 'flex-end',
       marginTop: 2,
     },
@@ -147,7 +147,7 @@ export function WhatsAppModal({
                 testID="btn-fechar-whatsapp"
                 style={{ padding: 4 }}
               >
-                <KCIcon name="close" size={20} color={colors.textMute} />
+                <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>
 
@@ -172,7 +172,7 @@ export function WhatsAppModal({
                   style={styles.messageInput}
                   multiline
                   placeholder="Digite ou edite a mensagem..."
-                  placeholderTextColor={colors.textMute}
+                  placeholderTextColor={colors.textMuteInk}
                   value={mensagem}
                   onChangeText={(t) => setMensagem(t.slice(0, 500))}
                   testID="message-input"

@@ -58,7 +58,7 @@ const makeStyles = (colors: typeof lightColors) =>
     subtitle: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
     // Alvo de toque: 44×44 nos DOIS eixos, explícito — `minWidth`/`minHeight`
@@ -97,7 +97,7 @@ const makeStyles = (colors: typeof lightColors) =>
       flex: 1,
     },
     stepLabelDone: {
-      color: colors.textMute,
+      color: colors.textMuteInk,
       textDecorationLine: 'line-through',
     },
   });
@@ -138,7 +138,7 @@ export function OnboardingChecklist() {
           accessibilityRole="button"
           accessibilityLabel={STRINGS.ONBOARDING.CLOSE_A11Y}
         >
-          <KCIcon name="close" size={16} color={colors.textMute} />
+          <KCIcon name="close" size={16} color={colors.textMuteInk} />
         </TouchableOpacity>
       </View>
 

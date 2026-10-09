@@ -95,7 +95,7 @@ const makeStyles = (colors: typeof lightColors) =>
     dayLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     dayLabelSelected: { color: colors.textOnPrimary },
     dayLabelToday: { color: colors.primary },
@@ -141,7 +141,7 @@ const makeStyles = (colors: typeof lightColors) =>
     durationText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 10,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
     divider: {
@@ -170,7 +170,7 @@ const makeStyles = (colors: typeof lightColors) =>
     tutorText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     // FM-04: teleBtn e statusBtn (novo) agora moram lado a lado dentro de
     // actionsRow — o marginTop:8 saiu daqui e foi para o container, senão a
@@ -280,12 +280,12 @@ const makeStyles = (colors: typeof lightColors) =>
     hojeMetaText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     hojeEsperaText: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 12,
-      color: colors.clay,
+      color: colors.clayInk,
     },
     hojeBadgeRow: {
       flexDirection: 'row',
@@ -335,7 +335,7 @@ const makeStyles = (colors: typeof lightColors) =>
     notaOrigem: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       textAlign: 'center',
       paddingTop: 8,
       paddingBottom: 4,
@@ -359,7 +359,7 @@ const makeStyles = (colors: typeof lightColors) =>
     hojeErroDesc: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       textAlign: 'center',
       marginTop: 4,
     },
@@ -540,7 +540,7 @@ function AgendaHojeCard({
             />
           ) : (
             <View testID={`foto-pet-fallback-${a.id}`}>
-              <KCIcon name="paw" size={22} color={colors.textMute} />
+              <KCIcon name="paw" size={22} color={colors.textMuteInk} />
             </View>
           )}
         </View>
@@ -1055,7 +1055,7 @@ export default function AgendaScreen() {
             // com ação de "tentar de novo" que dispara o mesmo refetch do
             // pull-to-refresh.
             <View style={styles.hojeErroContainer} testID="agenda-hoje-erro">
-              <KCIcon name="alert" size={40} color={colors.textMute} />
+              <KCIcon name="alert" size={40} color={colors.textMuteInk} />
               <Text style={styles.hojeErroTitulo}>{STRINGS.agenda.erroHojeTitulo}</Text>
               <Text style={styles.hojeErroDesc}>{STRINGS.agenda.erroHojeDesc}</Text>
               <TouchableOpacity

@@ -35,7 +35,7 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
       paddingVertical: 10,
@@ -54,7 +54,7 @@ const makeStyles = (colors: typeof lightColors) =>
     countText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     separator: {
       height: 1,
@@ -150,11 +150,11 @@ export default function PacientesScreen() {
     <ScreenContainer scroll={false} paddingHorizontal={0} style={{ paddingBottom: 0 }}>
       <View style={styles.searchWrapper}>
         <View style={styles.searchBar}>
-          <KCIcon name="search" size={18} color={colors.textMute} />
+          <KCIcon name="search" size={18} color={colors.textMuteInk} />
           <TextInput
             style={styles.searchInput}
             placeholder={STRINGS.PACIENTES.SEARCH_PLACEHOLDER}
-            placeholderTextColor={colors.textMute}
+            placeholderTextColor={colors.textMuteInk}
             value={rawSearch}
             onChangeText={handleSearchChange}
             testID="search-input"
@@ -166,7 +166,7 @@ export default function PacientesScreen() {
                 setFiltro('');
               }}
             >
-              <KCIcon name="close" size={16} color={colors.textMute} />
+              <KCIcon name="close" size={16} color={colors.textMuteInk} />
             </TouchableOpacity>
           )}
         </View>

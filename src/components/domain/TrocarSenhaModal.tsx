@@ -45,7 +45,7 @@ const makeStyles = (colors: typeof lightColors) =>
     subtitle: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       paddingHorizontal: 16,
       paddingTop: 4,
     },
@@ -96,7 +96,7 @@ export function TrocarSenhaModal({ visible, onClose, usuarioId, dsEmail }: Troca
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Trocar senha</Text>
               <TouchableOpacity onPress={onClose} testID="btn-fechar-trocar-senha" style={{ padding: 4 }}>
-                <KCIcon name="close" size={20} color={colors.textMute} />
+                <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>
             <Text style={styles.subtitle}>{dsEmail}</Text>

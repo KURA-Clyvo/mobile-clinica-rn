@@ -93,12 +93,12 @@ const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     card: { marginTop: 16, gap: 12 },
     titulo: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     precoServicoSelecionado: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     erroTexto: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger },
     confirmacaoBox: {
@@ -108,7 +108,7 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 4,
     },
     confirmacaoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 13, color: colors.sage },
-    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textSoft },
   });
 
 function ResumoConfirmacao({

@@ -27,7 +27,7 @@ const makeStyles = (colors: typeof lightColors) =>
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
     sectionLabel: { fontFamily: 'Lexend_500Medium', fontSize: 13, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMute },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk },
     box: {
       borderWidth: 1,
       borderColor: colors.border,
@@ -40,7 +40,7 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
       paddingVertical: 10,
@@ -56,7 +56,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     itemRowSelected: { borderColor: colors.primary, backgroundColor: colors.bgSunk },
     itemTitle: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    itemSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    itemSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     lockedBox: {
       borderWidth: 1,
       borderColor: colors.border,
@@ -78,7 +78,7 @@ const makeStyles = (colors: typeof lightColors) =>
     errorText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.danger },
     input: {
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 12,
       fontFamily: 'Lexend_400Regular',
@@ -368,11 +368,11 @@ export default function NovoAgendamentoScreen() {
                 </View>
               )}
               <View style={styles.searchWrapper}>
-                <KCIcon name="search" size={18} color={colors.textMute} />
+                <KCIcon name="search" size={18} color={colors.textMuteInk} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder={STRINGS.AGENDA_NOVO.BUSCAR_TUTOR_PLACEHOLDER}
-                  placeholderTextColor={colors.textMute}
+                  placeholderTextColor={colors.textMuteInk}
                   value={busca}
                   onChangeText={handleBuscaChange}
                   testID="search-tutor-novo-agendamento"

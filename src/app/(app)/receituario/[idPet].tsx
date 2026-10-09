@@ -72,17 +72,17 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     petInfo: { flex: 1, marginLeft: 10 },
     petName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     form: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginBottom: 4,
     },
     searchContainer: {
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       backgroundColor: colors.surface,
       overflow: 'hidden',
@@ -100,13 +100,13 @@ const makeStyles = (colors: typeof lightColors) =>
       borderTopColor: colors.border,
     },
     medName: { fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
-    medSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    medSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     dateRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       backgroundColor: colors.surface,
       padding: 12,
@@ -393,7 +393,7 @@ export default function ReceituarioScreen() {
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Buscar medicamento..."
-                  placeholderTextColor={colors.textMute}
+                  placeholderTextColor={colors.textMuteInk}
                   value={buscaMed}
                   onChangeText={setBuscaMed}
                   testID="search-med"

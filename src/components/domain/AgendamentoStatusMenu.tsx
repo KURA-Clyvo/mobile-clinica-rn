@@ -58,7 +58,7 @@ const makeStyles = (colors: typeof lightColors) =>
     emptyText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
   });
 
@@ -124,7 +124,7 @@ export function AgendamentoStatusMenu({
                 style={{ padding: 4 }}
                 accessibilityLabel="Fechar"
               >
-                <KCIcon name="close" size={20} color={colors.textMute} />
+                <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>
 

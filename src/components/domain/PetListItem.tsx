@@ -44,7 +44,7 @@ const makeStyles = (colors: typeof lightColors) =>
     caption: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
   });
 
@@ -84,7 +84,7 @@ export function PetListItem({ pet, onPress }: PetListItemProps) {
         <Text style={styles.caption}>{`${idade} · ${sexo}`}</Text>
         <Text style={styles.caption}>{tutor}</Text>
       </View>
-      <KCIcon name="chevR" size={16} color={colors.textMute} />
+      <KCIcon name="chevR" size={16} color={colors.textMuteInk} />
     </TouchableOpacity>
   );
 }

@@ -68,11 +68,12 @@ function getVariantContainerStyle(
     case 'primary':
       return { backgroundColor: colors.primary };
     case 'secondary':
-      return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.border };
+      return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.borderControl };
     case 'ghost':
       return { backgroundColor: 'transparent' };
     case 'danger':
-      return { backgroundColor: colors.dangerBg, borderWidth: 1, borderColor: colors.danger };
+      // fundo surface: o fundo pálido do alerta dá 4.43 no claro (< 4.5); danger/surface = 5.27/5.99.
+      return { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.danger };
   }
 }
 

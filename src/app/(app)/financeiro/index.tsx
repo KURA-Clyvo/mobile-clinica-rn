@@ -63,7 +63,7 @@ const makeStyles = (colors: typeof lightColors) =>
     periodoText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginBottom: 16,
     },
     sectionBlock: { marginBottom: 24 },
@@ -76,7 +76,7 @@ const makeStyles = (colors: typeof lightColors) =>
     sectionCaption: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginBottom: 12,
     },
     metricsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
@@ -85,7 +85,7 @@ const makeStyles = (colors: typeof lightColors) =>
     comparacaoPeriodos: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     comparacaoValor: {
       fontFamily: 'Cormorant_500Medium',
@@ -124,7 +124,7 @@ const makeStyles = (colors: typeof lightColors) =>
     mixCaptionText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
   });
 

@@ -31,7 +31,7 @@ exports[`KCChip tone snapshots renders amber tone correctly 1`] = `
           "fontSize": 11,
         },
         {
-          "color": "#C8810D",
+          "color": "#96610A",
         },
       ]
     }
@@ -72,7 +72,7 @@ exports[`KCChip tone snapshots renders clay tone correctly 1`] = `
           "fontSize": 11,
         },
         {
-          "color": "#D9624A",
+          "color": "#A34A38",
         },
       ]
     }
@@ -97,7 +97,7 @@ exports[`KCChip tone snapshots renders mute tone correctly 1`] = `
         "paddingVertical": 4,
       },
       {
-        "backgroundColor": "#EDE3CD",
+        "backgroundColor": "#FFFCF7",
         "borderColor": "#EDE3CD",
       },
       undefined,
@@ -113,7 +113,7 @@ exports[`KCChip tone snapshots renders mute tone correctly 1`] = `
           "fontSize": 11,
         },
         {
-          "color": "#8A7458",
+          "color": "#7C684F",
         },
       ]
     }

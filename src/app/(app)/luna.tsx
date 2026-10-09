@@ -134,7 +134,7 @@ const makeStyles = (colors: typeof lightColors) =>
     lunaSubtitle: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
     statusIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -153,7 +153,7 @@ const makeStyles = (colors: typeof lightColors) =>
     subLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 4,
     },
     subStatus: {
@@ -262,7 +262,7 @@ const makeStyles = (colors: typeof lightColors) =>
     filaTempo: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     filaPet: {
       fontFamily: 'Lexend_500Medium',

@@ -86,7 +86,7 @@ function TimelineItemRow({
       <View style={{ flex: 1, marginLeft: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
           <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>{label}</Text>
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
             {formatDateShort(evento.dtEvento)}
           </Text>
         </View>
@@ -103,8 +103,8 @@ function TimelineItemRow({
         </TouchableOpacity>
         {evento.nmVeterinario ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <KCIcon name="consult" size={12} color={colors.textMute} />
-            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
+            <KCIcon name="consult" size={12} color={colors.textMuteInk} />
+            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
               {evento.nmVeterinario}
             </Text>
           </View>
@@ -162,7 +162,7 @@ function StubTab({ label }: { label: string }) {
   const { colors } = useTheme();
   return (
     <View style={{ alignItems: 'center', paddingTop: 40 }}>
-      <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.textMute }}>
+      <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.textMuteInk }}>
         {label}
       </Text>
     </View>
@@ -220,7 +220,7 @@ const makeStyles = (colors: typeof lightColors) =>
     tabText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     tabTextActive: {
       fontFamily: 'Lexend_500Medium',
@@ -489,13 +489,13 @@ export default function PacienteDetailScreen() {
       {/* Tutores */}
       <KCCard style={{ marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <KCIcon name="patients" size={16} color={colors.textMute} />
+          <KCIcon name="patients" size={16} color={colors.textMuteInk} />
           <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>
             Tutores
           </Text>
         </View>
         {pet.tutores.length === 0 ? (
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMute }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk }}>
             {STRINGS.PACIENTES.NO_TUTOR}
           </Text>
         ) : (
@@ -515,7 +515,7 @@ export default function PacienteDetailScreen() {
                 <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>
                   {tutor.nmTutor}
                 </Text>
-                <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
+                <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
                   {VINCULO_LABEL[tutor.dsVinculo] ?? tutor.dsVinculo}
                 </Text>
               </View>

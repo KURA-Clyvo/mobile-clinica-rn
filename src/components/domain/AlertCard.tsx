@@ -48,7 +48,7 @@ function getToneIconColor(tone: ChipTone, colors: typeof lightColors): { bg: str
     case 'clay':  return { bg: colors.clayPale, icon: colors.clay };
     case 'ocean': return { bg: colors.primaryPale, icon: colors.primary };
     case 'sage':  return { bg: colors.sagePale, icon: colors.sage };
-    case 'mute':  return { bg: colors.bgSunk, icon: colors.textMute };
+    case 'mute':  return { bg: colors.bgSunk, icon: colors.textMuteInk };
   }
 }
 
@@ -74,7 +74,7 @@ const makeStyles = (colors: typeof lightColors) =>
     time: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     message: {
       fontFamily: 'Lexend_400Regular',

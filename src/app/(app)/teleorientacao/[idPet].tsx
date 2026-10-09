@@ -57,20 +57,20 @@ const makeStyles = (colors: typeof lightColors) =>
     ressalvaText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.danger,
+      color: colors.textSoft,
       flex: 1,
     },
     vetIdent: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textSoft,
       marginTop: 8,
     },
     videoArea: {
       flex: 1,
       marginHorizontal: 16,
       marginVertical: 12,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.videoBg,
       borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
@@ -79,19 +79,17 @@ const makeStyles = (colors: typeof lightColors) =>
     videoTitle: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 15,
-      color: colors.textOnPrimary,
-      opacity: 0.6,
+      color: colors.videoText,
     },
     videoSubtitle: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textOnPrimary,
-      opacity: 0.4,
+      color: colors.videoText,
     },
     videoMessage: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textOnPrimary,
+      color: colors.videoText,
       textAlign: 'center',
       paddingHorizontal: 24,
     },
@@ -110,7 +108,7 @@ const makeStyles = (colors: typeof lightColors) =>
       textAlignVertical: 'top',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 10,
     },
@@ -214,14 +212,14 @@ export default function TeleorientacaoScreen() {
         <View style={styles.videoArea} testID="video-area">
           {!agendamentoId ? (
             <>
-              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              <KCIcon name="cam" size={48} color={colors.videoText} />
               <Text style={styles.videoTitle}>Chamada de vídeo</Text>
               <Text style={styles.videoMessage} testID="msg-sem-agendamento">
                 Inicie a teleconsulta a partir de um agendamento na Agenda.
               </Text>
             </>
           ) : carregando ? (
-            <ActivityIndicator color={colors.textOnPrimary} testID="loading-sala" />
+            <ActivityIndicator color={colors.videoText} testID="loading-sala" />
           ) : erro?.status === 422 ? (
             <Text style={styles.videoMessage} testID="msg-sem-consentimento">
               O tutor ainda não registrou consentimento de teleorientação. Peça para ele
@@ -235,6 +233,9 @@ export default function TeleorientacaoScreen() {
               <KCButton
                 variant="secondary"
                 size="sm"
+                // I-4 (re-G2 BR-CLI-T01): fundo `surface` próprio — o `secondary` herdava o
+                // `videoBg` (= primary no claro) e o texto ficava a 1.58:1.
+                style={{ backgroundColor: colors.surface }}
                 onPress={() => criarSalaMutation.mutate()}
                 testID="btn-tentar-novamente"
               >
@@ -248,7 +249,7 @@ export default function TeleorientacaoScreen() {
             </Text>
           ) : sala?.dsSalaUrl ? (
             <>
-              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              <KCIcon name="cam" size={48} color={colors.videoText} />
               {pet && tutor && (
                 <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
               )}
@@ -263,7 +264,7 @@ export default function TeleorientacaoScreen() {
             </>
           ) : (
             <>
-              <KCIcon name="cam" size={48} color={colors.textOnPrimary} />
+              <KCIcon name="cam" size={48} color={colors.videoText} />
               {pet && tutor && (
                 <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
               )}
@@ -286,7 +287,7 @@ export default function TeleorientacaoScreen() {
             style={styles.notesInput}
             multiline
             placeholder="Registre observações durante a sessão..."
-            placeholderTextColor={colors.textMute}
+            placeholderTextColor={colors.textMuteInk}
             value={notes}
             onChangeText={setNotes}
             testID="notes-input"

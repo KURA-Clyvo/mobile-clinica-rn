@@ -51,7 +51,7 @@ const makeStyles = (colors: typeof lightColors) =>
     label: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 11,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
   });
