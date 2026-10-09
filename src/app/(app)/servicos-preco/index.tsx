@@ -61,7 +61,7 @@ const makeStyles = (colors: typeof lightColors) =>
     listGrid: { gap: 10, marginBottom: 24 },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     nomeText: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    precoText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute, marginTop: 2 },
+    precoText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 2 },
     badgeRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
     actionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
     fabContainer: { position: 'absolute', bottom: 24, right: 24 },

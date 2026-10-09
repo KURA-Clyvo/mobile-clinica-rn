@@ -68,7 +68,7 @@ const makeStyles = (colors: typeof lightColors) =>
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginBottom: 8,
     },
     papelRow: { flexDirection: 'row', gap: 10 },
@@ -95,7 +95,7 @@ const makeStyles = (colors: typeof lightColors) =>
     vetOptionNormal: { borderColor: colors.border, backgroundColor: colors.surface },
     vetOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primary + '1a' },
     vetOptionText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
-    vetOptionSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    vetOptionSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     footer: {
       paddingHorizontal: 16,
       paddingVertical: 12,
@@ -200,7 +200,7 @@ export function UsuarioClinicaFormModal({
                 {isEdicao ? 'Editar usuário' : 'Novo usuário'}
               </Text>
               <TouchableOpacity onPress={onClose} testID="btn-fechar-form-usuario" style={{ padding: 4 }}>
-                <KCIcon name="close" size={20} color={colors.textMute} />
+                <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>
 

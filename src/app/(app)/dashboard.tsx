@@ -136,7 +136,7 @@ const makeStyles = (colors: typeof lightColors) =>
     dateText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
     metricsGrid: { gap: 10, marginBottom: 24 },
@@ -167,7 +167,7 @@ const makeStyles = (colors: typeof lightColors) =>
     sectionSubtitle: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: -4,
       marginBottom: 10,
     },
@@ -175,7 +175,7 @@ const makeStyles = (colors: typeof lightColors) =>
     comparacaoText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 8,
     },
     // FM-08 — botão "Ver painel completo", alinhado à esquerda, abaixo do conteúdo da seção.
@@ -203,7 +203,7 @@ const makeStyles = (colors: typeof lightColors) =>
     appointmentSub: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 2,
     },
     appointmentRight: { alignItems: 'flex-end', gap: 4 },

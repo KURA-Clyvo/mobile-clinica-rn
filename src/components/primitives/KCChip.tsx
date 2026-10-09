@@ -65,13 +65,13 @@ function getToneColors(
     case 'sage':
       return { bg: colors.sagePale, border: colors.sage, text: colors.sage, dot: colors.sage };
     case 'amber':
-      return { bg: colors.amberPale, border: colors.amber, text: colors.amber, dot: colors.amber };
+      return { bg: colors.amberPale, border: colors.amber, text: colors.amberInk, dot: colors.amber };
     case 'clay':
-      return { bg: colors.clayPale, border: colors.clay, text: colors.clay, dot: colors.clay };
+      return { bg: colors.clayPale, border: colors.clay, text: colors.clayInk, dot: colors.clay };
     case 'ocean':
       return { bg: colors.primaryPale, border: colors.primary, text: colors.primary, dot: colors.primary };
     case 'mute':
-      return { bg: colors.bgSunk, border: colors.border, text: colors.textMute, dot: colors.textMute };
+      return { bg: colors.surface, border: colors.border, text: colors.textMuteInk, dot: colors.textMuteInk };
   }
 }
 

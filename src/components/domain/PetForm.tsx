@@ -61,7 +61,7 @@ const makeStyles = (colors: typeof lightColors) =>
     subtitulo: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
     },
     sectionLabel: {
       fontFamily: 'Lexend_500Medium',

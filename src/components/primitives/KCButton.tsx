@@ -68,7 +68,7 @@ function getVariantContainerStyle(
     case 'primary':
       return { backgroundColor: colors.primary };
     case 'secondary':
-      return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.border };
+      return { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.borderControl };
     case 'ghost':
       return { backgroundColor: 'transparent' };
     case 'danger':

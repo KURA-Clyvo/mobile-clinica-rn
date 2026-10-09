@@ -19,13 +19,13 @@ const makeStyles = (colors: typeof lightColors) =>
     section: { gap: 16, paddingBottom: 8 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMute },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk },
     searchWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
       paddingVertical: 10,
@@ -44,7 +44,7 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomColor: colors.border,
     },
     tutorNome: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    tutorSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute },
+    tutorSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     sucessoCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
     sucessoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
     // REC-04 fix wave (G2, I-1b) — mesmo estilo de "sem link" de ConviteTutorView,
@@ -232,11 +232,11 @@ export default function NovoPacienteScreen() {
         </Text>
 
         <View style={styles.searchWrapper}>
-          <KCIcon name="search" size={18} color={colors.textMute} />
+          <KCIcon name="search" size={18} color={colors.textMuteInk} />
           <TextInput
             style={styles.searchInput}
             placeholder="Nome ou CPF do tutor"
-            placeholderTextColor={colors.textMute}
+            placeholderTextColor={colors.textMuteInk}
             value={busca}
             onChangeText={handleBuscaChange}
             testID="search-tutor-existente"

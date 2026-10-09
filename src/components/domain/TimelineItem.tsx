@@ -46,7 +46,7 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
       <View style={{ flex: 1, marginLeft: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
           <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>{label}</Text>
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
             {formatDateShort(evento.dtEvento)}
           </Text>
         </View>
@@ -64,8 +64,8 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
         </TouchableOpacity>
         {evento.nmVeterinario ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }} testID="vet-row">
-            <KCIcon name="consult" size={12} color={colors.textMute} />
-            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMute }}>
+            <KCIcon name="consult" size={12} color={colors.textMuteInk} />
+            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
               {evento.nmVeterinario}
             </Text>
           </View>

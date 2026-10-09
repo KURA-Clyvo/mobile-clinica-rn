@@ -157,7 +157,7 @@ export function ServicoPrecoFormModal({ visible, onClose, servico }: ServicoPrec
                 testID="btn-fechar-form-servico"
                 style={{ padding: 4 }}
               >
-                <KCIcon name="close" size={20} color={colors.textMute} />
+                <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>
 

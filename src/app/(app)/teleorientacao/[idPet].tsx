@@ -63,7 +63,7 @@ const makeStyles = (colors: typeof lightColors) =>
     vetIdent: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 12,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       marginTop: 8,
     },
     videoArea: {
@@ -110,7 +110,7 @@ const makeStyles = (colors: typeof lightColors) =>
       textAlignVertical: 'top',
       backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 10,
     },
@@ -286,7 +286,7 @@ export default function TeleorientacaoScreen() {
             style={styles.notesInput}
             multiline
             placeholder="Registre observações durante a sessão..."
-            placeholderTextColor={colors.textMute}
+            placeholderTextColor={colors.textMuteInk}
             value={notes}
             onChangeText={setNotes}
             testID="notes-input"

@@ -79,7 +79,7 @@ const makeStyles = (colors: typeof lightColors) =>
     sectionTitle: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 13,
-      color: colors.textMute,
+      color: colors.textMuteInk,
       textTransform: 'uppercase',
       letterSpacing: 1,
       marginBottom: 12,

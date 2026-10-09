@@ -18,7 +18,7 @@ const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     conviteCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
     conviteNome: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
-    conviteSub: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMute, textAlign: 'center' },
+    conviteSub: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk, textAlign: 'center' },
     qrWrapper: {
       padding: 16,
       backgroundColor: '#FFFFFF',
