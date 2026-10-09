@@ -9,9 +9,19 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const mockReplace = jest.fn();
+// O Stack do expo-router é trocado por Configurações; o RootLayout (_layout.tsx) é o REAL,
+// então é ele quem precisa montar o ConfirmHost/ToastProvider (mutação: tirar do _layout).
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
+  SplashScreen: { preventAutoHideAsync: jest.fn(), hideAsync: jest.fn() },
+  Stack: () => {
+    const Tela = require('../src/app/(app)/settings').default;
+    const R = require('react');
+    return R.createElement(Tela);
+  },
 }));
+jest.mock('expo-router/head', () => ({ __esModule: true, default: () => null }));
+jest.mock('expo-font', () => ({ useFonts: () => [true, null] }));
 jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children, style }: { children: unknown; style: unknown }) => {
     const { View } = require('react-native');
@@ -20,22 +30,12 @@ jest.mock('react-native-safe-area-context', () => ({
   },
 }));
 
-import SettingsScreen from '../src/app/(app)/settings';
-import { ConfirmHost } from '../src/components/feedback/ConfirmHost';
-import { ToastProvider } from '../src/components/feedback/Toast';
-import { ThemeProvider } from '../src/theme';
+import RootLayout from '../src/app/_layout';
 import { useAuthStore } from '../src/store/authStore';
 import { AUTH_TOKEN_KEY } from '../src/services/api/client';
 
 function montar() {
-  return render(
-    <ThemeProvider>
-      <ToastProvider>
-        <SettingsScreen />
-        <ConfirmHost />
-      </ToastProvider>
-    </ThemeProvider>,
-  );
+  return render(<RootLayout />);
 }
 
 beforeEach(async () => {
