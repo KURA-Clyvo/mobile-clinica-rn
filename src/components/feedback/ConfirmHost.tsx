@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@theme/index';
 import { breakpoints, fonts, fontSize, lightColors, radius, spacing } from '@theme/tokens';
 import { typography } from '@theme/typography';
@@ -78,12 +78,15 @@ export function ConfirmHost() {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => fechar(false)}>
       <View style={[styles.scrim, centro ? styles.scrimCentro : styles.scrimSheet]}>
-        {/* Toque fora cancela (avisar também fecha). */}
-        <Pressable
+        {/* Toque fora cancela (avisar também fecha). Deliberadamente um View com responder, NÃO um
+            Pressable: o Pressable do RNW vira elemento focável (tabIndex 0) e o focus-trap do Modal
+            dá o foco inicial ao 1º descendente focável — o scrim, sem nome (G2 BR-CLI-T02, M-3).
+            Num div sem tabindex `focus()` não faz nada e o foco cai no Cancelar. */}
+        <View
           style={StyleSheet.absoluteFill}
-          onPress={() => fechar(false)}
+          onStartShouldSetResponder={() => true}
+          onResponderRelease={() => fechar(false)}
           accessible={false}
-          focusable={false}
           importantForAccessibility="no"
           testID="confirm-scrim"
         />

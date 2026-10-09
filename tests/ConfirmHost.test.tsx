@@ -161,14 +161,30 @@ describe('ConfirmHost', () => {
       void confirmar({ titulo: 'Sair?', verbo: 'Sair', destrutivo: true });
     });
     await waitFor(() => getByTestId('confirm-dialog'));
+    // View (não Pressable): o Pressable do RNW é focável e o focus-trap do Modal o focaria primeiro.
     const scrim = UNSAFE_getAllByProps({ testID: 'confirm-scrim' })[0]!;
-    expect(scrim.props.focusable).toBe(false);
+    expect(scrim.props.onPress).toBeUndefined();
+    expect(scrim.props.tabIndex).toBeUndefined();
+    expect(typeof scrim.props.onResponderRelease).toBe('function');
     expect(scrim.props.accessible).toBe(false);
     expect(scrim.props.importantForAccessibility).toBe('no');
     const ordem = getByTestId('confirm-dialog')
       .findAll((n) => typeof n.props.testID === 'string' && /^confirm-(cancelar|ok)$/.test(n.props.testID))
       .map((n) => n.props.testID as string);
     expect([...new Set(ordem)]).toEqual(['confirm-cancelar', 'confirm-ok']);
+  });
+
+  it('toque fora (scrim) cancela', async () => {
+    const { getByTestId, UNSAFE_getAllByProps } = montar();
+    let r: Promise<boolean>;
+    act(() => {
+      r = confirmar({ titulo: 'Sair?', verbo: 'Sair' });
+    });
+    await waitFor(() => getByTestId('confirm-dialog'));
+    await act(async () => {
+      UNSAFE_getAllByProps({ testID: 'confirm-scrim' })[0]!.props.onResponderRelease();
+    });
+    await expect(r!).resolves.toBe(false);
   });
 
   it('rotuloCancelar troca o texto do botão de recusa (canvas: "Continuar conectado")', async () => {
