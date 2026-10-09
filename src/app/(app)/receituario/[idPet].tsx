@@ -7,10 +7,10 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -284,7 +284,7 @@ export default function ReceituarioScreen() {
         },
         onError: (err: unknown) => {
           const e = err as { message?: string };
-          Alert.alert('Erro', e?.message ?? 'Não foi possível emitir a receita');
+          void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível emitir a receita' });
         },
       },
     );
@@ -296,10 +296,10 @@ export default function ReceituarioScreen() {
       { idEventoClinico: receituario.idEventoClinico, documento: receituario },
       {
         onError: () => {
-          Alert.alert(
-            'Erro',
-            'Não foi possível baixar o PDF do receituário. Tente novamente.',
-          );
+          void avisar({
+            titulo: 'Erro',
+            mensagem: 'Não foi possível baixar o PDF do receituário. Tente novamente.',
+          });
         },
       },
     );
@@ -317,17 +317,17 @@ export default function ReceituarioScreen() {
     try {
       const tutorDetalhe = await getTutorById(tutor.idTutor);
       if (!telefoneDisponivel(tutorDetalhe.nrTelefone)) {
-        Alert.alert(
-          'Telefone não cadastrado',
-          'Este tutor não tem telefone cadastrado. Não é possível enviar pelo WhatsApp.',
-        );
+        void avisar({
+          titulo: 'Telefone não cadastrado',
+          mensagem: 'Este tutor não tem telefone cadastrado. Não é possível enviar pelo WhatsApp.',
+        });
         return;
       }
       setTelefoneTutorWhatsApp(tutorDetalhe.nrTelefone);
       setShowSuccess(false);
       setShowWhatsApp(true);
     } catch {
-      Alert.alert('Erro', 'Não foi possível buscar o telefone do tutor.');
+      void avisar({ titulo: 'Erro', mensagem: 'Não foi possível buscar o telefone do tutor.' });
     } finally {
       setBuscandoTelefoneTutor(false);
     }

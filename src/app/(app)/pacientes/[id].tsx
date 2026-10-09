@@ -4,9 +4,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   Platform,
 } from 'react-native';
+import { avisar, escolher } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -252,6 +253,7 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function PacienteDetailScreen() {
+  const toast = useToast();
   const { id } = useLocalSearchParams<{ id: string }>();
   const petId = id ? parseInt(id, 10) : null;
   const { colors } = useTheme();
@@ -327,7 +329,7 @@ export default function PacienteDetailScreen() {
     uploadFotoMutation.mutate(
       { idPet: pet.id, uriOriginal, larguraOriginal },
       {
-        onSuccess: () => Alert.alert('', 'Foto atualizada com sucesso.'),
+        onSuccess: () => toast.show({ tipo: 'sucesso', texto: 'Foto atualizada' }),
         onError: (erro: unknown) => {
           const apiError = erro as ApiError;
           const mensagem =
@@ -336,7 +338,7 @@ export default function PacienteDetailScreen() {
               : apiError.status === 400
                 ? 'Não foi possível processar essa imagem. Tente outra foto.'
                 : 'Não foi possível enviar a foto. Tente novamente.';
-          Alert.alert('', mensagem);
+          void avisar({ titulo: 'Foto do pet', mensagem });
         },
       },
     );
@@ -345,7 +347,10 @@ export default function PacienteDetailScreen() {
   const escolherDaGaleria = async () => {
     const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissao.granted) {
-      Alert.alert('', 'Permita o acesso às fotos para cadastrar a imagem do pet.');
+      void avisar({
+        titulo: 'Foto do pet',
+        mensagem: 'Permita o acesso às fotos para cadastrar a imagem do pet.',
+      });
       return;
     }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -362,7 +367,10 @@ export default function PacienteDetailScreen() {
   const tirarComCamera = async () => {
     const permissao = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissao.granted) {
-      Alert.alert('', 'Permita o acesso à câmera para fotografar o pet.');
+      void avisar({
+        titulo: 'Foto do pet',
+        mensagem: 'Permita o acesso à câmera para fotografar o pet.',
+      });
       return;
     }
     const resultado = await ImagePicker.launchCameraAsync({ quality: 1 });
@@ -373,16 +381,21 @@ export default function PacienteDetailScreen() {
   // Câmera "onde houver" (brief FT-07): a web não tem um fluxo de câmera
   // nativo confiável via expo-image-picker (o input de arquivo já cobre a
   // galeria/upload local) — só a opção de galeria aparece nesse ambiente.
-  const handleEscolherFoto = () => {
+  const handleEscolherFoto = async () => {
     if (Platform.OS === 'web') {
       escolherDaGaleria();
       return;
     }
-    Alert.alert('Foto do pet', 'Escolha a origem da imagem', [
-      { text: 'Galeria', onPress: () => escolherDaGaleria() },
-      { text: 'Câmera', onPress: () => tirarComCamera() },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    const origem = await escolher({
+      titulo: 'Foto do pet',
+      mensagem: 'Escolha a origem da imagem',
+      opcoes: [
+        { id: 'galeria', rotulo: 'Galeria' },
+        { id: 'camera', rotulo: 'Câmera' },
+      ],
+    });
+    if (origem === 'galeria') escolherDaGaleria();
+    else if (origem === 'camera') tirarComCamera();
   };
 
   return (

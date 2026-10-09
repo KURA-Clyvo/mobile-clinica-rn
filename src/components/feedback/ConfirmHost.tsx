@@ -55,10 +55,11 @@ export function ConfirmHost() {
   );
 
   const fechar = useCallback(
-    (resultado: boolean) => {
+    (resultado: boolean, escolhido: string | null = null) => {
       const p = atualRef.current;
       if (!p) return;
       if (p.tipo === 'confirmar') p.resolver(resultado);
+      else if (p.tipo === 'escolher') p.resolver(escolhido);
       else p.resolver();
       proximo();
     },
@@ -100,7 +101,28 @@ export function ConfirmHost() {
           </Text>
           {atual.mensagem ? <Text style={styles.mensagem}>{atual.mensagem}</Text> : null}
           <View style={styles.acoes}>
-            {ehConfirmar ? (
+            {atual.tipo === 'escolher' ? (
+              <>
+                {atual.opcoes.map((op) => (
+                  <KCButton
+                    key={op.id}
+                    style={styles.botao}
+                    onPress={() => fechar(true, op.id)}
+                    testID={`confirm-opcao-${op.id}`}
+                  >
+                    {op.rotulo}
+                  </KCButton>
+                ))}
+                <KCButton
+                  variant="secondary"
+                  style={styles.botao}
+                  onPress={() => fechar(false)}
+                  testID="confirm-cancelar"
+                >
+                  Cancelar
+                </KCButton>
+              </>
+            ) : ehConfirmar ? (
               <>
                 <KCButton
                   variant="secondary"

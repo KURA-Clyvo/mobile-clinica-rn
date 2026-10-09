@@ -6,9 +6,10 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  Alert,
   StyleSheet,
 } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -106,6 +107,7 @@ export function WhatsAppModal({
   const [mensagem, setMensagem] = useState(defaultMsg);
 
   const { mutate: enviar, isPending } = useEnviarWhatsApp();
+  const toast = useToast();
 
   const handleSend = () => {
     // E16 (LU-09): a Luna aceita {para, mensagem} — não {telefone, tipo}, que nenhum
@@ -115,7 +117,7 @@ export function WhatsAppModal({
     enviar(req, {
       onSuccess: (result) => {
         if (result.status === 'enviado') {
-          Alert.alert('Mensagem enviada!');
+          toast.show({ tipo: 'sucesso', texto: 'Mensagem enviada' });
           onClose();
         } else if (result.motivo) {
           // LU-09 fix wave 1 (item 3, lu-09-revisao.md G2-4): falha REAL de envio
@@ -124,12 +126,12 @@ export function WhatsAppModal({
           // respondeu, só o envio pelo WhatsApp falhou). Título genérico ("Luna
           // indisponível") continua reservado para quando o service NÃO soube
           // distinguir (rede/timeout/Luna fora do ar, sem status HTTP disponível).
-          Alert.alert('Falha ao enviar mensagem', result.motivo);
+          void avisar({ titulo: 'Falha ao enviar mensagem', mensagem: result.motivo });
         } else {
-          Alert.alert(
-            'Luna indisponível',
-            'Não foi possível enviar agora. Tente novamente mais tarde.',
-          );
+          void avisar({
+            titulo: 'Luna indisponível',
+            mensagem: 'Não foi possível enviar agora. Tente novamente mais tarde.',
+          });
         }
       },
     });

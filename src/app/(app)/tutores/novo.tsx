@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Switch,
-  Alert,
 } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -226,7 +226,10 @@ export default function NovoTutorScreen() {
         onError: (err: unknown) => {
           // Mordida (d): 409/500 nunca mostram err.message cru (pode conter
           // CPF/e-mail duplicado — oráculo cross-tenant, ver E46).
-          Alert.alert('Não foi possível cadastrar', mensagemErroCadastroTutor(err as ApiError));
+          void avisar({
+            titulo: 'Não foi possível cadastrar',
+            mensagem: mensagemErroCadastroTutor(err as ApiError),
+          });
         },
       },
     );
@@ -248,7 +251,7 @@ export default function NovoTutorScreen() {
           idTutor={conviteReservado.idTutor}
           nomeTutor={conviteReservado.nomeTutor}
           onSuccess={() => setEtapa('convite')}
-          onError={(mensagem) => Alert.alert('Não foi possível cadastrar o pet', mensagem)}
+          onError={(mensagem) => void avisar({ titulo: 'Não foi possível cadastrar o pet', mensagem })}
         />
         {/* REC-04 fix wave (G2, I-1): antes desta correção não havia como sair
             desta etapa sem abandonar o tutor recém-criado SEM convite algum

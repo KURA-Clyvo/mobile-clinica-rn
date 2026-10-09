@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { confirmar } from '@components/feedback/confirmar';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -74,11 +75,14 @@ export default function SettingsScreen() {
     router.replace('/login');
   };
 
-  const confirmLogout = () => {
-    Alert.alert('Sair?', 'Sua sessão será encerrada.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: handleLogout },
-    ]);
+  const confirmLogout = async () => {
+    const ok = await confirmar({
+      titulo: 'Sair?',
+      mensagem: 'Sua sessão será encerrada.',
+      verbo: 'Sair',
+      destrutivo: true,
+    });
+    if (ok) await handleLogout();
   };
 
   return (

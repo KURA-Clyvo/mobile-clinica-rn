@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -70,6 +72,7 @@ export function TrocarSenhaModal({ visible, onClose, usuarioId, dsEmail }: Troca
   }, [visible, reset]);
 
   const { mutate: trocarSenha, isPending } = useTrocarSenhaUsuarioClinica();
+  const toast = useToast();
 
   const onSubmit = (data: FormValues) => {
     if (usuarioId === null) return;
@@ -77,12 +80,12 @@ export function TrocarSenhaModal({ visible, onClose, usuarioId, dsEmail }: Troca
       { id: usuarioId, req: { dsSenha: data.dsSenha } },
       {
         onSuccess: () => {
-          Alert.alert('Senha atualizada', `A senha de ${dsEmail} foi alterada.`);
+          toast.show({ tipo: 'sucesso', texto: `Senha alterada: ${dsEmail}` });
           onClose();
         },
         onError: (err: unknown) => {
           const e = err as ApiError;
-          Alert.alert('Erro', e?.message ?? 'Não foi possível trocar a senha');
+          void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível trocar a senha' });
         },
       },
     );

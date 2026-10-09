@@ -5,8 +5,9 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -154,6 +155,7 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function ConsultaScreen() {
+  const toast = useToast();
   const { idPet, idAgendamento, nrVersion } = useLocalSearchParams<{
     idPet: string;
     idAgendamento?: string;
@@ -253,10 +255,10 @@ export default function ConsultaScreen() {
           console.warn('[REC-13] Falha ao registrar início de atendimento:', err);
           const apiErr = err as { status?: number };
           if (apiErr.status === 409) {
-            Alert.alert(
-              'Agendamento desatualizado',
-              'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-            );
+            void avisar({
+              titulo: 'Agendamento desatualizado',
+              mensagem: 'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+            });
           }
         },
       },
@@ -312,7 +314,7 @@ export default function ConsultaScreen() {
         },
         onError: (err: unknown) => {
           const e = err as { message?: string };
-          Alert.alert('Erro', e?.message ?? 'Não foi possível salvar a consulta');
+          void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível salvar a consulta' });
         },
       },
     );
@@ -362,7 +364,10 @@ export default function ConsultaScreen() {
 
     const permissao = await requestRecordingPermissionsAsync();
     if (!permissao.granted) {
-      Alert.alert('Permissão negada', 'Autorize o acesso ao microfone para gravar a consulta.');
+      void avisar({
+        titulo: 'Permissão negada',
+        mensagem: 'Autorize o acesso ao microfone para gravar a consulta.',
+      });
       return;
     }
     await audioRecorder.prepareToRecordAsync();
@@ -375,12 +380,12 @@ export default function ConsultaScreen() {
       { idEventoClinico, dto: soapDraft },
       {
         onSuccess: () => {
-          Alert.alert('SOAP confirmado', 'O rascunho foi salvo como definitivo.');
+          toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado' });
           router.back();
         },
         onError: (err: unknown) => {
           const e = err as { message?: string };
-          Alert.alert('Erro', e?.message ?? 'Não foi possível confirmar o SOAP');
+          void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível confirmar o SOAP' });
         },
       },
     );

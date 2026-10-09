@@ -19,9 +19,17 @@ export type OpcoesConfirmar = {
 
 export type OpcoesAvisar = { titulo: string; mensagem?: string };
 
+/** Escolha entre 2+ ações nomeadas (ex.: Galeria / Câmera). Cancelar resolve `null`. */
+export type OpcoesEscolher = {
+  titulo: string;
+  mensagem?: string;
+  opcoes: { id: string; rotulo: string }[];
+};
+
 export type PedidoFeedback =
   | ({ tipo: 'confirmar'; resolver: (v: boolean) => void } & OpcoesConfirmar)
-  | ({ tipo: 'avisar'; resolver: () => void } & OpcoesAvisar);
+  | ({ tipo: 'avisar'; resolver: () => void } & OpcoesAvisar)
+  | ({ tipo: 'escolher'; resolver: (id: string | null) => void } & OpcoesEscolher);
 
 type Host = (p: PedidoFeedback) => void;
 let host: Host | null = null;
@@ -53,5 +61,16 @@ export function avisar(o: OpcoesAvisar): Promise<void> {
       return;
     }
     host({ ...o, tipo: 'avisar', resolver: resolve });
+  });
+}
+
+export function escolher(o: OpcoesEscolher): Promise<string | null> {
+  return new Promise<string | null>((resolve) => {
+    if (!host) {
+      if (__DEV__) console.warn('escolher(): nenhum ConfirmHost montado.');
+      resolve(null);
+      return;
+    }
+    host({ ...o, tipo: 'escolher', resolver: resolve });
   });
 }

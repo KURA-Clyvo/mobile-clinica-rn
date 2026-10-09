@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -155,7 +156,7 @@ export function UsuarioClinicaFormModal({
   const onSubmit = (data: FormValues) => {
     const onError = (err: unknown) => {
       const e = err as ApiError;
-      Alert.alert('Erro', e?.message ?? 'Não foi possível salvar o usuário');
+      void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível salvar o usuário' });
     };
 
     if (isEdicao && usuario) {

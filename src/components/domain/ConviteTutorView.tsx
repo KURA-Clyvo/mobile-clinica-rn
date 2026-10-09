@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, Linking } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
@@ -58,6 +60,7 @@ export function ConviteTutorView({ convite, onConviteAtualizado }: ConviteTutorV
   const styles = makeStyles(colors);
   const router = useRouter();
   const { mutate: reemitir, isPending: reemitindo } = useReemitirConvite();
+  const toast = useToast();
 
   const handleGerarNovoConvite = () => {
     reemitir(
@@ -68,10 +71,10 @@ export function ConviteTutorView({ convite, onConviteAtualizado }: ConviteTutorV
         // na reemissão — nunca `err.message` cru (ex.: "Tutor id 42 já possui
         // conta…", 409), texto técnico e nunca pensado pra tela.
         onError: (err: unknown) => {
-          Alert.alert(
-            'Não foi possível gerar novo convite',
-            mensagemErroReemissaoConvite(err as ApiError),
-          );
+          void avisar({
+            titulo: 'Não foi possível gerar novo convite',
+            mensagem: mensagemErroReemissaoConvite(err as ApiError),
+          });
         },
       },
     );
@@ -90,7 +93,7 @@ export function ConviteTutorView({ convite, onConviteAtualizado }: ConviteTutorV
   const handleCopiarLink = async () => {
     if (!convite.dsLinkConvite) return;
     await Clipboard.setStringAsync(convite.dsLinkConvite);
-    Alert.alert('Copiado', 'Link do convite copiado para a área de transferência.');
+    toast.show({ tipo: 'sucesso', texto: 'Link do convite copiado' });
   };
 
   return (

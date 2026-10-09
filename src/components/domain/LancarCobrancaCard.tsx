@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, Alert, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -213,7 +214,7 @@ export function LancarCobrancaCard({ idEventoClinico }: LancarCobrancaCardProps)
         },
         onError: (err: unknown) => {
           const e = err as ApiError;
-          Alert.alert('Erro', e?.message ?? 'Não foi possível lançar a cobrança');
+          void avisar({ titulo: 'Erro', mensagem: e?.message ?? 'Não foi possível lançar a cobrança' });
           // 422 SERVICO_DESATIVADO -- a race declarada no brief §3.5 (o
           // gestor desativou o serviço enquanto esta tela estava aberta).
           // Invalida a lista para o chip sumir na próxima leitura (o

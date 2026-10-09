@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -143,7 +144,10 @@ export default function NovoPacienteScreen() {
             setMensagemSemConta('Este tutor já tem conta no app — não precisa de convite.');
             return;
           }
-          Alert.alert('Não foi possível gerar o convite', mensagemErroReemissaoConvite(apiError));
+          void avisar({
+            titulo: 'Não foi possível gerar o convite',
+            mensagem: mensagemErroReemissaoConvite(apiError),
+          });
         },
       },
     );
@@ -207,7 +211,7 @@ export default function NovoPacienteScreen() {
           idTutor={tutorSelecionado.id}
           nomeTutor={tutorSelecionado.nmTutor}
           onSuccess={() => setSalvo(true)}
-          onError={(mensagem) => Alert.alert('Não foi possível cadastrar o pet', mensagem)}
+          onError={(mensagem) => void avisar({ titulo: 'Não foi possível cadastrar o pet', mensagem })}
         />
       </ScreenContainer>
     );

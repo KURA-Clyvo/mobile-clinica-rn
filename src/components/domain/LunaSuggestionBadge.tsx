@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
+import { confirmar } from '@components/feedback/confirmar';
 import { useTheme } from '@theme/index';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCChip } from '@components/primitives/KCChip';
@@ -45,16 +46,14 @@ export function LunaSuggestionBadge({
 
   const aplicarRascunho = () => onSugest(draftText);
 
-  const handleSugest = () => {
+  const handleSugest = async () => {
     if (currentText && currentText.trim().length > 0) {
-      Alert.alert(
-        'Substituir texto atual?',
-        'A sugestão da Luna substituirá o texto já digitado.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Substituir', onPress: aplicarRascunho },
-        ],
-      );
+      const ok = await confirmar({
+        titulo: 'Substituir texto atual?',
+        mensagem: 'A sugestão da Luna substituirá o texto já digitado.',
+        verbo: 'Substituir',
+      });
+      if (ok) aplicarRascunho();
     } else {
       aplicarRascunho();
     }

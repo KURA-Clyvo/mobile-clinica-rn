@@ -4,11 +4,12 @@ import {
   Text,
   TextInput,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Linking,
   StyleSheet,
 } from 'react-native';
+import { confirmar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -124,6 +125,7 @@ const makeStyles = (colors: typeof lightColors) =>
   });
 
 export default function TeleorientacaoScreen() {
+  const toast = useToast();
   const { idPet, idAgendamento } = useLocalSearchParams<{ idPet: string; idAgendamento?: string }>();
   const petId = idPet ? parseInt(idPet, 10) : null;
   const agendamentoId = idAgendamento ? parseInt(idAgendamento, 10) : null;
@@ -147,15 +149,14 @@ export default function TeleorientacaoScreen() {
     }
   };
 
-  const handleEncerrar = () => {
-    Alert.alert(
-      'Encerrar sessão?',
-      'A sessão de teleorientação será encerrada.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Encerrar', style: 'destructive', onPress: () => router.back() },
-      ],
-    );
+  const handleEncerrar = async () => {
+    const ok = await confirmar({
+      titulo: 'Encerrar sessão?',
+      mensagem: 'A sessão de teleorientação será encerrada.',
+      verbo: 'Encerrar',
+      destrutivo: true,
+    });
+    if (ok) router.back();
   };
 
   return (
@@ -301,7 +302,7 @@ export default function TeleorientacaoScreen() {
           variant="secondary"
           size="md"
           style={{ flex: 1 }}
-          onPress={() => Alert.alert('Gravação', 'Gravação iniciada (simulado)')}
+          onPress={() => toast.show({ tipo: 'info', texto: 'Gravação iniciada (simulado)' })}
           testID="btn-gravar"
         >
           Gravar
