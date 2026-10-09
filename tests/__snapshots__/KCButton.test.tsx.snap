@@ -225,7 +225,7 @@ exports[`KCButton variants renders danger variant 1`] = `
   style={
     {
       "alignItems": "center",
-      "backgroundColor": "#F7E5DF",
+      "backgroundColor": "#FFFCF7",
       "borderColor": "#B14A2F",
       "borderRadius": 10,
       "borderWidth": 1,
