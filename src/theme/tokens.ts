@@ -40,6 +40,20 @@ export const lightColors = {
   dangerBg: '#F7E5DF',
   info: '#2D5E7E',
   infoBg: '#D8E8F2',
+
+  // Chrome de navegação e área de vídeo POR TEMA (BR-CLI-T01 fix wave, I-2).
+  // Claro = painel ocean (valores de antes, sem mudança visual). Escuro = canvas
+  // ClinicaNoite: barra em `surface`, borda `border`, itens `textSoft`, ativo
+  // `primaryPale`/`primary`; vídeo em `bgSunk` (ocean claro seria painel azul grande).
+  navBg: '#1A3A52',
+  navEdge: '#1A3A52',
+  navBorder: '#2D5E7E',
+  navText: '#FFFCF7',
+  navBrand: '#FFFCF7',
+  navActiveBg: '#2D5E7E',
+  navActiveText: '#FFFCF7',
+  videoBg: '#1A3A52',
+  videoText: '#FFFCF7',
 };
 
 // Tema "Noite" (DS KURA, tokens de 2026-10-09). Substitui o marinho antigo, que
@@ -86,6 +100,16 @@ export const darkColors: typeof lightColors = {
   dangerBg: '#3A1E16',
   info: '#6FA8C8',
   infoBg: '#1A2A38',
+
+  navBg: '#1F1A12',
+  navEdge: '#2A2418',
+  navBorder: '#2A2418',
+  navText: '#C8BCA0',
+  navBrand: '#F0E8D8',
+  navActiveBg: '#1A2A38',
+  navActiveText: '#6FA8C8',
+  videoBg: '#0E0C08',
+  videoText: '#F0E8D8',
 };
 
 export const spacing = {

@@ -106,7 +106,7 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       backgroundColor: colors.surface,
       padding: 12,

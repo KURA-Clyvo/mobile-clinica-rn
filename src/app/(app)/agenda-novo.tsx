@@ -78,7 +78,7 @@ const makeStyles = (colors: typeof lightColors) =>
     errorText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.danger },
     input: {
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.borderControl,
       borderRadius: 10,
       padding: 12,
       fontFamily: 'Lexend_400Regular',

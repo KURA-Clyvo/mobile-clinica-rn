@@ -93,7 +93,7 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 8,
     },
     avisoTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
-    avisoNota: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.textMuteInk, fontStyle: 'italic' },
+    avisoNota: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.textSoft, fontStyle: 'italic' },
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     checkbox: {
       width: 22,

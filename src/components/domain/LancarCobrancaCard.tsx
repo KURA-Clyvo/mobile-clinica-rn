@@ -108,7 +108,7 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 4,
     },
     confirmacaoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 13, color: colors.sage },
-    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textSoft },
   });
 
 function ResumoConfirmacao({
