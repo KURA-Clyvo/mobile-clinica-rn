@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@theme/index';
-import { breakpoints, lightColors } from '@theme/tokens';
+import { breakpoints, fonts, fontSize, lightColors, radius, spacing } from '@theme/tokens';
+import { typography } from '@theme/typography';
 import { KCButton } from '@components/primitives/KCButton';
 import { registrarHost, type PedidoFeedback } from './confirmar';
 
@@ -12,19 +13,19 @@ const makeStyles = (colors: typeof lightColors) =>
     // Escurecimento do fundo — mesmo valor dos demais modais do app.
     scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
     scrimSheet: { justifyContent: 'flex-end' },
-    scrimCentro: { justifyContent: 'center', alignItems: 'center', padding: 16 },
+    scrimCentro: { justifyContent: 'center', alignItems: 'center', padding: spacing[4] },
     caixa: {
       backgroundColor: colors.bgElev,
-      padding: 20,
-      gap: 8,
+      padding: spacing[5],
+      gap: spacing[2],
       borderWidth: 1,
       borderColor: colors.border,
     },
-    caixaSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-    caixaCentro: { borderRadius: 14, width: '100%', maxWidth: 420 },
-    titulo: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text },
-    mensagem: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.textSoft, lineHeight: 20 },
-    acoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+    caixaSheet: { borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl },
+    caixaCentro: { borderRadius: radius.lg, width: '100%', maxWidth: 420 },
+    titulo: { fontFamily: fonts.bodyMedium, fontSize: fontSize.md, color: colors.text },
+    mensagem: { ...typography.body, color: colors.textSoft },
+    acoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2], marginTop: spacing[3], flexWrap: 'wrap' },
     botao: { minWidth: 96 },
   });
 
@@ -66,15 +67,9 @@ export function ConfirmHost() {
     [proximo],
   );
 
-  // Esc cancela no web.
-  useEffect(() => {
-    if (!atual || Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') fechar(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [atual, fechar]);
+  // Esc: no web o próprio `Modal` do react-native-web já escuta Esc e chama `onRequestClose`
+  // (ModalContent.js:26-35); no Android é o botão voltar. Um listener próprio fecharia 2 pedidos
+  // da fila com um único Esc (G2 BR-CLI-T02, M-4).
 
   if (!atual) return null;
   const centro = width >= breakpoints.md;
@@ -88,6 +83,8 @@ export function ConfirmHost() {
           style={StyleSheet.absoluteFill}
           onPress={() => fechar(false)}
           accessible={false}
+          focusable={false}
+          importantForAccessibility="no"
           testID="confirm-scrim"
         />
         <View
@@ -130,7 +127,7 @@ export function ConfirmHost() {
                   onPress={() => fechar(false)}
                   testID="confirm-cancelar"
                 >
-                  Cancelar
+                  {atual.rotuloCancelar ?? 'Cancelar'}
                 </KCButton>
                 <KCButton
                   variant={atual.destrutivo ? 'danger' : 'primary'}

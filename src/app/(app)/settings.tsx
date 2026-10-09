@@ -77,9 +77,11 @@ export default function SettingsScreen() {
 
   const confirmLogout = async () => {
     const ok = await confirmar({
-      titulo: 'Sair?',
-      mensagem: 'Sua sessão será encerrada.',
-      verbo: 'Sair',
+      titulo: 'Sair da conta?',
+      mensagem:
+        'Você vai precisar entrar de novo para ver a agenda e os pacientes. Nada do que está salvo se perde.',
+      verbo: 'Sair da conta',
+      rotuloCancelar: 'Continuar conectado',
       destrutivo: true,
     });
     if (ok) await handleLogout();

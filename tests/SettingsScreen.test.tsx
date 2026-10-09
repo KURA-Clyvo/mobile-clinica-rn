@@ -132,10 +132,12 @@ describe('SettingsScreen', () => {
     fireEvent.press(getByTestId('btn-sair'));
     await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
     expect(fb.confirmacoes[0]).toEqual({
-      titulo: 'Sair?',
-      mensagem: 'Sua sessão será encerrada.',
-      verbo: 'Sair',
+      titulo: 'Sair da conta?',
+      mensagem:
+        'Você vai precisar entrar de novo para ver a agenda e os pacientes. Nada do que está salvo se perde.',
+      verbo: 'Sair da conta',
       destrutivo: true,
+      rotuloCancelar: 'Continuar conectado',
     });
   });
 

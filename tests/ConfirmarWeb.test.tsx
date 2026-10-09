@@ -63,7 +63,7 @@ describe('Configurações no web: Sair da conta', () => {
     fireEvent.press(getByText('Sair da conta'));
     // O modal é do app (não do Alert): aparece com o verbo da ação.
     await findByTestId('confirm-dialog');
-    expect(getByText('Sair?')).toBeTruthy();
+    expect(getByText('Sair da conta?')).toBeTruthy();
     expect(await AsyncStorage.getItem(AUTH_TOKEN_KEY)).toBe('tok-web'); // ainda logado
     await act(async () => {
       fireEvent.press(getByTestId('confirm-ok'));
@@ -79,6 +79,7 @@ describe('Configurações no web: Sair da conta', () => {
     const { getByText, findByTestId, getByTestId, queryByTestId } = montar();
     fireEvent.press(getByText('Sair da conta'));
     await findByTestId('confirm-dialog');
+    expect(getByText('Continuar conectado')).toBeTruthy(); // texto de recusa do canvas
     await act(async () => {
       fireEvent.press(getByTestId('confirm-cancelar'));
     });

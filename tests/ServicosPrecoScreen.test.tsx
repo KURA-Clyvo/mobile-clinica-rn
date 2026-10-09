@@ -256,4 +256,26 @@ describe('ServicosPrecoScreen — desativar/reativar', () => {
       }),
     );
   });
+
+  // BR-CLI-T02 fix wave (M-2): o toast de sucesso é o retorno NOVO desta task; o mock da mutação
+  // precisa chamar o `onSuccess` real da tela, senão remover o toast não derruba teste nenhum.
+  it('desativar com sucesso mostra o toast "Serviço desativado"', async () => {
+    fb.responder({ confirmar: true });
+    mockMutateDesativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
+    fireEvent.press(getAllByTestId('btn-desativar-servico')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Serviço desativado' }]));
+  });
+
+  it('reativar com sucesso mostra o toast "Serviço reativado"', async () => {
+    mockMutateReativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    mockUseServicosPrecoReturn.mockReturnValue({
+      data: [SERVICO_ATIVO, SERVICO_INATIVO],
+      isLoading: false,
+      refetch: REFETCH,
+    });
+    const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
+    fireEvent.press(getAllByTestId('btn-reativar-servico')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Serviço reativado' }]));
+  });
 });

@@ -290,4 +290,21 @@ describe('UsuariosClinicaScreen — desativar/reativar', () => {
       }),
     );
   });
+
+  // BR-CLI-T02 fix wave (M-2): o toast de sucesso é o retorno NOVO desta task; o mock da mutação
+  // precisa chamar o `onSuccess` real da tela, senão remover o toast não derruba teste nenhum.
+  it('desativar com sucesso mostra o toast "Usuário desativado"', async () => {
+    fb.responder({ confirmar: true });
+    mockMutateDesativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getAllByTestId('btn-desativar-usuario')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Usuário desativado' }]));
+  });
+
+  it('reativar com sucesso mostra o toast "Usuário reativado"', async () => {
+    mockMutateReativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getAllByTestId('btn-reativar-usuario')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Usuário reativado' }]));
+  });
 });

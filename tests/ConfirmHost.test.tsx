@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Text } from 'react-native';
+import { Modal, Platform, Text } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { ConfirmHost } from '../src/components/feedback/ConfirmHost';
@@ -112,26 +112,73 @@ describe('ConfirmHost', () => {
     await expect(r2!).resolves.toBe(false);
   });
 
-  it('web: Esc cancela', async () => {
+  // M-4: o Esc do web é tratado SÓ pelo `onRequestClose` do Modal (o RNW chama no keyup).
+  // Um listener próprio de keydown cancelaria 2 pedidos da fila com um único Esc.
+  it('Esc/voltar (onRequestClose) cancela só o pedido do topo; o seguinte continua na tela', async () => {
+    const { getByTestId, getByText, UNSAFE_getByType } = montar();
+    let r1: Promise<boolean>;
+    let r2: Promise<boolean>;
+    act(() => {
+      r1 = confirmar({ titulo: 'Primeiro?', verbo: 'Sim' });
+      r2 = confirmar({ titulo: 'Segundo?', verbo: 'Sim' });
+    });
+    await waitFor(() => getByTestId('confirm-dialog'));
+    expect(getByText('Primeiro?')).toBeTruthy();
+    await act(async () => {
+      UNSAFE_getByType(Modal).props.onRequestClose();
+    });
+    await expect(r1!).resolves.toBe(false);
+    expect(getByText('Segundo?')).toBeTruthy(); // não foi cancelado junto
+    let r2Resolvido = false;
+    void r2!.then(() => {
+      r2Resolvido = true;
+    });
+    await act(async () => undefined);
+    expect(r2Resolvido).toBe(false);
+  });
+
+  it('web: o host NÃO registra listener próprio de teclado (evita Esc em dobro)', async () => {
     jest.replaceProperty(Platform, 'OS', 'web');
-    const handlers: Record<string, (e: { key: string }) => void> = {};
+    const add = jest.fn();
     (globalThis as unknown as { document: unknown }).document = {
-      addEventListener: (t: string, h: (e: { key: string }) => void) => {
-        handlers[t] = h;
-      },
+      addEventListener: add,
       removeEventListener: () => undefined,
     };
     const { getByTestId } = montar();
-    let r: Promise<boolean>;
     act(() => {
-      r = confirmar({ titulo: 'Sair?', verbo: 'Sair' });
+      void confirmar({ titulo: 'Sair?', verbo: 'Sair' });
     });
     await waitFor(() => getByTestId('confirm-dialog'));
-    await act(async () => {
-      handlers.keydown!({ key: 'Escape' });
-    });
-    await expect(r!).resolves.toBe(false);
+    expect(add).not.toHaveBeenCalled();
     delete (globalThis as unknown as { document?: unknown }).document;
+  });
+
+  // M-3: alertdialog (WAI-ARIA APG) — foco inicial no menos destrutivo (Cancelar) e nenhum
+  // elemento sem nome na ordem de Tab. O RNW foca o 1º focável do Modal: o scrim não pode ser.
+  it('foco inicial no Cancelar: scrim fora da ordem de foco e do leitor de tela; Cancelar vem antes do OK', async () => {
+    const { getByTestId } = montar();
+    act(() => {
+      void confirmar({ titulo: 'Sair?', verbo: 'Sair', destrutivo: true });
+    });
+    await waitFor(() => getByTestId('confirm-dialog'));
+    const scrim = getByTestId('confirm-scrim');
+    expect(scrim.props.focusable).toBe(false);
+    expect(scrim.props.accessible).toBe(false);
+    expect(scrim.props.importantForAccessibility).toBe('no');
+    const ordem = getByTestId('confirm-dialog')
+      .findAll((n) => typeof n.props.testID === 'string' && /^confirm-(cancelar|ok)$/.test(n.props.testID))
+      .map((n) => n.props.testID as string);
+    expect([...new Set(ordem)]).toEqual(['confirm-cancelar', 'confirm-ok']);
+  });
+
+  it('rotuloCancelar troca o texto do botão de recusa (canvas: "Continuar conectado")', async () => {
+    const { getByTestId, getByText, queryByText } = montar();
+    act(() => {
+      void confirmar({ titulo: 'Sair da conta?', verbo: 'Sair da conta', rotuloCancelar: 'Continuar conectado' });
+    });
+    await waitFor(() => getByTestId('confirm-dialog'));
+    expect(getByText('Continuar conectado')).toBeTruthy();
+    expect(queryByText('Cancelar')).toBeNull();
   });
 });
 

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, radius, spacing, touchTarget } from '@theme/tokens';
+import { typography } from '@theme/typography';
 import { KCIcon, type KCIconName } from '@components/primitives/KCIcon';
 
 // Retorno não-decisório ("Serviço desativado", "Senha alterada"). Substitui o `Alert.alert` de
@@ -42,20 +43,20 @@ const ICONE: Record<TipoToast, KCIconName> = { sucesso: 'check', erro: 'alert', 
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
-    faixa: { position: 'absolute', left: 16, right: 16, bottom: 24, alignItems: 'center' },
+    faixa: { position: 'absolute', left: spacing[4], right: spacing[4], bottom: spacing[6], alignItems: 'center' },
     toast: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: spacing[3],
       maxWidth: 480,
-      minHeight: 44,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      borderRadius: 10,
+      minHeight: touchTarget.min,
+      paddingVertical: spacing[3],
+      paddingHorizontal: spacing[4],
+      borderRadius: radius.md,
       borderWidth: 1,
       backgroundColor: colors.bgElev,
     },
-    texto: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text, flexShrink: 1 },
+    texto: { ...typography.body, color: colors.text, flexShrink: 1 },
   });
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

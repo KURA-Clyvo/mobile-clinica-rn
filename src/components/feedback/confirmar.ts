@@ -15,6 +15,8 @@ export type OpcoesConfirmar = {
   /** Verbo da ação, escrito no botão ("Sair", "Desativar", "Usar rascunho"). */
   verbo: string;
   destrutivo?: boolean;
+  /** Rótulo do botão de recusa; padrão "Cancelar" (ex.: "Continuar conectado" no logout). */
+  rotuloCancelar?: string;
 };
 
 export type OpcoesAvisar = { titulo: string; mensagem?: string };

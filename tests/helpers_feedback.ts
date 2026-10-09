@@ -9,7 +9,7 @@ export type RespostasFeedback = { confirmar?: boolean; escolher?: string | null 
 
 export function simularFeedback(respostas: RespostasFeedback = {}) {
   const avisos: { titulo: string; mensagem?: string }[] = [];
-  const confirmacoes: { titulo: string; mensagem?: string; verbo: string; destrutivo?: boolean }[] = [];
+  const confirmacoes: { titulo: string; mensagem?: string; verbo: string; destrutivo?: boolean; rotuloCancelar?: string }[] = [];
   const escolhas: { titulo: string; mensagem?: string; opcoes: { id: string; rotulo: string }[] }[] = [];
   const toasts: OpcoesToast[] = [];
   const estado = { ...respostas };
@@ -18,7 +18,7 @@ export function simularFeedback(respostas: RespostasFeedback = {}) {
       avisos.push({ titulo: p.titulo, mensagem: p.mensagem });
       p.resolver();
     } else if (p.tipo === 'confirmar') {
-      confirmacoes.push({ titulo: p.titulo, mensagem: p.mensagem, verbo: p.verbo, destrutivo: p.destrutivo });
+      confirmacoes.push({ titulo: p.titulo, mensagem: p.mensagem, verbo: p.verbo, destrutivo: p.destrutivo, rotuloCancelar: p.rotuloCancelar });
       p.resolver(estado.confirmar ?? false);
     } else {
       escolhas.push({ titulo: p.titulo, mensagem: p.mensagem, opcoes: p.opcoes });
