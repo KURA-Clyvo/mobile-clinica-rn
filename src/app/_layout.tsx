@@ -9,6 +9,8 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { ThemeProvider } from '@theme/index';
 import { queryClient, persistOptions } from '@services/queryClient';
 import { STRINGS } from '@constants/strings';
+import { ConfirmHost } from '@components/feedback/ConfirmHost';
+import { ToastProvider } from '@components/feedback/Toast';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -48,7 +50,10 @@ export default function RootLayout() {
         <title>{STRINGS.app.name}</title>
       </Head>
       <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <ToastProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+          <ConfirmHost />
+        </ToastProvider>
       </PersistQueryClientProvider>
     </ThemeProvider>
   );
