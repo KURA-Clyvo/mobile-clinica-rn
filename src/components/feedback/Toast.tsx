@@ -17,6 +17,14 @@ const D_BASE_MS = 220;
 type Ouvinte = (t: OpcoesToast) => void;
 let ouvinte: Ouvinte | null = null;
 
+/** Registra quem desenha o toast (o `ToastProvider`; testes registram um coletor). */
+export function registrarOuvinteToast(o: Ouvinte): () => void {
+  ouvinte = o;
+  return () => {
+    if (ouvinte === o) ouvinte = null;
+  };
+}
+
 export function mostrarToast(o: OpcoesToast): void {
   if (!ouvinte) {
     if (__DEV__) console.warn('toast: nenhum ToastProvider montado:', o.texto);
@@ -66,7 +74,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    ouvinte = (t) => {
+    const desregistrar = registrarOuvinteToast((t) => {
       if (timer.current) clearTimeout(timer.current);
       setToast(t);
       opacidade.setValue(0);
@@ -76,9 +84,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         useNativeDriver: true,
       }).start();
       timer.current = setTimeout(() => setToast(null), DURACAO_MS);
-    };
+    });
     return () => {
-      ouvinte = null;
+      desregistrar();
       if (timer.current) clearTimeout(timer.current);
     };
   }, [opacidade]);
