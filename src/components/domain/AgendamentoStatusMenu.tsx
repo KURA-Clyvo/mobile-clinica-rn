@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -93,15 +94,16 @@ export function AgendamentoStatusMenu({
         onError: (err: unknown) => {
           const apiErr = err as ApiError;
           if (apiErr.status === 409) {
-            Alert.alert(
-              'Agendamento desatualizado',
-              'Este agendamento foi alterado por outro processo enquanto você estava com a tela aberta. A lista foi recarregada — confira o status atual antes de tentar de novo.',
-            );
+            void avisar({
+              titulo: 'Agendamento desatualizado',
+              mensagem:
+                'Este agendamento foi alterado por outro processo enquanto você estava com a tela aberta. A lista foi recarregada — confira o status atual antes de tentar de novo.',
+            });
           } else {
-            Alert.alert(
-              'Não foi possível atualizar',
-              apiErr.message ?? 'Tente novamente em instantes.',
-            );
+            void avisar({
+              titulo: 'Não foi possível atualizar',
+              mensagem: apiErr.message ?? 'Tente novamente em instantes.',
+            });
           }
           onClose();
         },

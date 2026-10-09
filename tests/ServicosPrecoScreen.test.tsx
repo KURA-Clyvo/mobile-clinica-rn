@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
@@ -94,6 +95,12 @@ beforeEach(() => {
     refetch: REFETCH,
   });
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('ServicosPrecoScreen — guarda de GESTOR', () => {
   it('um VETERINARIO puro é redirecionado e não vê o conteúdo (useRequireGestor)', () => {
@@ -201,24 +208,26 @@ describe('ServicosPrecoScreen — abrir modal', () => {
 describe('ServicosPrecoScreen — desativar/reativar', () => {
   beforeEach(() => seedGestor());
 
-  it('"Desativar" pede confirmação e só chama a mutação após confirmar', () => {
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert');
+  it('"Desativar" pede confirmação (verbo "Desativar", destrutivo) e só chama a mutação após confirmar', async () => {
     const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
     fireEvent.press(getAllByTestId('btn-desativar-servico')[0]!);
 
-    expect(spyAlert).toHaveBeenCalledWith(
-      'Desativar serviço?',
-      expect.stringContaining('Consulta de rotina'),
-      expect.any(Array),
-    );
+    // Padrão: Cancelar. A mutação NÃO pode ter sido chamada.
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toEqual({
+      titulo: 'Desativar serviço?',
+      mensagem: expect.stringContaining('Consulta de rotina'),
+      verbo: 'Desativar',
+      destrutivo: true,
+    });
     expect(mockMutateDesativar).not.toHaveBeenCalled();
 
-    const botoes = spyAlert.mock.calls[0]![2] as Array<{ text: string; onPress?: () => void }>;
-    const confirmar = botoes.find((b) => b.text === 'Desativar');
-    act(() => confirmar?.onPress?.());
-
-    expect(mockMutateDesativar).toHaveBeenCalledWith(1, expect.objectContaining({ onError: expect.any(Function) }));
-    spyAlert.mockRestore();
+    // Confirmando, a mutação roda.
+    fb.responder({ confirmar: true });
+    fireEvent.press(getAllByTestId('btn-desativar-servico')[0]!);
+    await waitFor(() =>
+      expect(mockMutateDesativar).toHaveBeenCalledWith(1, expect.objectContaining({ onError: expect.any(Function) })),
+    );
   });
 
   it('"Reativar" chama a mutação direto, sem confirmação prévia', () => {
@@ -232,24 +241,41 @@ describe('ServicosPrecoScreen — desativar/reativar', () => {
     expect(mockMutateReativar).toHaveBeenCalledWith(2, expect.objectContaining({ onError: expect.any(Function) }));
   });
 
-  it('um erro de negócio (422 SERVICO_DESATIVADO) aparece via Alert com a mensagem real', async () => {
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
+  it('um erro de negócio (422 SERVICO_DESATIVADO) aparece via avisar() com a mensagem real', async () => {
+    fb.responder({ confirmar: true });
     mockMutateDesativar.mockImplementation((_id, { onError }) => {
       onError({ status: 422, code: 'NOME_EM_USO', message: 'Já existe um serviço ATIVO com este nome nesta clínica.' });
     });
 
     const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
     fireEvent.press(getAllByTestId('btn-desativar-servico')[0]!);
-    const botoes = spyAlert.mock.calls[0]![2] as Array<{ text: string; onPress?: () => void }>;
-    const confirmar = botoes.find((b) => b.text === 'Desativar');
-    act(() => confirmar?.onPress?.());
-
     await waitFor(() =>
-      expect(spyAlert).toHaveBeenCalledWith(
-        'Não foi possível concluir',
-        'Já existe um serviço ATIVO com este nome nesta clínica.',
-      ),
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Não foi possível concluir',
+        mensagem: 'Já existe um serviço ATIVO com este nome nesta clínica.',
+      }),
     );
-    spyAlert.mockRestore();
+  });
+
+  // BR-CLI-T02 fix wave (M-2): o toast de sucesso é o retorno NOVO desta task; o mock da mutação
+  // precisa chamar o `onSuccess` real da tela, senão remover o toast não derruba teste nenhum.
+  it('desativar com sucesso mostra o toast "Serviço desativado"', async () => {
+    fb.responder({ confirmar: true });
+    mockMutateDesativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
+    fireEvent.press(getAllByTestId('btn-desativar-servico')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Serviço desativado' }]));
+  });
+
+  it('reativar com sucesso mostra o toast "Serviço reativado"', async () => {
+    mockMutateReativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    mockUseServicosPrecoReturn.mockReturnValue({
+      data: [SERVICO_ATIVO, SERVICO_INATIVO],
+      isLoading: false,
+      refetch: REFETCH,
+    });
+    const { getAllByTestId } = wrap(<ServicosPrecoScreen />);
+    fireEvent.press(getAllByTestId('btn-reativar-servico')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Serviço reativado' }]));
   });
 });

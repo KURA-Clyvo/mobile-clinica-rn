@@ -7,8 +7,8 @@
 // do mock; campo vazio → sem badge daquele campo; confirmação ao substituir
 // texto digitado mantida.
 import React from 'react';
-import { Alert } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { simularFeedback } from './helpers_feedback';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { LunaSuggestionBadge } from '../src/components/domain/LunaSuggestionBadge';
 
@@ -21,6 +21,12 @@ function wrap(ui: React.ReactElement) {
 // coincidência (mordida do critério "nunca o do mock").
 const TEXTO_DO_MOCK_ANTIGO = 'Tutor relata apatia há 2 dias e diminuição do apetite.';
 const RASCUNHO_REAL = 'Paciente com hiporexia leve, sem vômitos, hidratado.';
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
   it('sem rascunho (draftText undefined) — 0 badges', () => {
@@ -58,16 +64,15 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
     expect(getByText('Usar rascunho da Luna')).toBeTruthy();
   });
 
-  it('campo vazio (sem currentText): tocar aplica o rascunho REAL imediatamente, sem Alert', () => {
+  it('campo vazio (sem currentText): tocar aplica o rascunho REAL imediatamente, sem confirmação', () => {
     const onSugest = jest.fn();
-    const alertSpy = jest.spyOn(Alert, 'alert');
     const { getByTestId } = wrap(
       <LunaSuggestionBadge campo="S" draftText={RASCUNHO_REAL} onSugest={onSugest} />,
     );
     fireEvent.press(getByTestId('luna-badge-S'));
     expect(onSugest).toHaveBeenCalledWith(RASCUNHO_REAL);
     expect(onSugest).not.toHaveBeenCalledWith(TEXTO_DO_MOCK_ANTIGO);
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(fb.confirmacoes).toEqual([]);
   });
 
   // Mordida direta do critério "nunca o texto do mock": mesmo com um rascunho
@@ -92,9 +97,8 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
     expect(onSugest2).toHaveBeenCalledWith('Segundo rascunho, bem diferente');
   });
 
-  it('texto já digitado presente: mostra Alert de confirmação antes de substituir', () => {
+  it('texto já digitado presente: pede confirmação (verbo "Substituir") antes de substituir', async () => {
     const onSugest = jest.fn();
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const { getByTestId } = wrap(
       <LunaSuggestionBadge
         campo="S"
@@ -104,24 +108,20 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
       />,
     );
     fireEvent.press(getByTestId('luna-badge-S'));
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Substituir texto atual?',
-      expect.any(String),
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Cancelar' }),
-        expect.objectContaining({ text: 'Substituir' }),
-      ]),
-    );
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toEqual({
+      titulo: 'Substituir texto atual?',
+      mensagem: expect.any(String),
+      verbo: 'Substituir',
+      destrutivo: undefined,
+    });
     // Sem confirmar (Cancelar), o texto não é substituído.
     expect(onSugest).not.toHaveBeenCalled();
   });
 
-  it('confirmando a substituição no Alert aplica o rascunho real', () => {
+  it('confirmando a substituição aplica o rascunho real', async () => {
+    fb.responder({ confirmar: true });
     const onSugest = jest.fn();
-    jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
-      const substituir = buttons?.find((b) => b.text === 'Substituir');
-      substituir?.onPress?.();
-    });
     const { getByTestId } = wrap(
       <LunaSuggestionBadge
         campo="S"
@@ -131,7 +131,7 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
       />,
     );
     fireEvent.press(getByTestId('luna-badge-S'));
-    expect(onSugest).toHaveBeenCalledWith(RASCUNHO_REAL);
+    await waitFor(() => expect(onSugest).toHaveBeenCalledWith(RASCUNHO_REAL));
   });
 
   // LU-10 (ruling do Felipe, 15/09): badge só aparece quando serve para
@@ -161,12 +161,9 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
     expect(getByTestId('luna-badge-S')).toBeTruthy();
   });
 
-  it('cancelando o Alert NÃO chama onSugest', () => {
+  it('cancelando a confirmação NÃO chama onSugest', async () => {
     const onSugest = jest.fn();
-    jest.spyOn(Alert, 'alert').mockImplementationOnce((_title, _msg, buttons) => {
-      const cancelar = buttons?.find((b) => b.text === 'Cancelar');
-      cancelar?.onPress?.();
-    });
+    fb.responder({ confirmar: false });
     const { getByTestId } = wrap(
       <LunaSuggestionBadge
         campo="S"
@@ -176,6 +173,7 @@ describe('LunaSuggestionBadge (LU-10, pós-correção)', () => {
       />,
     );
     fireEvent.press(getByTestId('luna-badge-S'));
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
     expect(onSugest).not.toHaveBeenCalled();
   });
 });

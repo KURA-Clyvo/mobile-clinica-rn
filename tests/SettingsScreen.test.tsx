@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
@@ -102,6 +103,12 @@ beforeEach(() => {
   mockQueryClientClear.mockClear();
 });
 
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
+
 describe('SettingsScreen', () => {
   it('displays vet name and CRMV from authStore', () => {
     const { getByTestId } = wrap(<SettingsScreen />);
@@ -120,48 +127,36 @@ describe('SettingsScreen', () => {
     expect(getByTestId('switch-dark-mode').props.value).toBe(false);
   });
 
-  it('pressing "Sair da conta" shows confirmation Alert', () => {
-    const spyAlert = jest.spyOn(require('react-native'), 'Alert', 'get').mockReturnValue({
-      alert: jest.fn(),
-    });
+  it('pressing "Sair da conta" pede confirmação com o verbo da ação, em destrutivo', async () => {
     const { getByTestId } = wrap(<SettingsScreen />);
     fireEvent.press(getByTestId('btn-sair'));
-    expect(spyAlert.mock.results[0]!.value.alert).toHaveBeenCalledWith(
-      'Sair?',
-      'Sua sessão será encerrada.',
-      expect.any(Array),
-    );
-    spyAlert.mockRestore();
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toEqual({
+      titulo: 'Sair da conta?',
+      mensagem:
+        'Você vai precisar entrar de novo para ver a agenda e os pacientes. Nada do que está salvo se perde.',
+      verbo: 'Sair da conta',
+      destrutivo: true,
+      rotuloCancelar: 'Continuar conectado',
+    });
   });
 
   it('confirms logout: calls clearSession, queryClient.clear() and navigates to /login', async () => {
-    let logoutCallback: (() => void) | undefined;
-    // FM-09: mockImplementation exige a assinatura do mock inferido pelo jest.spyOn
-    // ((...args: unknown[]) => any) -- tipar o 3º parâmetro como array concreto não é
-    // atribuível a esse alvo (contravariância). Recebe `unknown` e faz o cast dentro do
-    // corpo, preservando o comportamento (mesmo shape que o app realmente passa para
-    // Alert.alert em settings.tsx).
-    jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(
-      (_title: unknown, _msg: unknown, buttons: unknown) => {
-        const botoes = buttons as Array<{ text: string; onPress?: () => void }>;
-        const sairBtn = botoes.find((b) => b.text === 'Sair');
-        logoutCallback = sairBtn?.onPress;
-      },
-    );
+    fb.responder({ confirmar: true });
     const { getByTestId } = wrap(<SettingsScreen />);
     fireEvent.press(getByTestId('btn-sair'));
-    await waitFor(() => expect(logoutCallback).toBeDefined());
-    await logoutCallback!();
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/login'));
     expect(mockClearSession).toHaveBeenCalled();
     expect(mockQueryClientClear).toHaveBeenCalled();
-    expect(mockReplace).toHaveBeenCalledWith('/login');
   });
 
-  it('cancels logout: does not navigate', () => {
-    jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
+  it('cancels logout: does not navigate nor clear the session', async () => {
+    fb.responder({ confirmar: false });
     const { getByTestId } = wrap(<SettingsScreen />);
     fireEvent.press(getByTestId('btn-sair'));
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockClearSession).not.toHaveBeenCalled();
   });
 
   // CQ-13 (item 4) — "Rever primeiros passos" volta a MOSTRAR o card

@@ -3,7 +3,8 @@
 // tutores.mock.ts), sem jest.mock de nenhum dos 3 (mesmo padrão de
 // fm02-mordida-veterinario-sem-ficha.test.tsx).
 import React from 'react';
-import { Alert, Linking } from 'react-native';
+import { simularFeedback } from './helpers_feedback';
+import { Linking } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
@@ -90,6 +91,12 @@ async function preencherEEnviarPetValido(getByTestId: ReturnType<typeof render>[
   });
 }
 
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
+
 describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / não chama o service', () => {
   it('o botão salvar nasce desabilitado e não dispara o cadastro sem o checkbox marcado', async () => {
     const { getByTestId } = wrap(<NovoTutorScreen />);
@@ -131,8 +138,7 @@ describe('NovoTutorScreen — mordida (c): sem aceite, botão desabilitado / nã
 });
 
 describe('NovoTutorScreen — mordida (d): 409/500 do cadastro mostram mensagem genérica', () => {
-  it('CPF duplicado (409) nunca mostra o CPF nem "outra clínica" no Alert', async () => {
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  it('CPF duplicado (409) nunca mostra o CPF nem "outra clínica" no aviso', async () => {
     const { getByTestId } = wrap(<NovoTutorScreen />);
 
     preencherFormularioValido(getByTestId, { nrCpf: CPF_MOCK_DUPLICADO });
@@ -142,10 +148,8 @@ describe('NovoTutorScreen — mordida (d): 409/500 do cadastro mostram mensagem 
       fireEvent.press(getByTestId('btn-salvar-tutor'));
     });
 
-    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
-    const chamada = alertSpy.mock.calls[0];
-    expect(chamada).toBeDefined();
-    const [, mensagem] = chamada!;
+    await waitFor(() => expect(fb.avisos).toHaveLength(1));
+    const mensagem = fb.avisos[0]!.mensagem as string;
     expect(mensagem).not.toContain(CPF_MOCK_DUPLICADO);
     expect(mensagem).not.toContain('outra clínica');
     expect(mensagem).toContain('Não foi possível cadastrar o tutor');

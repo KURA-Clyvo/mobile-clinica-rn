@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { avisar, confirmar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -148,6 +150,7 @@ export default function ServicosPrecoScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+  const toast = useToast();
   const podeVer = useRequireGestor();
 
   const [mostrarInativos, setMostrarInativos] = useState(false);
@@ -178,33 +181,29 @@ export default function ServicosPrecoScreen() {
 
   const handleErro = (err: unknown) => {
     const e = err as ApiError;
-    Alert.alert('Não foi possível concluir', e?.message ?? 'Tente novamente.');
+    void avisar({ titulo: 'Não foi possível concluir', mensagem: e?.message ?? 'Tente novamente.' });
   };
 
-  const confirmarDesativar = (servico: ServicoPrecoResponse) => {
-    Alert.alert(
-      'Desativar serviço?',
-      `"${servico.nmServico}" deixará de aparecer na tabela de preços até ser reativado.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desativar',
-          style: 'destructive',
-          onPress: () => {
-            setIdEmAcao(servico.id);
-            desativar(servico.id, {
-              onError: handleErro,
-              onSettled: () => setIdEmAcao(null),
-            });
-          },
-        },
-      ],
-    );
+  const confirmarDesativar = async (servico: ServicoPrecoResponse) => {
+    const ok = await confirmar({
+      titulo: 'Desativar serviço?',
+      mensagem: `"${servico.nmServico}" deixará de aparecer na tabela de preços até ser reativado.`,
+      verbo: 'Desativar',
+      destrutivo: true,
+    });
+    if (!ok) return;
+    setIdEmAcao(servico.id);
+    desativar(servico.id, {
+      onSuccess: () => toast.show({ tipo: 'sucesso', texto: 'Serviço desativado' }),
+      onError: handleErro,
+      onSettled: () => setIdEmAcao(null),
+    });
   };
 
   const handleReativar = (servico: ServicoPrecoResponse) => {
     setIdEmAcao(servico.id);
     reativar(servico.id, {
+      onSuccess: () => toast.show({ tipo: 'sucesso', texto: 'Serviço reativado' }),
       onError: handleErro,
       onSettled: () => setIdEmAcao(null),
     });

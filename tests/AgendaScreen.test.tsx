@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
@@ -186,6 +187,12 @@ beforeEach(() => {
     variables: undefined,
   });
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('AgendaScreen — loading state', () => {
   it('shows skeleton placeholders while loading', () => {
@@ -406,8 +413,6 @@ describe('AgendaScreen — ScreenContainer adoption (CQ-15)', () => {
 });
 
 // ─── REC-12 — modo "Hoje" da agenda ─────────────────────────────────────────
-import { Alert } from 'react-native';
-jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
 function agendamentoHoje(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -718,10 +723,9 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
       fireEvent.press(getByTestId('btn-chegou-30'));
     });
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Agendamento desatualizado',
-      expect.stringContaining('recarregada'),
-    );
+    expect(fb.avisos).toEqual([
+      { titulo: 'Agendamento desatualizado', mensagem: expect.stringContaining('recarregada') },
+    ]);
   });
 
   it('botão "Faltou" chama atualizarStatusAgendamento (mutateAsync) com NAO_COMPARECEU', async () => {
@@ -791,9 +795,12 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     });
 
     expect(mockCheckinMutateAsync).toHaveBeenCalledTimes(2);
-    // MORDIDA: com `mutate` + callback único perdido, este Alert.alert NUNCA
+    // MORDIDA: com `mutate` + callback único perdido, este aviso NUNCA
     // seria chamado para a linha A — o aviso simplesmente sumiria.
-    expect(Alert.alert).toHaveBeenCalledWith('Não foi possível registrar a chegada', 'Falha A');
+    expect(fb.avisos).toContainEqual({
+      titulo: 'Não foi possível registrar a chegada',
+      mensagem: 'Falha A',
+    });
   });
 
   it('"Abrir prontuário" navega para consulta/[idPet] com idAgendamento', () => {

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { avisar, confirmar } from '@components/feedback/confirmar';
+import { useToast } from '@components/feedback/Toast';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -195,6 +197,7 @@ export default function UsuariosClinicaScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+  const toast = useToast();
   const podeVer = useRequireGestor();
 
   // FM-05 (brief §4) — mesma correção da FM-02: a lista NASCE só com
@@ -240,33 +243,29 @@ export default function UsuariosClinicaScreen() {
 
   const handleErro = (err: unknown) => {
     const e = err as ApiError;
-    Alert.alert('Não foi possível concluir', e?.message ?? 'Tente novamente.');
+    void avisar({ titulo: 'Não foi possível concluir', mensagem: e?.message ?? 'Tente novamente.' });
   };
 
-  const confirmarDesativar = (usuario: UsuarioClinicaResponse) => {
-    Alert.alert(
-      'Desativar usuário?',
-      `${usuario.dsEmail} não poderá mais entrar no sistema até ser reativado.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Desativar',
-          style: 'destructive',
-          onPress: () => {
-            setIdEmAcao(usuario.id);
-            desativar(usuario.id, {
-              onError: handleErro,
-              onSettled: () => setIdEmAcao(null),
-            });
-          },
-        },
-      ],
-    );
+  const confirmarDesativar = async (usuario: UsuarioClinicaResponse) => {
+    const ok = await confirmar({
+      titulo: 'Desativar usuário?',
+      mensagem: `${usuario.dsEmail} não poderá mais entrar no sistema até ser reativado.`,
+      verbo: 'Desativar',
+      destrutivo: true,
+    });
+    if (!ok) return;
+    setIdEmAcao(usuario.id);
+    desativar(usuario.id, {
+      onSuccess: () => toast.show({ tipo: 'sucesso', texto: 'Usuário desativado' }),
+      onError: handleErro,
+      onSettled: () => setIdEmAcao(null),
+    });
   };
 
   const handleReativar = (usuario: UsuarioClinicaResponse) => {
     setIdEmAcao(usuario.id);
     reativar(usuario.id, {
+      onSuccess: () => toast.show({ tipo: 'sucesso', texto: 'Usuário reativado' }),
       onError: handleErro,
       onSettled: () => setIdEmAcao(null),
     });

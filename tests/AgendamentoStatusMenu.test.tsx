@@ -1,6 +1,6 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent } from '@testing-library/react-native';
-import { Alert } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import { AgendamentoStatusMenu } from '../src/components/domain/AgendamentoStatusMenu';
 
@@ -18,7 +18,6 @@ jest.mock('@hooks/useAgenda', () => ({
 import { useAtualizarStatusAgendamento } from '../src/hooks/useAgenda';
 const mockUseAtualizarStatus = useAtualizarStatusAgendamento as jest.Mock;
 
-jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 
 const BASE_PROPS = {
   visible: true,
@@ -36,6 +35,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockUseAtualizarStatus.mockReturnValue({ mutate: mockMutate, isPending: false, variables: undefined });
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('AgendamentoStatusMenu — state machine drives the offered actions', () => {
   // FM-04, prova de mordida (achado nº 2 do brief): antes desta task, o app
@@ -120,10 +125,9 @@ describe('AgendamentoStatusMenu — firing the mutation', () => {
     const [, callbacks] = mockMutate.mock.calls[0];
     callbacks.onError({ status: 409, code: 'CONFLITO_CONCORRENCIA', message: 'stale' });
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'Agendamento desatualizado',
-      expect.stringContaining('recarregada'),
-    );
+    expect(fb.avisos).toEqual([
+      { titulo: 'Agendamento desatualizado', mensagem: expect.stringContaining('recarregada') },
+    ]);
     expect(mockOnClose).toHaveBeenCalled();
   });
 
@@ -135,7 +139,7 @@ describe('AgendamentoStatusMenu — firing the mutation', () => {
     const [, callbacks] = mockMutate.mock.calls[0];
     callbacks.onError({ status: 422, code: 'TRANSICAO_INVALIDA', message: 'Transição inválida' });
 
-    expect(Alert.alert).toHaveBeenCalledWith('Não foi possível atualizar', 'Transição inválida');
+    expect(fb.avisos).toEqual([{ titulo: 'Não foi possível atualizar', mensagem: 'Transição inválida' }]);
     expect(mockOnClose).toHaveBeenCalled();
   });
 });

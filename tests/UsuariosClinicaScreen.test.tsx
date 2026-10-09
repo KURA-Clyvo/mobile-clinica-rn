@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
@@ -108,6 +109,12 @@ beforeEach(() => {
   });
   mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [VETERINARIO], isLoading: false });
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('UsuariosClinicaScreen — guarda de GESTOR', () => {
   it('um VETERINARIO puro é redirecionado e não vê o conteúdo (useRequireGestor)', () => {
@@ -240,25 +247,26 @@ describe('UsuariosClinicaScreen — abrir modais', () => {
 describe('UsuariosClinicaScreen — desativar/reativar', () => {
   beforeEach(() => seedGestor());
 
-  it('"Desativar" pede confirmação e só chama a mutação após confirmar', () => {
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert');
+  it('"Desativar" pede confirmação (verbo "Desativar", destrutivo) e só chama a mutação após confirmar', async () => {
     const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
     fireEvent.press(getAllByTestId('btn-desativar-usuario')[0]!);
 
-    expect(spyAlert).toHaveBeenCalledWith(
-      'Desativar usuário?',
-      expect.stringContaining('felipe.ferrete@kura.vet'),
-      expect.any(Array),
-    );
-    // Ainda não chamou a mutação -- só o Alert de confirmação.
+    // Padrão: Cancelar. A mutação NÃO pode ter sido chamada.
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toEqual({
+      titulo: 'Desativar usuário?',
+      mensagem: expect.stringContaining('felipe.ferrete@kura.vet'),
+      verbo: 'Desativar',
+      destrutivo: true,
+    });
     expect(mockMutateDesativar).not.toHaveBeenCalled();
 
-    const botoes = spyAlert.mock.calls[0]![2] as Array<{ text: string; onPress?: () => void }>;
-    const confirmar = botoes.find((b) => b.text === 'Desativar');
-    act(() => confirmar?.onPress?.());
-
-    expect(mockMutateDesativar).toHaveBeenCalledWith(1, expect.objectContaining({ onError: expect.any(Function) }));
-    spyAlert.mockRestore();
+    // Confirmando, a mutação roda.
+    fb.responder({ confirmar: true });
+    fireEvent.press(getAllByTestId('btn-desativar-usuario')[0]!);
+    await waitFor(() =>
+      expect(mockMutateDesativar).toHaveBeenCalledWith(1, expect.objectContaining({ onError: expect.any(Function) })),
+    );
   });
 
   it('"Reativar" chama a mutação direto, sem confirmação prévia', () => {
@@ -267,24 +275,36 @@ describe('UsuariosClinicaScreen — desativar/reativar', () => {
     expect(mockMutateReativar).toHaveBeenCalledWith(2, expect.objectContaining({ onError: expect.any(Function) }));
   });
 
-  it('um erro de negócio (422 "clínica sem gestor") aparece via Alert com a mensagem real', async () => {
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
+  it('um erro de negócio (422 "clínica sem gestor") aparece via avisar() com a mensagem real', async () => {
+    fb.responder({ confirmar: true });
     mockMutateDesativar.mockImplementation((_id, { onError }) => {
       onError({ status: 422, code: 'SEM_GESTOR_ATIVO', message: 'A clínica ficaria sem nenhum gestor ativo.' });
     });
 
     const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
     fireEvent.press(getAllByTestId('btn-desativar-usuario')[0]!);
-    const botoes = spyAlert.mock.calls[0]![2] as Array<{ text: string; onPress?: () => void }>;
-    const confirmar = botoes.find((b) => b.text === 'Desativar');
-    act(() => confirmar?.onPress?.());
-
     await waitFor(() =>
-      expect(spyAlert).toHaveBeenCalledWith(
-        'Não foi possível concluir',
-        'A clínica ficaria sem nenhum gestor ativo.',
-      ),
+      expect(fb.avisos).toContainEqual({
+        titulo: 'Não foi possível concluir',
+        mensagem: 'A clínica ficaria sem nenhum gestor ativo.',
+      }),
     );
-    spyAlert.mockRestore();
+  });
+
+  // BR-CLI-T02 fix wave (M-2): o toast de sucesso é o retorno NOVO desta task; o mock da mutação
+  // precisa chamar o `onSuccess` real da tela, senão remover o toast não derruba teste nenhum.
+  it('desativar com sucesso mostra o toast "Usuário desativado"', async () => {
+    fb.responder({ confirmar: true });
+    mockMutateDesativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getAllByTestId('btn-desativar-usuario')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Usuário desativado' }]));
+  });
+
+  it('reativar com sucesso mostra o toast "Usuário reativado"', async () => {
+    mockMutateReativar.mockImplementation((_id, { onSuccess }) => onSuccess());
+    const { getAllByTestId } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getAllByTestId('btn-reativar-usuario')[0]!);
+    await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Usuário reativado' }]));
   });
 });

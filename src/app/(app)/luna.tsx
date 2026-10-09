@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
@@ -360,10 +361,10 @@ export default function LunaScreen() {
       // renderiza o botão". Sem telefone real, mandar {para} para a Luna resultaria
       // em 502 (Twilio rejeita o destinatário).
       if (!telefoneDisponivel(tutor.nrTelefone)) {
-        Alert.alert(
-          'Telefone não cadastrado',
-          'Este tutor não tem telefone cadastrado. Não é possível responder pelo WhatsApp.',
-        );
+        void avisar({
+          titulo: 'Telefone não cadastrado',
+          mensagem: 'Este tutor não tem telefone cadastrado. Não é possível responder pelo WhatsApp.',
+        });
         return;
       }
       setWhatsappAlvo({
@@ -372,7 +373,7 @@ export default function LunaScreen() {
         dsTelefone: tutor.nrTelefone,
       });
     } catch {
-      Alert.alert('Erro', 'Não foi possível buscar o telefone do tutor.');
+      void avisar({ titulo: 'Erro', mensagem: 'Não foi possível buscar o telefone do tutor.' });
     } finally {
       setBuscandoTelefoneId(null);
     }

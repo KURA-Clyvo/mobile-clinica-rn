@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
-  Alert,
 } from 'react-native';
+import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -782,15 +782,15 @@ export default function AgendaScreen() {
     } catch (err: unknown) {
       const apiErr = err as { status?: number; message?: string };
       if (apiErr.status === 409) {
-        Alert.alert(
-          'Agendamento desatualizado',
-          'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-        );
+        void avisar({
+          titulo: 'Agendamento desatualizado',
+          mensagem: 'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+        });
       } else {
-        Alert.alert(
-          'Não foi possível registrar a chegada',
-          apiErr.message ?? 'Tente novamente em instantes.',
-        );
+        void avisar({
+          titulo: 'Não foi possível registrar a chegada',
+          mensagem: apiErr.message ?? 'Tente novamente em instantes.',
+        });
       }
     } finally {
       // Guarda: `pendingHojeId` é um slot único (limitação conhecida, fora
@@ -811,15 +811,15 @@ export default function AgendaScreen() {
     } catch (err: unknown) {
       const apiErr = err as { status?: number; message?: string };
       if (apiErr.status === 409) {
-        Alert.alert(
-          'Agendamento desatualizado',
-          'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
-        );
+        void avisar({
+          titulo: 'Agendamento desatualizado',
+          mensagem: 'Este agendamento foi alterado por outro processo. A lista foi recarregada — confira o estado atual antes de tentar de novo.',
+        });
       } else {
-        Alert.alert(
-          'Não foi possível registrar a falta',
-          apiErr.message ?? 'Tente novamente em instantes.',
-        );
+        void avisar({
+          titulo: 'Não foi possível registrar a falta',
+          mensagem: apiErr.message ?? 'Tente novamente em instantes.',
+        });
       }
     } finally {
       setPendingHojeId((atual) => (atual === a.id ? undefined : atual));

@@ -1,4 +1,5 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { UsuarioClinicaFormModal } from '../src/components/domain/UsuarioClinicaFormModal';
@@ -46,6 +47,12 @@ function wrap(ui: React.ReactElement) {
 beforeEach(() => {
   jest.clearAllMocks();
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('UsuarioClinicaFormModal — modo criação', () => {
   it('inicia com campos vazios, papel VETERINARIO e senha visível', () => {
@@ -97,9 +104,8 @@ describe('UsuarioClinicaFormModal — modo criação', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('um erro de negócio (422) aparece via Alert, e o modal NÃO fecha', async () => {
+  it('um erro de negócio (422) aparece via avisar(), e o modal NÃO fecha', async () => {
     const onClose = jest.fn();
-    const spyAlert = jest.spyOn(require('react-native').Alert, 'alert').mockImplementation(() => {});
     mockMutateCriar.mockImplementation((_req, { onError }) =>
       onError({ status: 422, code: 'EMAIL_EM_USO', message: 'Este e-mail já está em uso nesta clínica.' }),
     );
@@ -114,9 +120,8 @@ describe('UsuarioClinicaFormModal — modo criação', () => {
       fireEvent.press(getByTestId('btn-salvar-usuario'));
     });
 
-    expect(spyAlert).toHaveBeenCalledWith('Erro', 'Este e-mail já está em uso nesta clínica.');
+    expect(fb.avisos).toContainEqual({ titulo: 'Erro', mensagem: 'Este e-mail já está em uso nesta clínica.' });
     expect(onClose).not.toHaveBeenCalled();
-    spyAlert.mockRestore();
   });
 });
 

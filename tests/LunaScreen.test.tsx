@@ -1,7 +1,8 @@
 import React from 'react';
+import { simularFeedback } from './helpers_feedback';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
-import { ScrollView, Alert } from 'react-native';
+import { ScrollView } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import LunaScreen from '../src/app/(app)/luna';
@@ -174,6 +175,12 @@ beforeEach(() => {
   mockGetTutorById.mockResolvedValue({ id: 201, nmTutor: 'Ana Beatriz', nrTelefone: '11988887777' });
   setViewport(400, 800);
 });
+
+let fb: ReturnType<typeof simularFeedback>;
+beforeEach(() => {
+  fb = simularFeedback();
+});
+afterEach(() => fb.dispose());
 
 describe('LunaScreen', () => {
   it('shows "Online" status when GET /ready respondeu HTTP 200 com tudo up', () => {
@@ -364,7 +371,6 @@ describe('LunaScreen', () => {
     // do GET /tutores/{id} (a fila nunca carrega telefone, LGPD), então o modal
     // simplesmente não abre em vez do botão desaparecer antes do clique.
     it('does not open WhatsAppModal when the tutor phone is the backend sentinel "Não informado"', async () => {
-      const alertSpy = jest.spyOn(Alert, 'alert');
       mockGetTutorById.mockResolvedValueOnce({
         id: 201,
         nmTutor: 'Ana Beatriz',
@@ -373,17 +379,16 @@ describe('LunaScreen', () => {
       const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
       fireEvent.press(getByTestId('btn-responder-whatsapp-501'));
       await waitFor(() => expect(mockGetTutorById).toHaveBeenCalledWith(201));
-      await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Telefone não cadastrado', expect.any(String)));
+      await waitFor(() => expect(fb.avisos).toContainEqual({ titulo: 'Telefone não cadastrado', mensagem: expect.any(String) }));
       expect(queryByTestId('recipient-tutor')).toBeNull();
     });
 
     it('does not open WhatsAppModal when the tutor phone is empty', async () => {
-      const alertSpy = jest.spyOn(Alert, 'alert');
       mockGetTutorById.mockResolvedValueOnce({ id: 201, nmTutor: 'Ana Beatriz', nrTelefone: '' });
       const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
       fireEvent.press(getByTestId('btn-responder-whatsapp-501'));
       await waitFor(() => expect(mockGetTutorById).toHaveBeenCalledWith(201));
-      await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Telefone não cadastrado', expect.any(String)));
+      await waitFor(() => expect(fb.avisos).toContainEqual({ titulo: 'Telefone não cadastrado', mensagem: expect.any(String) }));
       expect(queryByTestId('recipient-tutor')).toBeNull();
     });
 
