@@ -133,7 +133,7 @@ const ler = (arq: string) => fs.readFileSync(path.join(SRC_DIR, arq), 'utf8');
 // Pares de USO REAL: arquivo -> fg/bg efetivos (o fundo é o do JSX, não o do tema).
 // `ancora` precisa casar no arquivo: se alguém trocar o token no componente, a
 // âncora deixa de bater e o par aqui deixa de ser verdade.
-type Uso = { arq: string; ancora: RegExp; texto: string; fundo: string };
+type Uso = { arq: string; ancora: RegExp; texto: string; fundo: string; limiar?: number };
 const TELE = 'app/(app)/teleorientacao/[idPet].tsx';
 const USOS: Uso[] = [
   {
@@ -181,6 +181,19 @@ const USOS: Uso[] = [
     texto: 'text',
     fundo: 'bgElev',
   },
+  // BR-CLI-T02 fix wave (M-2): ícone (`color={cor}`) e borda (`borderColor: cor`) do toast são
+  // componentes gráficos / limite de componente — WCAG 1.4.11, limiar 3, sobre bgElev.
+  ...(['success', 'danger', 'info'] as const).map(
+    (cor): Uso => ({
+      arq: 'components/feedback/Toast.tsx',
+      ancora: new RegExp(
+        String.raw`[?:] colors\.${cor}\b[\s\S]*?borderColor: cor[\s\S]*?color=\{cor\}`,
+      ),
+      texto: cor,
+      fundo: 'bgElev',
+      limiar: BORDA,
+    }),
+  ),
   // I-4: botão secondary "Tentar novamente" dentro do vídeo, com fundo surface próprio.
   {
     arq: TELE,
@@ -191,11 +204,11 @@ const USOS: Uso[] = [
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {
-  const casos = USOS.flatMap((u) => TEMA_NOMES.map((tema) => ({ ...u, tema })));
-  it.each(casos)('$tema: $arq $texto sobre $fundo >= 4.5', ({ arq, ancora, tema, texto, fundo }) => {
+  const casos = USOS.flatMap((u) => TEMA_NOMES.map((tema) => ({ ...u, tema, min: u.limiar ?? TEXTO })));
+  it.each(casos)('$tema: $arq $texto sobre $fundo >= $min', ({ arq, ancora, tema, texto, fundo, min }) => {
     expect(ancora.test(ler(arq))).toBe(true);
     const t = TEMAS[tema];
-    expect(truncado(ratio(t[texto] as string, t[fundo] as string))).toBeGreaterThanOrEqual(TEXTO);
+    expect(truncado(ratio(t[texto] as string, t[fundo] as string))).toBeGreaterThanOrEqual(min);
   });
 
   it('texto de vídeo e de nav sem opacidade', () => {

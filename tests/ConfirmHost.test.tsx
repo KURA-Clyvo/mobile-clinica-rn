@@ -156,12 +156,12 @@ describe('ConfirmHost', () => {
   // M-3: alertdialog (WAI-ARIA APG) — foco inicial no menos destrutivo (Cancelar) e nenhum
   // elemento sem nome na ordem de Tab. O RNW foca o 1º focável do Modal: o scrim não pode ser.
   it('foco inicial no Cancelar: scrim fora da ordem de foco e do leitor de tela; Cancelar vem antes do OK', async () => {
-    const { getByTestId } = montar();
+    const { getByTestId, UNSAFE_getAllByProps } = montar();
     act(() => {
       void confirmar({ titulo: 'Sair?', verbo: 'Sair', destrutivo: true });
     });
     await waitFor(() => getByTestId('confirm-dialog'));
-    const scrim = getByTestId('confirm-scrim');
+    const scrim = UNSAFE_getAllByProps({ testID: 'confirm-scrim' })[0]!;
     expect(scrim.props.focusable).toBe(false);
     expect(scrim.props.accessible).toBe(false);
     expect(scrim.props.importantForAccessibility).toBe('no');
