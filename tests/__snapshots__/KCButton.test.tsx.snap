@@ -420,7 +420,7 @@ exports[`KCButton variants renders secondary variant 1`] = `
     {
       "alignItems": "center",
       "backgroundColor": "transparent",
-      "borderColor": "#EDE3CD",
+      "borderColor": "#93856A",
       "borderRadius": 10,
       "borderWidth": 1.5,
       "flexDirection": "row",

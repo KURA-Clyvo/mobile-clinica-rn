@@ -84,9 +84,11 @@ describe('ratio (sanidade WCAG)', () => {
 describe('contraste dos tokens reais', () => {
   it.each(PARES)('$tema: $texto sobre $fundo >= $limiar', ({ tema, texto, fundo, limiar }) => {
     const t = TEMAS[tema];
-    expect(t[texto]).toBeDefined();
-    expect(t[fundo]).toBeDefined();
-    const r = ratio(t[texto], t[fundo]);
+    const a = t[texto];
+    const b = t[fundo];
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    const r = ratio(a as string, b as string);
     // arredonda a 2 casas, como os números citados na auditoria e no DS
     expect(Math.round(r * 100) / 100).toBeGreaterThanOrEqual(limiar);
   });
