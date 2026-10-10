@@ -16,7 +16,7 @@ export interface UrgenciaVisual {
 
 export const URGENCIA_VISUAL: Record<Urgencia, UrgenciaVisual> = {
   ALTA: { label: 'Alta', chipTone: 'clay', grafico: 'clayInk' },
-  MEDIA: { label: 'Média', chipTone: 'amber', grafico: 'amberInk' },
+  MEDIA: { label: 'Média', chipTone: 'amber', grafico: 'amber' },
   BAIXA: { label: 'Baixa', chipTone: 'mute', grafico: 'textMute' },
 };
 

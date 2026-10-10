@@ -77,7 +77,7 @@ function isServicoUp(valor: boolean | string | undefined | null): boolean {
 }
 
 // BR-CLI-T07 (M-2 da T01): o relatorio fala BAIXO/MEDIO/ALTO, a fila BAIXA/MEDIA/ALTA; os
-// dois leem a MESMA tabela (utils/triagem.ts) -- Alta = clayInk, Media = amberInk, Baixa = textMute,
+// dois leem a MESMA tabela (utils/triagem.ts) -- Alta = clayInk, Media = amber, Baixa = textMute (luminancia claro .13/.28/.19; escuro .31/.41/.21),
 // de luminosidades diferentes. Vocabulario unico: Alta/Média/Baixa (BR-CLI-13).
 const URG_RELATORIO: Record<UrgLevel, Urgencia> = { BAIXO: 'BAIXA', MEDIO: 'MEDIA', ALTO: 'ALTA' };
 
