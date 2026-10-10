@@ -87,7 +87,7 @@ describe('Abertura', () => {
     const base = lightColors.primary;
     // Única animação: opacidade, com duração <= 150 ms, e nenhuma etapa de pata agendada.
     expect(timing).toHaveBeenCalledTimes(1);
-    const cfg = timing.mock.calls[0][1];
+    const cfg = timing.mock.calls[0]![1];
     expect(cfg.toValue).toBe(1);
     expect(cfg.duration).toBeLessThanOrEqual(150);
     expect(Object.keys(cfg).sort()).toEqual(['duration', 'toValue', 'useNativeDriver']);
