@@ -67,9 +67,12 @@ export function QueryState<T>({
     void refetch();
   };
 
+  // isLoading (React Query: pendente + buscando) implica sem dado; se um mock/chamador mandar os
+  // dois, carregar vence — nunca desenhar "vazio" enquanto busca.
+  if (isLoading) return <>{skeleton ?? <Skeleton variant="list" />}</>;
+
   if (data === undefined) {
     if (isError) return <ErrorState titulo={errorTitle} onRetry={tentar} />;
-    if (isLoading) return <>{skeleton ?? <Skeleton variant="list" />}</>;
     // Sem dado, sem erro e sem carga (query desabilitada): nada a afirmar, nem vazio.
     return <>{skeleton ?? <Skeleton variant="list" />}</>;
   }

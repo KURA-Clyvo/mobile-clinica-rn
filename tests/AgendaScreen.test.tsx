@@ -202,6 +202,20 @@ describe('AgendaScreen — loading state', () => {
   });
 });
 
+describe('AgendaScreen — erro da semana (BR-CLI-02)', () => {
+  it('erro sem dado NUNCA vira "Nenhuma consulta neste dia"; oferece Tentar de novo', () => {
+    mockUseAgendaSemana.mockReturnValue({
+      ...makeDefaultHookReturn([]),
+      data: undefined,
+      isError: true,
+    });
+    const { queryByTestId, queryByText, getByText } = wrap(<AgendaScreen />);
+    expect(queryByTestId('empty-agenda')).toBeNull();
+    expect(queryByText('Nenhuma consulta neste dia')).toBeNull();
+    expect(getByText('Tentar de novo')).toBeTruthy();
+  });
+});
+
 describe('AgendaScreen — loaded state', () => {
   it('shows appointments for selected day (today)', () => {
     mockUseAgendaSemana.mockReturnValue(
