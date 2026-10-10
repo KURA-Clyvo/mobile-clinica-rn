@@ -440,7 +440,7 @@ export default function DashboardScreen() {
               <View key={rowIndex} style={styles.listRow} testID="alerts-row">
                 {row.map((alerta: AlertaResponse) => (
                   <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
-                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
+                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} compacto={telaLarga} />
                   </View>
                 ))}
                 {rowSpacers(row.length, listColumns, styles.listRowItem)}

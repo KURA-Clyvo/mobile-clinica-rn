@@ -625,6 +625,28 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
     );
   });
 
+  // BR-CLI-T06 (G2 M-3): na coluna lateral (1440) os alertas viram lista compacta, nao cartoes altos.
+  describe('alertas compactos na coluna lateral (xl)', () => {
+    beforeEach(() => {
+      mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+      mockUseAlertas.mockReturnValue({ data: MOCK_ALERTAS_3, isLoading: false, isError: false, refetch: REFETCH });
+    });
+    it('1440: 3 linhas compactas, cada uma com a mensagem do alerta', () => {
+      setViewport(1440, 900);
+      const { getAllByTestId } = wrap(<DashboardScreen />);
+      expect(getAllByTestId('alert-compacto')).toHaveLength(3);
+      expect(getAllByTestId('alert-message')).toHaveLength(3);
+    });
+    it('1280 e 390: continuam cartoes (sem linha compacta)', () => {
+      for (const [w, h] of [[1280, 800], [390, 844]]) {
+        setViewport(w!, h!);
+        const { queryAllByTestId, unmount } = wrap(<DashboardScreen />);
+        expect(queryAllByTestId('alert-compacto')).toHaveLength(0);
+        unmount();
+      }
+    });
+  });
+
   // Achado B (G2), caso extra explicitamente pedido no brief da fix wave:
   // lista com 1 item só em ≥ lg (2 colunas). Sem o fix, o único filho da
   // única linha tem `flex: 1` sozinho numa `View` `flexDirection: 'row'` e
