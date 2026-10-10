@@ -11,6 +11,7 @@ import {
 import { confirmar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu, fichaDoPet } from '@utils/navegacao';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
@@ -158,7 +159,7 @@ export default function TeleorientacaoScreen() {
       verbo: 'Encerrar',
       destrutivo: true,
     });
-    if (ok) router.back();
+    if (ok) voltarOu(router, fichaDoPet(idPet));
   };
 
   return (

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@theme/index';
 import { lightColors, touchTarget } from '@theme/tokens';
@@ -355,7 +356,7 @@ export default function NovoAgendamentoScreen() {
           <TouchableOpacity
             accessibilityRole="button"
             style={styles.backBtn}
-            onPress={() => router.back()}
+            onPress={() => voltarOu(router, ROUTES.app.agenda)}
             testID="btn-voltar-agenda-novo-form"
             accessibilityLabel="Voltar"
           >

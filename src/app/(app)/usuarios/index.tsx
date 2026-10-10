@@ -5,6 +5,8 @@ import { useToast } from '@components/feedback/Toast';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { useRouter } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
+import { ROUTES } from '@constants/routes';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useRequireGestor } from '@hooks/useIsGestor';
@@ -291,7 +293,7 @@ export default function UsuariosClinicaScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => voltarOu(router, ROUTES.app.settings)}
           testID="btn-voltar-usuarios"
           accessibilityLabel="Voltar"
         >

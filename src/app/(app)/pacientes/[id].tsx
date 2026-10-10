@@ -9,6 +9,7 @@ import {
 import { avisar, escolher } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
@@ -313,7 +314,7 @@ export default function PacienteDetailScreen() {
               <Text style={styles.errorText}>Paciente não encontrado</Text>
             </>
           )}
-          <KCButton variant="secondary" size="sm" onPress={() => router.back()}>
+          <KCButton variant="secondary" size="sm" onPress={() => voltarOu(router, ROUTES.app.pacientes)}>
             {STRINGS.acoes.voltar}
           </KCButton>
         </KCCard>
