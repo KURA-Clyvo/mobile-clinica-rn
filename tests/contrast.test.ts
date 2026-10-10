@@ -278,6 +278,34 @@ const USOS: Uso[] = [
     fundo: 'videoBg',
     limiar: 3,
   },
+  // BR-CLI-T05 fix wave (G2 I-3): o trilho DESLIGADO do KCSwitchRow é o único sinal de forma do estado "off" —
+  // componente de UI >= 3:1 contra o fundo da linha. Com `border` dava 1.25/1.12. Fundos reais: `surface`
+  // (linhas dentro do KCCard de Configurações) e `bg` (Novo tutor, direto na tela).
+  ...(['surface', 'bg'] as const).map((fundo) => ({
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /trackColor=\{\{ false: colors\.borderControl,/,
+    texto: 'borderControl',
+    fundo,
+    limiar: 3,
+  })),
+  // BR-CLI-T05 fix wave (G2 M-4): Voltar do AppHeader (rótulo = texto 4.5; ícone = UI 3) sobre o fundo do cabeçalho (`bg`).
+  { arq: 'components/layout/AppHeader.tsx', ancora: /backLabel: \{[^}]*color: colors\.text,/, texto: 'text', fundo: 'bg' },
+  { arq: 'components/layout/AppHeader.tsx', ancora: /safe: \{ backgroundColor: colors\.bg \}/, texto: 'text', fundo: 'bg' },
+  {
+    arq: 'components/layout/AppHeader.tsx',
+    ancora: /<KCIcon name="back" size=\{22\} color=\{colors\.text\} \/>/,
+    texto: 'text',
+    fundo: 'bg',
+    limiar: 3,
+  },
+  // ...e o ícone `sair` do rodapé do NavDrawer (UI >= 3) sobre `navBg`.
+  {
+    arq: 'components/layout/NavDrawer.tsx',
+    ancora: /<KCIcon name="sair" size=\{22\} color=\{colors\.navText\} \/>/,
+    texto: 'navText',
+    fundo: 'navBg',
+    limiar: 3,
+  },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {
