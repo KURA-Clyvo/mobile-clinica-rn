@@ -366,6 +366,10 @@ export default function DashboardScreen() {
 
   // Metricas, alertas, card financeiro (gestor) e checklist: UM bloco so, renderizado na coluna lateral
   // (tela larga) ou em sequencia (celular). Antes da fix wave da G2 este JSX existia 2x.
+  // BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha -- o dia da
+  // clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. Na coluna lateral
+  // (xl) ele vem logo apos os alertas, ANTES do card financeiro de gestor (G2 M-3: acima da dobra de 900 px).
+  const onboarding = <OnboardingChecklist inicialRecolhido />;
   const blocoLateral = (
     <>
       {loadingHoje ? (
@@ -450,6 +454,8 @@ export default function DashboardScreen() {
           )}
         </QueryState>
       </View>
+
+      {telaLarga && onboarding}
 
       {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
           isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
@@ -573,9 +579,7 @@ export default function DashboardScreen() {
           </KCButton>
         </View>
       )}
-      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
-          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
-      <OnboardingChecklist inicialRecolhido />
+      {!telaLarga && onboarding}
     </>
   );
 

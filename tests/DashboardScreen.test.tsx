@@ -797,6 +797,29 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(queryByText('Financeiro')).toBeNull();
   });
 
+  it('G2 M-3: no 1440 o "Primeiros passos" vem ANTES do card financeiro (acima da dobra); no celular, depois', () => {
+    const ordemDe = (root: ReactTestInstance) =>
+      root
+        .findAll((n) => typeof n.type === 'string' && typeof n.props.testID === 'string')
+        .map((n) => n.props.testID as string);
+    logarComoGestor();
+    act(() => {
+      useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+    });
+    mockUseResumoFinanceiro.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: REFETCH, isGestor: true });
+    for (const [w, h, onboardingAntes] of [[1440, 900, true], [390, 844, false]] as const) {
+      setViewport(w, h);
+      const { root, unmount } = wrap(<DashboardScreen />);
+      const ids = ordemDe(root);
+      const iOnb = ids.indexOf('onboarding-recolhido');
+      const iFin = ids.indexOf('financeiro-skeleton');
+      expect(iOnb).toBeGreaterThan(-1);
+      expect(iFin).toBeGreaterThan(-1);
+      expect(iOnb < iFin).toBe(onboardingAntes);
+      unmount();
+    }
+  });
+
   it('GESTOR: mostra skeleton de 2 cards enquanto o resumo carrega', () => {
     logarComoGestor();
     mockUseResumoFinanceiro.mockReturnValue({
