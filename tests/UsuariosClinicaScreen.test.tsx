@@ -308,3 +308,35 @@ describe('UsuariosClinicaScreen — desativar/reativar', () => {
     await waitFor(() => expect(fb.toasts).toEqual([{ tipo: 'sucesso', texto: 'Usuário reativado' }]));
   });
 });
+
+// BR-CLI-T03 fix wave (I-2): a busca das fichas de veterinário alimenta o modal "Novo usuário".
+// Com a query em erro o modal NÃO pode afirmar "Nenhuma ficha de veterinário cadastrada".
+describe('UsuariosClinicaScreen — modal Novo usuário com a busca de fichas em erro', () => {
+  const FRASE_VAZIO = 'Nenhuma ficha de veterinário cadastrada nesta clínica.';
+  beforeEach(() => seedGestor());
+
+  it('erro: mostra ErrorState com "Tentar de novo" (refetch) e NUNCA a frase de vazio', () => {
+    const refetchVets = jest.fn();
+    mockUseVeterinariosParaSelecaoReturn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch: refetchVets,
+    });
+    const { getByTestId, queryByText, getByText } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getByTestId('btn-novo-usuario'));
+    expect(getByTestId('usuario-form-veterinarios-erro')).toBeTruthy();
+    expect(getByText(/Não foi possível carregar as fichas/)).toBeTruthy();
+    expect(queryByText(FRASE_VAZIO)).toBeNull();
+    fireEvent.press(getByTestId('usuario-form-veterinarios-erro-retry'));
+    expect(refetchVets).toHaveBeenCalledTimes(1);
+  });
+
+  it('controle: sem erro e sem fichas a frase de vazio VERDADEIRA aparece (o teste enxerga a frase)', () => {
+    mockUseVeterinariosParaSelecaoReturn.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: jest.fn() });
+    const { getByTestId, queryByText, queryByTestId } = wrap(<UsuariosClinicaScreen />);
+    fireEvent.press(getByTestId('btn-novo-usuario'));
+    expect(queryByText(FRASE_VAZIO)).toBeTruthy();
+    expect(queryByTestId('usuario-form-veterinarios-erro')).toBeNull();
+  });
+});

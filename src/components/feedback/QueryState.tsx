@@ -16,6 +16,8 @@ export type QueryLike<T> = {
   isLoading: boolean;
   isError: boolean;
   refetch: () => unknown;
+  /** React Query: 'idle' + sem dado = query desabilitada (nada foi pedido). Opcional p/ mocks. */
+  fetchStatus?: 'fetching' | 'paused' | 'idle';
 };
 
 export interface QueryStateProps<T> {
@@ -62,7 +64,7 @@ export function QueryState<T>({
 }: QueryStateProps<T>) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
-  const { data, isLoading, isError, refetch } = query;
+  const { data, isLoading, isError, refetch, fetchStatus } = query;
   const tentar = () => {
     void refetch();
   };
@@ -73,7 +75,11 @@ export function QueryState<T>({
 
   if (data === undefined) {
     if (isError) return <ErrorState titulo={errorTitle} onRetry={tentar} />;
-    // Sem dado, sem erro e sem carga (query desabilitada): nada a afirmar, nem vazio.
+    // Query DESABILITADA (`enabled:false`: sem dado, sem erro, nada em voo): nada foi pedido, então não há
+    // o que carregar nem o que declarar vazio. Skeleton aqui seria spinner eterno anunciado como
+    // "Carregando"; `empty` seria uma afirmação falsa. Renderiza nada (M-2 da G2).
+    if (fetchStatus === 'idle') return <></>;
+    // Sem `fetchStatus` (objeto à mão) ou 'paused' (offline): segue o skeleton, que é o estado honesto.
     return <>{skeleton ?? <Skeleton variant="list" />}</>;
   }
 
