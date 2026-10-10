@@ -194,6 +194,55 @@ const USOS: Uso[] = [
       limiar: BORDA,
     }),
   ),
+  // BR-CLI-T03: QueryState / ErrorState. O ErrorState aparece direto no `bg` da tela e dentro
+  // de KCCard (`surface`, ficha do pet); a faixa "dados salvos" é `infoBg`.
+  ...(['bg', 'surface'] as const).flatMap((fundo): Uso[] => [
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /titulo: \{[^}]*color: colors\.text,/,
+      texto: 'text',
+      fundo,
+    },
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /descricao: \{[^}]*color: colors\.textSoft,/,
+      texto: 'textSoft',
+      fundo,
+    },
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /linhaTexto: \{[^}]*color: colors\.text,/,
+      texto: 'text',
+      fundo,
+    },
+    // M-4 (G2): botão ghost do ErrorState `compacto` (texto `primary`, 4.5) e ícone do bloco
+    // centrado (`textMuteInk`, componente gráfico, limiar 3).
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /variant="ghost"\s*size="sm"\s*onPress=\{onRetry\}/,
+      texto: 'primary',
+      fundo,
+    },
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /<KCIcon name="alert" size=\{40\} color=\{colors\.textMuteInk\}/,
+      texto: 'textMuteInk',
+      fundo,
+      limiar: BORDA,
+    },
+  ]),
+  {
+    arq: 'components/feedback/QueryState.tsx',
+    ancora: /backgroundColor: colors\.infoBg,[\s\S]*faixaTexto: \{[^}]*color: colors\.text,/,
+    texto: 'text',
+    fundo: 'infoBg',
+  },
+  {
+    arq: 'components/feedback/QueryState.tsx',
+    ancora: /backgroundColor: colors\.infoBg,[\s\S]*variant="ghost"[\s\S]*query-state-salvos-retry/,
+    texto: 'primary',
+    fundo: 'infoBg',
+  },
   // I-4: botão secondary "Tentar novamente" dentro do vídeo, com fundo surface próprio.
   {
     arq: TELE,

@@ -9,6 +9,7 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { useBuscarTutores } from '@hooks/useTutores';
 import { useVeterinariosParaSelecao } from '@hooks/useUsuariosClinica';
 import { usePets } from '@hooks/usePets';
@@ -209,7 +210,12 @@ export default function NovoAgendamentoScreen() {
     debounceRef.current = setTimeout(() => setBuscaDebounced(texto.trim()), 300);
   };
 
-  const { data: tutoresEncontrados = [], isLoading: buscandoTutores } = useBuscarTutores(buscaDebounced);
+  const {
+    data: tutoresEncontrados = [],
+    isLoading: buscandoTutores,
+    isError: buscaTutoresFalhou,
+    refetch: refazerBuscaTutores,
+  } = useBuscarTutores(buscaDebounced);
 
   const handleSelecionarTutor = (tutor: TutorBuscaWireDto) => {
     setIdTutor(tutor.id);
@@ -220,13 +226,14 @@ export default function NovoAgendamentoScreen() {
 
   // Pets do tutor selecionado (aberto): filtro em memória sobre a listagem inteira —
   // mesmo padrão de `pets.service.ts::listPets(filtro)`, que já filtra client-side.
-  const { data: todosPets = [] } = usePets();
+  const { data: todosPets = [], isError: petsFalhou, refetch: refazerPets } = usePets();
   const petsDoTutor = useMemo(
     () => (idTutor ? todosPets.filter((p) => p.tutores.some((t) => t.idTutor === idTutor)) : []),
     [todosPets, idTutor],
   );
 
-  const { data: veterinarios = [] } = useVeterinariosParaSelecao();
+  const { data: veterinarios = [], isError: veterinariosFalhou, refetch: refazerVeterinarios } =
+    useVeterinariosParaSelecao();
 
   const observacoesBytes = useMemo(() => contarBytesUtf8(dsObservacoes), [dsObservacoes]);
   const observacoesExcedeu = observacoesBytes > AGENDAMENTO_OBSERVACOES_MAX_BYTES;
@@ -378,6 +385,14 @@ export default function NovoAgendamentoScreen() {
                   testID="search-tutor-novo-agendamento"
                 />
               </View>
+              {buscaTutoresFalhou && (
+                <ErrorState
+                  compacto
+                  titulo="Não foi possível buscar os tutores"
+                  onRetry={() => void refazerBuscaTutores()}
+                  testID="erro-busca-tutores"
+                />
+              )}
               {!buscandoTutores && tutoresEncontrados.length > 0 && (
                 <FlatList
                   data={tutoresEncontrados}
@@ -408,6 +423,14 @@ export default function NovoAgendamentoScreen() {
             </View>
           ) : !idTutor ? (
             <Text style={styles.subtitulo}>{STRINGS.AGENDA_NOVO.SEM_TUTOR_SELECIONADO}</Text>
+          ) : petsFalhou ? (
+            // Erro != "o tutor não tem pet": não afirmar ausência quando a lista não carregou.
+            <ErrorState
+              compacto
+              titulo="Não foi possível carregar os pets"
+              onRetry={() => void refazerPets()}
+              testID="erro-pets"
+            />
           ) : petsDoTutor.length === 0 ? (
             <Text style={styles.subtitulo}>{STRINGS.AGENDA_NOVO.SEM_PET_PARA_TUTOR}</Text>
           ) : (
@@ -432,6 +455,14 @@ export default function NovoAgendamentoScreen() {
         {/* VETERINÁRIO */}
         <View>
           <Text style={styles.sectionLabel}>{STRINGS.AGENDA_NOVO.STEP_VETERINARIO}</Text>
+          {veterinariosFalhou && (
+            <ErrorState
+              compacto
+              titulo="Não foi possível carregar os veterinários"
+              onRetry={() => void refazerVeterinarios()}
+              testID="erro-veterinarios"
+            />
+          )}
           <View style={styles.chipRow}>
             {veterinarios.map((vet) => (
               <KCChip

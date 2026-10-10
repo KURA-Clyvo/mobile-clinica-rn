@@ -10,13 +10,15 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, spacing } from '@theme/tokens';
 import { usePets } from '@hooks/usePets';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { PetListItem } from '@components/domain/PetListItem';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';
@@ -66,6 +68,7 @@ const makeStyles = (colors: typeof lightColors) =>
       right: 24,
       gap: 10,
     },
+    estadoPad: { paddingHorizontal: spacing[4] },
     listContent: {
       paddingBottom: 80,
     },
@@ -80,7 +83,9 @@ export default function PacientesScreen() {
   const [filtro, setFiltro] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data: pets = [], isLoading, refetch } = usePets(filtro || undefined);
+  const petsQuery = usePets(filtro || undefined);
+  const { isLoading, refetch } = petsQuery;
+  const pets = petsQuery.data ?? [];
 
   const handleSearchChange = useCallback((text: string) => {
     setRawSearch(text);
@@ -90,6 +95,7 @@ export default function PacientesScreen() {
     }, 300);
   }, []);
 
+  // Contagem só existe com dado: carregando ou com erro NÃO é "0 pacientes" (BR-CLI-02).
   const countLabel =
     pets.length === 1
       ? STRINGS.PACIENTES.COUNT_SINGULAR
@@ -172,29 +178,39 @@ export default function PacientesScreen() {
         </View>
       </View>
 
-      <View style={styles.countRow}>
-        <Text style={styles.countText}>{countLabel}</Text>
-      </View>
+      <QueryState
+        query={petsQuery}
+        skeleton={<Skeleton variant="list" count={6} style={styles.estadoPad} />}
+        empty={<View style={styles.estadoPad}>{renderEmpty()}</View>}
+        errorTitle="Não foi possível carregar os pacientes"
+      >
+        {() => (
+          <>
+            <View style={styles.countRow}>
+              <Text style={styles.countText}>{countLabel}</Text>
+            </View>
 
-      <FlatList
-        data={pets}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={renderSeparator}
-        ListEmptyComponent={renderEmpty}
-        getItemLayout={getItemLayout}
-        removeClippedSubviews
-        maxToRenderPerBatch={12}
-        initialNumToRender={15}
-        refreshControl={
-          <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
-            tintColor={colors.primary}
-          />
-        }
-        contentContainerStyle={pets.length === 0 ? undefined : styles.listContent}
-      />
+            <FlatList
+              data={pets}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={renderItem}
+              ItemSeparatorComponent={renderSeparator}
+              getItemLayout={getItemLayout}
+              removeClippedSubviews
+              maxToRenderPerBatch={12}
+              initialNumToRender={15}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isLoading}
+                  onRefresh={refetch}
+                  tintColor={colors.primary}
+                />
+              }
+              contentContainerStyle={styles.listContent}
+            />
+          </>
+        )}
+      </QueryState>
 
       <View style={styles.fabContainer}>
         {/* REC-03: entrada real de cadastro de tutor — POST /api/v1/tutores

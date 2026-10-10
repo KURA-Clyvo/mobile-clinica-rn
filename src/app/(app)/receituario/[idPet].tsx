@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
+import { ErrorState } from '@components/feedback/ErrorState';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -191,7 +192,7 @@ export default function ReceituarioScreen() {
     }
   }, [usuario, petId, router]);
 
-  const { data: pet } = usePetDetail(petId);
+  const { data: pet, isError: petFalhou, refetch: refazerPet } = usePetDetail(petId);
   const { mutate: criarPrescricao, isPending: isCriandoPrescricao } = useCriarPrescricao();
   const { mutate: gerarReceituario, isPending: isGerandoReceituario } = useGerarReceituario();
   const { mutate: baixarReceituario, isPending: isBaixandoReceituario } = useBaixarReceituario();
@@ -212,7 +213,7 @@ export default function ReceituarioScreen() {
 
   const isPending = isCriandoPrescricao || isGerandoReceituario;
 
-  const { data: medsData } = useMedicamentos(buscaMed || undefined);
+  const { data: medsData, isError: medsFalhou, refetch: refazerMeds } = useMedicamentos(buscaMed || undefined);
   const medicamentos = medsData?.items ?? [];
   const filteredMeds = buscaMed
     ? medicamentos.filter((m) =>
@@ -369,7 +370,17 @@ export default function ReceituarioScreen() {
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
-          <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>
+          {petFalhou ? (
+            // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
+            <ErrorState
+              compacto
+              titulo="Não foi possível carregar o paciente"
+              onRetry={() => void refazerPet()}
+              testID="erro-pet-header"
+            />
+          ) : (
+            <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>
+          )}
           <Text style={styles.petDate}>{formatDateFull(new Date())}</Text>
         </View>
         <KCIcon name="rx" size={20} color={colors.primary} />
@@ -398,6 +409,14 @@ export default function ReceituarioScreen() {
                   onChangeText={setBuscaMed}
                   testID="search-med"
                 />
+                {medsFalhou && (
+                  <ErrorState
+                    compacto
+                    titulo="Não foi possível buscar os medicamentos"
+                    onRetry={() => void refazerMeds()}
+                    testID="erro-medicamentos"
+                  />
+                )}
                 {filteredMeds.length > 0 && (
                   <FlatList
                     data={filteredMeds.slice(0, 4)}

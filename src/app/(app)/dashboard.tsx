@@ -16,6 +16,8 @@ import { OnboardingChecklist } from '@components/domain/OnboardingChecklist';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCButton } from '@components/primitives/KCButton';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
 import { primeiroNomeDeEmail } from '@utils/perfilUsuario';
@@ -141,18 +143,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     metricsGrid: { gap: 10, marginBottom: 24 },
     metricsRow: { flexDirection: 'row', gap: 10 },
-    skeletonCard: {
-      flex: 1,
-      height: 100,
-      borderRadius: 20,
-      opacity: 0.45,
-    },
-    skeletonRow: {
-      flex: 1,
-      height: 72,
-      borderRadius: 20,
-      opacity: 0.45,
-    },
+    skeletonItem: { flex: 1 },
     listGrid: { gap: 10 },
     listRow: { flexDirection: 'row', gap: 10 },
     listRowItem: { flex: 1 },
@@ -261,8 +252,10 @@ export default function DashboardScreen() {
     isError: erroHoje,
     refetch: refetchHoje,
   } = useDashboardHoje();
-  const { data: alertas, isLoading: loadingAlertas, refetch: refetchAlertas } = useAlertas();
-  const { data: recentes, isLoading: loadingRecentes, refetch: refetchRecentes } = useRecentes();
+  const alertasQuery = useAlertas();
+  const recentesQuery = useRecentes();
+  const { data: alertas, refetch: refetchAlertas } = alertasQuery;
+  const { data: recentes, refetch: refetchRecentes } = recentesQuery;
 
   // FM-07 — `isGestor` decide DUAS coisas independentes, e as duas importam (ver §1 do
   // brief): (1) se o CARD renderiza (abaixo, no JSX) e (2) se o `enabled` do hook chega a
@@ -403,11 +396,7 @@ export default function DashboardScreen() {
           {skeletonMetricRows.map((row, rowIndex) => (
             <View key={rowIndex} style={styles.metricsRow} testID="metrics-skeleton-row">
               {row.map((cardIndex) => (
-                <View
-                  key={cardIndex}
-                  testID="skeleton"
-                  style={[styles.skeletonCard, { backgroundColor: colors.border }]}
-                />
+                <Skeleton key={cardIndex} variant="card" style={styles.skeletonItem} />
               ))}
             </View>
           ))}
@@ -444,29 +433,31 @@ export default function DashboardScreen() {
 
       <View style={styles.sectionBlock}>
         <Text style={styles.sectionTitle}>{STRINGS.dashboard.proximosAtendimentos}</Text>
-        {loadingRecentes ? (
+        <QueryState
+          query={recentesQuery}
+          skeleton={
           <View style={styles.listGrid}>
             {skeletonAppointmentRows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.listRow} testID="appointments-skeleton-row">
                 {row.map((i) => (
-                  <View
-                    key={i}
-                    testID="skeleton"
-                    style={[styles.listRowItem, styles.skeletonRow, { backgroundColor: colors.border }]}
-                  />
+                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
                 ))}
                 {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>
-        ) : recentes == null || recentes.length === 0 ? (
+          }
+          empty={
           <KCEmptyState
             icon="agenda"
             title={STRINGS.dashboard.semAtendimentos}
             description={STRINGS.dashboard.semAtendimentosDesc}
             testID="empty-appointments"
           />
-        ) : (
+          }
+          errorTitle="Não foi possível carregar os atendimentos"
+        >
+          {() => (
           <View style={styles.listGrid}>
             {appointmentRows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.listRow} testID="appointments-row">
@@ -479,34 +470,37 @@ export default function DashboardScreen() {
               </View>
             ))}
           </View>
-        )}
+          )}
+        </QueryState>
       </View>
 
       <View style={styles.sectionBlock}>
         <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
-        {loadingAlertas ? (
+        <QueryState
+          query={alertasQuery}
+          skeleton={
           <View style={styles.listGrid}>
             {skeletonAlertRows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.listRow} testID="alerts-skeleton-row">
                 {row.map((i) => (
-                  <View
-                    key={i}
-                    testID="skeleton"
-                    style={[styles.listRowItem, styles.skeletonRow, { backgroundColor: colors.border }]}
-                  />
+                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
                 ))}
                 {rowSpacers(row.length, listColumns, styles.listRowItem)}
               </View>
             ))}
           </View>
-        ) : alertas == null || alertas.length === 0 ? (
+          }
+          empty={
           <KCEmptyState
             icon="alert"
             title={STRINGS.dashboard.semAlertas}
             description={STRINGS.dashboard.semAlertasDesc}
             testID="empty-alerts"
           />
-        ) : (
+          }
+          errorTitle="Não foi possível carregar os alertas"
+        >
+          {() => (
           <View style={styles.listGrid}>
             {alertRows.map((row, rowIndex) => (
               <View key={rowIndex} style={styles.listRow} testID="alerts-row">
@@ -519,7 +513,8 @@ export default function DashboardScreen() {
               </View>
             ))}
           </View>
-        )}
+          )}
+        </QueryState>
       </View>
 
       {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
@@ -548,8 +543,8 @@ export default function DashboardScreen() {
           )}
           {loadingFinanceiro ? (
             <View style={styles.metricsRow} testID="financeiro-skeleton">
-              <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
-              <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
+              <Skeleton variant="card" style={styles.skeletonItem} />
+              <Skeleton variant="card" style={styles.skeletonItem} />
             </View>
           ) : erroFinanceiro || resumoFinanceiro == null ? (
             // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.

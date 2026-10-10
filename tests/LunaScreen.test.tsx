@@ -495,3 +495,15 @@ describe('LunaScreen — empty state instrutivo (CQ-13)', () => {
     ).toBeTruthy();
   });
 });
+
+describe('LunaScreen — erro nunca vira zero nem vazio (BR-CLI-02)', () => {
+  it('relatório e alertas em erro: sem "Total de triagens: 0" e sem "Nenhum alerta ativo"; 2x Tentar de novo', () => {
+    mockUseRelatorioTriagens.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: jest.fn() });
+    mockUseAlertas.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: jest.fn() });
+    const { queryByTestId, queryByText, getAllByText } = wrap(<LunaScreen />);
+    expect(queryByTestId('total-triagens')).toBeNull();
+    expect(queryByTestId('empty-alertas')).toBeNull();
+    expect(queryByText('Nenhum alerta ativo')).toBeNull();
+    expect(getAllByText('Tentar de novo').length).toBeGreaterThanOrEqual(2);
+  });
+});

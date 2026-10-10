@@ -9,6 +9,7 @@
     "web": "expo start --web --port 8082",
     "build:web": "node scripts/export-web.js",
     "test": "jest",
+    "check:query-state": "node scripts/check-query-state.mjs",
     "test:coverage": "jest --coverage",
     "lint": "eslint src tests --ext .ts,.tsx",
     "generate-types": "expo customize tsconfig.json",

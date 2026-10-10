@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { avisar, confirmar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -75,7 +77,6 @@ const makeStyles = (colors: typeof lightColors) =>
     actionText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary },
     actionTextDanger: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.danger },
     fabContainer: { position: 'absolute', bottom: 24, right: 24 },
-    skeletonCard: { height: 96, borderRadius: 20, opacity: 0.45 },
   });
 
 function badgeToneParaPapel(papel: UsuarioClinicaResponse['tpPerfil']) {
@@ -206,8 +207,13 @@ export default function UsuariosClinicaScreen() {
   // seria UI para um estado que o backend real nunca produz na chamada
   // default (ver usuarios-clinica.mock.ts, ancoragem).
   const [mostrarInativos, setMostrarInativos] = useState(false);
-  const { data: usuarios, isLoading, refetch } = useUsuariosClinica(mostrarInativos);
-  const { data: veterinarios = [] } = useVeterinariosParaSelecao();
+  const usuariosQuery = useUsuariosClinica(mostrarInativos);
+  const { isLoading, refetch } = usuariosQuery;
+  const {
+    data: veterinarios = [],
+    isError: veterinariosFalhou,
+    refetch: refazerVeterinarios,
+  } = useVeterinariosParaSelecao();
   const { mutate: desativar, isPending: desativandoMutation } = useDesativarUsuarioClinica();
   const { mutate: reativar, isPending: reativandoMutation } = useReativarUsuarioClinica();
 
@@ -302,44 +308,45 @@ export default function UsuariosClinicaScreen() {
         </KCChip>
       </View>
 
-      {isLoading ? (
-        <View style={styles.listGrid} testID="usuarios-skeleton">
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              testID="skeleton"
-              style={[styles.skeletonCard, { backgroundColor: colors.border }]}
-            />
-          ))}
-        </View>
-      ) : usuarios == null || usuarios.length === 0 ? (
-        <KCEmptyState
-          icon="patients"
-          title="Nenhum usuário encontrado"
-          description="Cadastre o primeiro usuário da clínica."
-          testID="empty-usuarios"
-        />
-      ) : (
-        <View style={styles.listGrid} testID="usuarios-lista">
-          {usuarios.map((usuario) => (
-            <UsuarioRow
-              key={usuario.id}
-              usuario={usuario}
-              nomeFicha={
-                usuario.idVeterinario != null
-                  ? nomeFichaPorVeterinarioId.get(usuario.idVeterinario)
-                  : undefined
-              }
-              onEditar={() => abrirEditar(usuario)}
-              onTrocarSenha={() => abrirTrocarSenha(usuario)}
-              onDesativar={() => confirmarDesativar(usuario)}
-              onReativar={() => handleReativar(usuario)}
-              desativando={idEmAcao === usuario.id && desativandoMutation}
-              reativando={idEmAcao === usuario.id && reativandoMutation}
-            />
-          ))}
-        </View>
-      )}
+      <QueryState
+        query={usuariosQuery}
+        skeleton={
+          <View style={styles.listGrid} testID="usuarios-skeleton">
+            <Skeleton variant="card" count={3} />
+          </View>
+        }
+        empty={
+          <KCEmptyState
+            icon="patients"
+            title="Nenhum usuário encontrado"
+            description="Cadastre o primeiro usuário da clínica."
+            testID="empty-usuarios"
+          />
+        }
+        errorTitle="Não foi possível carregar os usuários"
+      >
+        {(usuarios) => (
+          <View style={styles.listGrid} testID="usuarios-lista">
+            {usuarios.map((usuario) => (
+              <UsuarioRow
+                key={usuario.id}
+                usuario={usuario}
+                nomeFicha={
+                  usuario.idVeterinario != null
+                    ? nomeFichaPorVeterinarioId.get(usuario.idVeterinario)
+                    : undefined
+                }
+                onEditar={() => abrirEditar(usuario)}
+                onTrocarSenha={() => abrirTrocarSenha(usuario)}
+                onDesativar={() => confirmarDesativar(usuario)}
+                onReativar={() => handleReativar(usuario)}
+                desativando={idEmAcao === usuario.id && desativandoMutation}
+                reativando={idEmAcao === usuario.id && reativandoMutation}
+              />
+            ))}
+          </View>
+        )}
+      </QueryState>
 
       <View style={styles.fabContainer}>
         <KCButton variant="primary" size="md" onPress={abrirCriar} testID="btn-novo-usuario">
@@ -357,6 +364,8 @@ export default function UsuariosClinicaScreen() {
         onClose={() => setFormVisible(false)}
         usuario={editando}
         veterinarios={veterinarios}
+        veterinariosErro={veterinariosFalhou}
+        onRetryVeterinarios={() => void refazerVeterinarios()}
       />
 
       <TrocarSenhaModal

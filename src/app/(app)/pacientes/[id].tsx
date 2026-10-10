@@ -21,6 +21,9 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { racaToPalette } from '@utils/mappers';
 import { calcularIdade, formatDateShort } from '@utils/date';
@@ -116,46 +119,35 @@ function TimelineItemRow({
 }
 
 function TimelineTab({ id, colors }: { id: number; colors: typeof lightColors }) {
-  const { data = [], isLoading } = usePetTimeline(id);
-
-  if (isLoading) {
-    return (
-      <View style={{ padding: 16, gap: 12 }}>
-        {[1, 2, 3].map((k) => (
-          <View key={k} style={{ flexDirection: 'row', gap: 12 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.bgSunk, opacity: 0.4 }} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <View style={{ height: 14, backgroundColor: colors.bgSunk, borderRadius: 6, opacity: 0.4 }} />
-              <View style={{ height: 12, width: '60%', backgroundColor: colors.bgSunk, borderRadius: 6, opacity: 0.4 }} />
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <KCEmptyState
-        icon="paw"
-        title={STRINGS.PACIENTES.EMPTY_TIMELINE}
-        description={STRINGS.PACIENTES.EMPTY_TIMELINE_DESC}
-        testID="empty-timeline"
-      />
-    );
-  }
+  const timelineQuery = usePetTimeline(id);
 
   return (
-    <View>
-      {data.map((evento, index) => (
-        <TimelineItemRow
-          key={evento.idEventoClinico}
-          evento={evento}
-          isLast={index === data.length - 1}
-          colors={colors}
+    <QueryState
+      query={timelineQuery}
+      skeleton={<Skeleton variant="list" count={3} />}
+      empty={
+        <KCEmptyState
+          icon="paw"
+          title={STRINGS.PACIENTES.EMPTY_TIMELINE}
+          description={STRINGS.PACIENTES.EMPTY_TIMELINE_DESC}
+          testID="empty-timeline"
         />
-      ))}
-    </View>
+      }
+      errorTitle="Não foi possível carregar o histórico"
+    >
+      {(data) => (
+        <View>
+          {data.map((evento, index) => (
+            <TimelineItemRow
+              key={evento.idEventoClinico}
+              evento={evento}
+              isLast={index === data.length - 1}
+              colors={colors}
+            />
+          ))}
+        </View>
+      )}
+    </QueryState>
   );
 }
 
@@ -264,7 +256,7 @@ export default function PacienteDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('timeline');
 
-  const { data: pet, isLoading, isError } = usePetDetail(petId);
+  const { data: pet, isLoading, isError, refetch: refetchPet } = usePetDetail(petId);
   const uploadFotoMutation = useUploadFotoPet();
 
   if (isLoading) {
@@ -289,13 +281,10 @@ export default function PacienteDetailScreen() {
           <View style={[styles.skeletonText, { width: 80, marginTop: 6 }]} />
         </View>
         <View style={styles.actionRow}>
-          {[1, 2, 3].map((k) => (
-            <View key={k} style={[styles.skeletonText, { width: 80, height: 36, borderRadius: 10 }]} />
-          ))}
+          <Skeleton variant="line" count={3} style={{ width: 80 }} />
         </View>
         <KCCard style={{ margin: 16 }}>
-          <View style={[styles.skeletonText, { width: '70%', marginBottom: 8 }]} />
-          <View style={[styles.skeletonText, { width: '50%' }]} />
+          <Skeleton variant="line" count={2} />
         </KCCard>
       </ScreenContainer>
     );
@@ -305,8 +294,21 @@ export default function PacienteDetailScreen() {
     return (
       <ScreenContainer scroll={false} style={{ justifyContent: 'center' }}>
         <KCCard style={styles.errorCard}>
-          <KCIcon name="alert" size={40} color={colors.danger} />
-          <Text style={styles.errorText}>Paciente não encontrado</Text>
+          {isError ? (
+            // BR-CLI-02: rede fora e 404 chegam aqui como `isError` — a frase não pode afirmar
+            // "não encontrado" quando só não conseguimos perguntar.
+            <ErrorState
+              titulo="Não foi possível carregar o paciente"
+              onRetry={() => {
+                void refetchPet();
+              }}
+            />
+          ) : (
+            <>
+              <KCIcon name="alert" size={40} color={colors.danger} />
+              <Text style={styles.errorText}>Paciente não encontrado</Text>
+            </>
+          )}
           <KCButton variant="secondary" size="sm" onPress={() => router.back()}>
             {STRINGS.acoes.voltar}
           </KCButton>

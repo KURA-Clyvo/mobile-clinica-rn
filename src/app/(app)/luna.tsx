@@ -12,6 +12,8 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
@@ -234,12 +236,6 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.textSoft,
       marginTop: 8,
     },
-    skeletonRow: {
-      height: 36,
-      borderRadius: 8,
-      marginBottom: 6,
-      opacity: 0.45,
-    },
     alertasSection: { paddingHorizontal: 16, marginTop: 16, marginBottom: 24 },
     alertasTitle: {
       fontFamily: 'Lexend_500Medium',
@@ -328,17 +324,20 @@ export default function LunaScreen() {
   // o mesmo par dataInicio/dataFim.
   const { dataInicio, dataFim } = calcularIntervaloPeriodo(periodo);
 
-  const { data: health } = useLunaHealth();
-  const { data: relatorio, isLoading: loadingRelatorio } = useRelatorioTriagens({
+  // `isError` do health: o service já devolve 'indisponivel' quando a chamada falha, mas se a
+  // própria query errar (ex.: exceção fora do service) o status NÃO pode ficar em "Online".
+  const { data: health, isError: healthComErro } = useLunaHealth();
+  const relatorioQuery = useRelatorioTriagens({
     dataInicio,
     dataFim,
   });
+  const { data: relatorio } = relatorioQuery;
   const {
     data: fila,
     isLoading: loadingFila,
     isError: filaComErro,
   } = useTriagens({ dataInicio, dataFim, pageSize: 20 });
-  const { data: alertas } = useAlertas();
+  const alertasQuery = useAlertas();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -400,7 +399,7 @@ export default function LunaScreen() {
   // Luna fora do ar (indisponível — falha de rede/timeout genuína) cai no ramo visual
   // "Offline": vermelho. Nunca acessa oracle/kura_api sem antes confirmar que a união
   // não é {status:'indisponivel'}.
-  const healthUp = isLunaHealthUp(health);
+  const healthUp = !healthComErro && isLunaHealthUp(health);
 
   // CQ-09: /ready devolve HTTP 503 (corpo ainda válido, não falha de rede) quando algo
   // está degradado — httpStatus carrega essa distinção desde luna.service.ts. Reforça
@@ -486,13 +485,7 @@ export default function LunaScreen() {
       </View>
       {loadingFila ? (
         <KCCard style={styles.reportCard}>
-          {[0, 1].map((i) => (
-            <View
-              key={i}
-              testID="skeleton-fila"
-              style={[styles.skeletonRow, { backgroundColor: colors.border }]}
-            />
-          ))}
+          <Skeleton variant="line" count={2} testID="skeleton-fila" />
         </KCCard>
       ) : filaComErro ? (
         // Erro de rede != estado vazio — nunca mostrar "nenhuma mensagem" quando a
@@ -623,17 +616,14 @@ export default function LunaScreen() {
       </View>
 
       <KCCard style={styles.reportCard}>
-        {loadingRelatorio ? (
-          <>
-            {[0, 1, 2, 3].map((i) => (
-              <View
-                key={i}
-                testID="skeleton"
-                style={[styles.skeletonRow, { backgroundColor: colors.border }]}
-              />
-            ))}
-          </>
-        ) : (
+        <QueryState
+          query={relatorioQuery}
+          isEmpty={() => false}
+          skeleton={<Skeleton variant="line" count={4} />}
+          empty={null}
+          errorTitle="Não foi possível carregar o relatório de triagens"
+        >
+          {() => (
           <>
             <Text style={styles.totalText} testID="total-triagens">
               {STRINGS.LUNA.TOTAL_TRIAGENS(total)}
@@ -671,22 +661,33 @@ export default function LunaScreen() {
               </Text>
             )}
           </>
-        )}
+          )}
+        </QueryState>
       </KCCard>
 
       {/* ALERTAS */}
       <View style={styles.alertasSection}>
         <Text style={styles.alertasTitle}>{STRINGS.LUNA.ALERTAS_TITLE}</Text>
-        {alertas == null || alertas.length === 0 ? (
-          <KCEmptyState
-            icon="alert"
-            title={STRINGS.LUNA.EMPTY_ALERTAS}
-            description={STRINGS.LUNA.EMPTY_ALERTAS_DESC}
-            testID="empty-alertas"
-          />
-        ) : (
-          alertas.map((alerta) => <AlertCard key={alerta.id} alerta={alerta} />)
-        )}
+        <QueryState
+          query={alertasQuery}
+          empty={
+            <KCEmptyState
+              icon="alert"
+              title={STRINGS.LUNA.EMPTY_ALERTAS}
+              description={STRINGS.LUNA.EMPTY_ALERTAS_DESC}
+              testID="empty-alertas"
+            />
+          }
+          errorTitle="Não foi possível carregar os alertas"
+        >
+          {(alertas) => (
+            <>
+              {alertas.map((alerta) => (
+                <AlertCard key={alerta.id} alerta={alerta} />
+              ))}
+            </>
+          )}
+        </QueryState>
       </View>
     </ScreenContainer>
   );

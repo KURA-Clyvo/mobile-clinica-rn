@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { avisar, confirmar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -67,7 +69,6 @@ const makeStyles = (colors: typeof lightColors) =>
     badgeRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
     actionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
     fabContainer: { position: 'absolute', bottom: 24, right: 24 },
-    skeletonCard: { height: 96, borderRadius: 20, opacity: 0.45 },
   });
 
 interface ServicoPrecoRowProps {
@@ -154,7 +155,8 @@ export default function ServicosPrecoScreen() {
   const podeVer = useRequireGestor();
 
   const [mostrarInativos, setMostrarInativos] = useState(false);
-  const { data: servicos, isLoading, refetch } = useServicosPreco(mostrarInativos);
+  const servicosQuery = useServicosPreco(mostrarInativos);
+  const { isLoading, refetch } = servicosQuery;
   const { mutate: desativar, isPending: desativandoMutation } = useDesativarServicoPreco();
   const { mutate: reativar, isPending: reativandoMutation } = useReativarServicoPreco();
 
@@ -240,38 +242,39 @@ export default function ServicosPrecoScreen() {
         </KCChip>
       </View>
 
-      {isLoading ? (
-        <View style={styles.listGrid} testID="servicos-preco-skeleton">
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              testID="skeleton"
-              style={[styles.skeletonCard, { backgroundColor: colors.border }]}
-            />
-          ))}
-        </View>
-      ) : servicos == null || servicos.length === 0 ? (
-        <KCEmptyState
-          icon="dashboard"
-          title="Nenhum serviço cadastrado"
-          description="Cadastre o primeiro item da tabela de preços."
-          testID="empty-servicos-preco"
-        />
-      ) : (
-        <View style={styles.listGrid} testID="servicos-preco-lista">
-          {servicos.map((servico) => (
-            <ServicoPrecoRow
-              key={servico.id}
-              servico={servico}
-              onEditar={() => abrirEditar(servico)}
-              onDesativar={() => confirmarDesativar(servico)}
-              onReativar={() => handleReativar(servico)}
-              desativando={idEmAcao === servico.id && desativandoMutation}
-              reativando={idEmAcao === servico.id && reativandoMutation}
-            />
-          ))}
-        </View>
-      )}
+      <QueryState
+        query={servicosQuery}
+        skeleton={
+          <View style={styles.listGrid} testID="servicos-preco-skeleton">
+            <Skeleton variant="card" count={3} />
+          </View>
+        }
+        empty={
+          <KCEmptyState
+            icon="dashboard"
+            title="Nenhum serviço cadastrado"
+            description="Cadastre o primeiro item da tabela de preços."
+            testID="empty-servicos-preco"
+          />
+        }
+        errorTitle="Não foi possível carregar a tabela de preços"
+      >
+        {(servicos) => (
+          <View style={styles.listGrid} testID="servicos-preco-lista">
+            {servicos.map((servico) => (
+              <ServicoPrecoRow
+                key={servico.id}
+                servico={servico}
+                onEditar={() => abrirEditar(servico)}
+                onDesativar={() => confirmarDesativar(servico)}
+                onReativar={() => handleReativar(servico)}
+                desativando={idEmAcao === servico.id && desativandoMutation}
+                reativando={idEmAcao === servico.id && reativandoMutation}
+              />
+            ))}
+          </View>
+        )}
+      </QueryState>
 
       <View style={styles.fabContainer}>
         <KCButton variant="primary" size="md" onPress={abrirCriar} testID="btn-novo-servico">

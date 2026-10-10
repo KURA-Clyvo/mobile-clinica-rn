@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
@@ -100,7 +101,12 @@ export default function NovoPacienteScreen() {
   const [mensagemSemConta, setMensagemSemConta] = useState<string | null>(null);
   const { mutate: reemitir, isPending: gerandoConvite } = useReemitirConvite();
 
-  const { data: tutores = [], isLoading } = useBuscarTutores(buscaDebounced);
+  const {
+    data: tutores = [],
+    isLoading,
+    isError: buscaFalhou,
+    refetch: refazerBusca,
+  } = useBuscarTutores(buscaDebounced);
 
   // Mesmo espírito do C-1 da REC-03 (tutores/novo.tsx): zera tudo ao perder
   // o foco, pra próxima visita começar sempre do zero.
@@ -251,7 +257,16 @@ export default function NovoPacienteScreen() {
           <Text style={styles.subtitulo}>Digite ao menos 2 caracteres para buscar.</Text>
         )}
 
-        {buscaDebounced.length >= 2 && !isLoading && tutores.length === 0 && (
+        {buscaDebounced.length >= 2 && buscaFalhou && (
+          // Erro != "nenhum tutor": não afirmar ausência quando a busca nem chegou ao servidor.
+          <ErrorState
+            titulo="Não foi possível buscar os tutores"
+            onRetry={() => void refazerBusca()}
+            testID="erro-busca-tutor"
+          />
+        )}
+
+        {buscaDebounced.length >= 2 && !isLoading && !buscaFalhou && tutores.length === 0 && (
           <KCEmptyState
             icon="patients"
             title="Nenhum tutor encontrado"

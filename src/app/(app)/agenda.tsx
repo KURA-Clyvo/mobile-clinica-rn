@@ -18,6 +18,8 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { QueryState } from '@components/feedback/QueryState';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AgendamentoStatusMenu } from '@components/domain/AgendamentoStatusMenu';
 import { getTransicoesPermitidas } from '@services/agenda.service';
@@ -119,12 +121,6 @@ const makeStyles = (colors: typeof lightColors) =>
     listContent: {
       padding: 16,
       paddingBottom: 32,
-    },
-    skeletonRow: {
-      height: 80,
-      borderRadius: 20,
-      marginBottom: 10,
-      opacity: 0.45,
     },
     apptCard: { marginBottom: 10 },
     apptRow: { flexDirection: 'row', gap: 12 },
@@ -729,7 +725,8 @@ export default function AgendaScreen() {
   const [statusMenuAppointment, setStatusMenuAppointment] =
     React.useState<AgendamentoResponse | null>(null);
 
-  const { data, isLoading, semanaStart, semanaEnd, refetch } = useAgendaSemana(semanaBase);
+  const semanaQuery = useAgendaSemana(semanaBase);
+  const { data, isLoading, semanaStart, semanaEnd, refetch } = semanaQuery;
 
   // REC-12 — hooks sempre chamados incondicionalmente (regra dos hooks),
   // mesmo quando `modo === 'semana'` — mesmo padrão já usado por
@@ -983,32 +980,32 @@ export default function AgendaScreen() {
               />
             }
           >
-            {isLoading ? (
-              <>
-                {[0, 1, 2, 3].map((i) => (
-                  <View
-                    key={i}
-                    testID="skeleton"
-                    style={[styles.skeletonRow, { backgroundColor: colors.border }]}
-                  />
-                ))}
-              </>
-            ) : appointmentsForDay.length === 0 ? (
-              <KCEmptyState
-                icon="agenda"
-                title={STRINGS.agenda.semConsultas}
-                description={STRINGS.agenda.semConsultasDesc}
-                testID="empty-agenda"
-              />
-            ) : (
-              appointmentsForDay.map((a) => (
-                <AgendaAppointmentCard
-                  key={a.id}
-                  appointment={a}
-                  onAbrirStatusMenu={setStatusMenuAppointment}
+            <QueryState
+              query={semanaQuery}
+              isEmpty={() => appointmentsForDay.length === 0}
+              skeleton={<Skeleton variant="list" count={4} />}
+              empty={
+                <KCEmptyState
+                  icon="agenda"
+                  title={STRINGS.agenda.semConsultas}
+                  description={STRINGS.agenda.semConsultasDesc}
+                  testID="empty-agenda"
                 />
-              ))
-            )}
+              }
+              errorTitle="Não foi possível carregar a agenda da semana"
+            >
+              {() => (
+                <>
+                  {appointmentsForDay.map((a) => (
+                    <AgendaAppointmentCard
+                      key={a.id}
+                      appointment={a}
+                      onAbrirStatusMenu={setStatusMenuAppointment}
+                    />
+                  ))}
+                </>
+              )}
+            </QueryState>
           </ScrollView>
 
           <AgendamentoStatusMenu
@@ -1038,15 +1035,7 @@ export default function AgendaScreen() {
           }
         >
           {isLoadingHoje ? (
-            <>
-              {[0, 1, 2, 3].map((i) => (
-                <View
-                  key={i}
-                  testID="skeleton"
-                  style={[styles.skeletonRow, { backgroundColor: colors.border }]}
-                />
-              ))}
-            </>
+            <Skeleton variant="list" count={4} />
           ) : isErrorHoje ? (
             // Fix wave G2 (m-3, P2): erro de rede antes disto renderizava o
             // MESMO `empty-agenda` do estado vazio legítimo — "nenhuma

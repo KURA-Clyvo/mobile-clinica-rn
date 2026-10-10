@@ -238,7 +238,7 @@ describe('PatientDetailScreen', () => {
   it('shows error state with back button on invalid id', () => {
     mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: false, isError: true });
     const { getByText } = wrap(<PatientDetailScreen />);
-    expect(getByText('Paciente não encontrado')).toBeTruthy();
+    expect(getByText('Não foi possível carregar o paciente')).toBeTruthy();
     const backBtn = getByText('Voltar');
     fireEvent.press(backBtn);
     expect(mockBack).toHaveBeenCalled();
@@ -315,5 +315,15 @@ describe('PatientDetailScreen — ScreenContainer adoption (CQ-15)', () => {
     const inner = getByTestId('screen-container-content');
     const flatStyle = StyleSheet.flatten(inner.props.style) as { justifyContent?: string };
     expect(flatStyle.justifyContent).toBe('center');
+  });
+});
+
+describe('PatientDetailScreen — histórico em erro (BR-CLI-02)', () => {
+  it('erro da timeline NUNCA vira "Nenhum evento registrado"; oferece Tentar de novo', () => {
+    mockUsePetTimeline.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: jest.fn() });
+    const { queryByTestId, queryByText, getByText } = wrap(<PatientDetailScreen />);
+    expect(queryByTestId('empty-timeline')).toBeNull();
+    expect(queryByText('Nenhum evento registrado')).toBeNull();
+    expect(getByText('Tentar de novo')).toBeTruthy();
   });
 });

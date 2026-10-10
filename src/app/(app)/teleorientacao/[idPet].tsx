@@ -141,7 +141,9 @@ export default function TeleorientacaoScreen() {
 
   const sala = criarSalaMutation.data ?? salaQuery.data;
   const erro = (criarSalaMutation.error ?? salaQuery.error) as unknown as ApiError | undefined;
-  const carregando = salaQuery.isLoading || criarSalaMutation.isPending;
+  // `isError` da query explícito: com a sala em erro não há "carregando" (BR-CLI-02).
+  const salaComErro = salaQuery.isError;
+  const carregando = (salaQuery.isLoading && !salaComErro) || criarSalaMutation.isPending;
 
   const handleEntrarNaSala = () => {
     if (sala?.dsSalaUrl) {

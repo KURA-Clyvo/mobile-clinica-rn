@@ -192,4 +192,23 @@ describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
     const flatStyle = StyleSheet.flatten(inner.props.style) as { paddingHorizontal?: number };
     expect(flatStyle.paddingHorizontal).toBe(0);
   });
+
+  // BR-CLI-02: erro e carregamento NUNCA viram "0 pacientes / Nenhum paciente cadastrado".
+  it('carregando: skeleton, sem contagem nem frase de vazio', () => {
+    mockUsePets.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: MOCK_REFETCH });
+    const { queryByText, getAllByTestId } = wrap(<PacientesScreen />);
+    expect(getAllByTestId('skeleton').length).toBeGreaterThan(0);
+    expect(queryByText('Nenhum paciente cadastrado')).toBeNull();
+    expect(queryByText(/^0 pacientes/)).toBeNull();
+  });
+
+  it('erro sem dado: ErrorState com "Tentar de novo" (refetch); nenhuma frase de vazio', () => {
+    mockUsePets.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: MOCK_REFETCH });
+    const { queryByText, getByText } = wrap(<PacientesScreen />);
+    expect(queryByText('Nenhum paciente cadastrado')).toBeNull();
+    expect(queryByText('Nenhum paciente encontrado')).toBeNull();
+    expect(queryByText(/^0 pacientes/)).toBeNull();
+    fireEvent.press(getByText('Tentar de novo'));
+    expect(MOCK_REFETCH).toHaveBeenCalledTimes(1);
+  });
 });
