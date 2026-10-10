@@ -115,26 +115,26 @@ describe('Voltar com roteador real', () => {
     const r = renderRouter(ROTAS, { initialUrl: url });
     await waitFor(() => expect(screen.getAllByTestId('app-header-back').length).toBeGreaterThan(0));
     voltar();
-    await waitFor(() => expect(r).toHavePathname(pai));
+    await waitFor(() => expect(r.getPathname()).toBe(pai));
   });
 
   it('(b) lista → ficha → consulta → Voltar ⇒ ficha; Voltar ⇒ lista', async () => {
     const r = renderRouter(ROTAS, { initialUrl: '/pacientes' });
     fireEvent.press(await screen.findByTestId('abrir-ficha'));
-    await waitFor(() => expect(r).toHavePathname('/pacientes/7'));
+    await waitFor(() => expect(r.getPathname()).toBe('/pacientes/7'));
     fireEvent.press(screen.getByTestId('abrir-consulta'));
-    await waitFor(() => expect(r).toHavePathname('/consulta/7'));
+    await waitFor(() => expect(r.getPathname()).toBe('/consulta/7'));
     voltar();
-    await waitFor(() => expect(r).toHavePathname('/pacientes/7'));
+    await waitFor(() => expect(r.getPathname()).toBe('/pacientes/7'));
     voltar();
-    await waitFor(() => expect(r).toHavePathname('/pacientes'));
+    await waitFor(() => expect(r.getPathname()).toBe('/pacientes'));
   });
 
   it('(c) agenda → consulta → Voltar ⇒ agenda', async () => {
     const r = renderRouter(ROTAS, { initialUrl: '/agenda' });
     fireEvent.press(await screen.findByTestId('abrir-prontuario'));
-    await waitFor(() => expect(r).toHavePathname('/consulta/7'));
+    await waitFor(() => expect(r.getPathname()).toBe('/consulta/7'));
     voltar();
-    await waitFor(() => expect(r).toHavePathname('/agenda'));
+    await waitFor(() => expect(r.getPathname()).toBe('/agenda'));
   });
 });
