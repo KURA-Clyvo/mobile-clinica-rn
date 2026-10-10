@@ -424,6 +424,8 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
     <View style={styles.modoToggleRow}>
       <TouchableOpacity
         accessibilityRole="tab"
+        accessibilityState={{ selected: modo === 'semana' }}
+        aria-selected={modo === 'semana'}
         testID="btn-modo-semana"
         accessibilityLabel="Ver agenda da semana"
         style={[styles.modoBtn, modo === 'semana' && styles.modoBtnActive]}
@@ -435,6 +437,8 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
       </TouchableOpacity>
       <TouchableOpacity
         accessibilityRole="tab"
+        accessibilityState={{ selected: modo === 'hoje' }}
+        aria-selected={modo === 'hoje'}
         testID="btn-modo-hoje"
         accessibilityLabel="Ver agenda de hoje"
         style={[styles.modoBtn, modo === 'hoje' && styles.modoBtnActive]}
@@ -953,6 +957,8 @@ export default function AgendaScreen() {
               return (
                 <TouchableOpacity
                   accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  aria-selected={selected}
                   key={i}
                   onPress={() => setSelectedDay(day)}
                   testID={`day-tab-${i}`}

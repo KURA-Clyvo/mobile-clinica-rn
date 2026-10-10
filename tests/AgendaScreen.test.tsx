@@ -1247,3 +1247,38 @@ describe('AgendaScreen — selo da resposta do tutor (REC-17)', () => {
     });
   });
 });
+
+// BR-CLI-T05 fix wave (G2 M-2) — `role="tab"` promete "aba selecionada/não selecionada": o estado tem de existir.
+describe('AgendaScreen — abas anunciam qual está selecionada (role tab + estado)', () => {
+  const selecionada = (el: { props: { accessibilityState?: { selected?: boolean } } }) =>
+    el.props.accessibilityState?.selected;
+
+  it('modo Semana/Hoje: exatamente uma aba selecionada, e ela troca ao alternar', () => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    mockUseAgendaHoje.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH_HOJE,
+      dataHoje: '2026-09-28',
+    });
+    const { getByTestId } = wrap(<AgendaScreen />);
+    expect(selecionada(getByTestId('btn-modo-semana'))).toBe(true);
+    expect(selecionada(getByTestId('btn-modo-hoje'))).toBe(false);
+    fireEvent.press(getByTestId('btn-modo-hoje'));
+    expect(selecionada(getByTestId('btn-modo-semana'))).toBe(false);
+    expect(selecionada(getByTestId('btn-modo-hoje'))).toBe(true);
+  });
+
+  it('abas de dia: exatamente uma selecionada (hoje) e a seleção acompanha o toque', () => {
+    mockUseAgendaSemana.mockReturnValue(makeDefaultHookReturn([]));
+    const { getAllByTestId } = wrap(<AgendaScreen />);
+    const estados = () => [0, 1, 2, 3, 4, 5, 6].map((i) => selecionada(getAllByTestId(`day-tab-${i}`)[0]!));
+    expect(estados().filter((s) => s === true)).toHaveLength(1);
+    expect(estados().filter((s) => s === false)).toHaveLength(6);
+    const alvo = estados().indexOf(true) === 6 ? 0 : 6;
+    fireEvent.press(getAllByTestId(`day-tab-${alvo}`)[0]!);
+    expect(estados().filter((s) => s === true)).toHaveLength(1);
+    expect(estados()[alvo]).toBe(true);
+  });
+});
