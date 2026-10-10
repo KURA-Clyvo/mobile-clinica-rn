@@ -1,18 +1,16 @@
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useDashboardHoje, useAlertas, useRecentes } from '../src/hooks/useDashboard';
+import { useDashboardHoje, useAlertas } from '../src/hooks/useDashboard';
 import * as dashboardService from '../src/services/dashboard.service';
 
 jest.mock('@services/dashboard.service', () => ({
   getHoje: jest.fn(),
   getAlertas: jest.fn(),
-  getRecentes: jest.fn(),
 }));
 
 const mockGetHoje = dashboardService.getHoje as jest.Mock;
 const mockGetAlertas = dashboardService.getAlertas as jest.Mock;
-const mockGetRecentes = dashboardService.getRecentes as jest.Mock;
 
 function makeWrapper() {
   const qc = new QueryClient({
@@ -87,26 +85,6 @@ describe('useAlertas', () => {
   });
 });
 
-describe('useRecentes', () => {
-  it('returns data with valid sgStatus values', async () => {
-    // FM-04: acompanha StatusAgendamentoApp (utils/statusAgendamento.ts) —
-    // 'EM_ANDAMENTO' nunca foi um valor real, era artefato da tradução antiga.
-    const validStatuses = ['AGENDADA', 'CONFIRMADA', 'CONCLUIDA', 'CANCELADA', 'NAO_COMPARECEU'];
-    const mockRecentes = [
-      { id: 101, nmPet: 'Thor', nmTutor: 'Carlos', dtAgendamento: new Date().toISOString(), nmTipoConsulta: 'Retorno', sgStatus: 'AGENDADA' as const },
-      { id: 102, nmPet: 'Mel', nmTutor: 'Patrícia', dtAgendamento: new Date().toISOString(), nmTipoConsulta: 'Vacina', sgStatus: 'CONCLUIDA' as const },
-    ];
-    mockGetRecentes.mockResolvedValue(mockRecentes);
-
-    const { result } = renderHook(() => useRecentes(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    result.current.data?.forEach((item) => {
-      expect(validStatuses).toContain(item.sgStatus);
-    });
-  });
-});
-
 describe('error handling', () => {
   it('useDashboardHoje sets isError=true and data=undefined on API failure', async () => {
     mockGetHoje.mockRejectedValue(new Error('Network error'));
@@ -131,12 +109,12 @@ describe('error handling', () => {
 
 describe('refetch', () => {
   it('refetch triggers a new service call', async () => {
-    mockGetRecentes.mockResolvedValue([]);
+    mockGetAlertas.mockResolvedValue([]);
 
-    const { result } = renderHook(() => useRecentes(), { wrapper: makeWrapper() });
+    const { result } = renderHook(() => useAlertas(), { wrapper: makeWrapper() });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await result.current.refetch();
-    expect(mockGetRecentes).toHaveBeenCalledTimes(2);
+    expect(mockGetAlertas).toHaveBeenCalledTimes(2);
   });
 });
