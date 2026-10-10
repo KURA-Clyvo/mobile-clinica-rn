@@ -215,6 +215,21 @@ const USOS: Uso[] = [
       texto: 'text',
       fundo,
     },
+    // M-4 (G2): botão ghost do ErrorState `compacto` (texto `primary`, 4.5) e ícone do bloco
+    // centrado (`textMuteInk`, componente gráfico, limiar 3).
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /variant="ghost"\s*size="sm"\s*onPress=\{onRetry\}/,
+      texto: 'primary',
+      fundo,
+    },
+    {
+      arq: 'components/feedback/ErrorState.tsx',
+      ancora: /<KCIcon name="alert" size=\{40\} color=\{colors\.textMuteInk\}/,
+      texto: 'textMuteInk',
+      fundo,
+      limiar: BORDA,
+    },
   ]),
   {
     arq: 'components/feedback/QueryState.tsx',
