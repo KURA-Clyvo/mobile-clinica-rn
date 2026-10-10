@@ -45,6 +45,10 @@ jobs:
       - name: Test
         run: npm test -- --watchAll=false
 
+      # BR-CLI-T03 (gate 2): tela que le dado de servidor sem tratar o erro mente "vazio".
+      - name: Query state gate
+        run: npm run check:query-state
+
       - name: Lint
         run: npm run lint
 
