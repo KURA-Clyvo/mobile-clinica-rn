@@ -1,7 +1,9 @@
 import React from 'react';
 import { Animated, Text } from 'react-native';
-import { act, render } from '@testing-library/react-native';
-import { ThemeProvider, lightColors } from '../src/theme';
+import { spawnSync } from 'child_process';
+import { join } from 'path';
+import { act, render, within } from '@testing-library/react-native';
+import { ThemeProvider, lightColors, darkColors } from '../src/theme';
 import { Abertura, PLANO_ABERTURA } from '../src/components/brand/Abertura';
 import { KuraMark } from '../src/components/brand/KuraMark';
 
@@ -16,10 +18,10 @@ jest.mock('expo-router', () => ({
   SplashScreen: { hideAsync: () => mockHideAsync(), preventAutoHideAsync: jest.fn() },
 }));
 
-function montar(onTerminou?: () => void) {
+function montar() {
   return render(
     <ThemeProvider>
-      <Abertura onTerminou={onTerminou} />
+      <Abertura />
     </ThemeProvider>,
   );
 }
@@ -43,19 +45,18 @@ describe('Abertura', () => {
     expect(PLANO_ABERTURA.fadeReduzidoMs).toBeLessThanOrEqual(150);
   });
 
-  it('termina sozinha em no máximo 600 ms', () => {
-    const fim = jest.fn();
-    montar(fim);
-    avancar(599);
-    expect(fim).not.toHaveBeenCalled();
-    avancar(1); // 600 ms no total: o teto
-    expect(fim).toHaveBeenCalledTimes(1);
+  it('termina sozinha em no máximo 600 ms: nenhum passo agendado além do teto', () => {
+    const r = montar();
+    const base = lightColors.primary;
+    avancar(PLANO_ABERTURA.fimMs);
+    expect(jest.getTimerCount()).toBe(0);
+    expect(patas(r)).toEqual([base, base, base]);
   });
 
   it('as 3 patas acendem em sequência (meio, depois laterais) e voltam à cor do símbolo', () => {
     const r = montar();
     const base = lightColors.primary;
-    const ambar = lightColors.amber;
+    const ambar = lightColors.amberInk; // tinta de ícone do DS (M5): amber puro dá 2,5:1 sobre o corpo
     expect(patas(r)).toEqual([base, base, base]); // primeiro quadro = splash
     avancar(PLANO_ABERTURA.pataCentralMs);
     expect(patas(r)).toEqual([ambar, base, base]);
@@ -82,8 +83,7 @@ describe('Abertura', () => {
   it('Reduce Motion: as patas nunca acendem; só a opacidade anima e acaba em no máximo 150 ms', () => {
     mockReduzir = true;
     const timing = jest.spyOn(Animated, 'timing');
-    const fim = jest.fn();
-    const r = montar(fim);
+    const r = montar();
     const base = lightColors.primary;
     // Única animação: opacidade, com duração <= 150 ms, e nenhuma etapa de pata agendada.
     expect(timing).toHaveBeenCalledTimes(1);
@@ -92,20 +92,17 @@ describe('Abertura', () => {
     expect(cfg.duration).toBeLessThanOrEqual(150);
     expect(Object.keys(cfg).sort()).toEqual(['duration', 'toValue', 'useNativeDriver']);
     avancar(PLANO_ABERTURA.fadeReduzidoMs);
-    expect(fim).toHaveBeenCalledTimes(1);
+    expect(mockHideAsync).toHaveBeenCalledTimes(1); // o splash sai ao fim do fade
     // passado o teto da abertura normal, nenhuma pata acendeu
     avancar(PLANO_ABERTURA.fimMs);
     expect(patas(r)).toEqual([base, base, base]);
-    expect(fim).toHaveBeenCalledTimes(1);
   });
 
-  it('desmonta antes do fim sem disparar nada: a sessão resolver corta a animação', () => {
-    const fim = jest.fn();
-    const r = montar(fim);
+  it('desmontar antes do fim cancela todos os timers (o teste do index.tsx prova a fiação)', () => {
+    const r = montar();
     avancar(PLANO_ABERTURA.pataCentralMs);
     r.unmount();
-    avancar(2000);
-    expect(fim).not.toHaveBeenCalled();
+    avancar(2000); // se sobrasse timer da abertura, ele dispararia aqui
     expect(jest.getTimerCount()).toBe(0);
   });
 
@@ -114,5 +111,50 @@ describe('Abertura', () => {
     expect(r.UNSAFE_queryAllByType(Text)).toHaveLength(0);
     avancar(PLANO_ABERTURA.fimMs);
     expect(r.UNSAFE_queryAllByType(Text)).toHaveLength(0);
+  });
+});
+
+// I2 (G2 da BR-CLI-T04): o 1º quadro em JS tem de ser IDÊNTICO ao splash nativo, e o splash vem do
+// gerador. Aqui o que a Abertura DESENHA (fills/strokes/opacidades do SVG) é comparado, por tema,
+// com as cores que o gerador resolve (`gerar-assets.mjs --cores`, leitura própria do json e do
+// tokens.ts) — não com constantes copiadas. Antes só o tamanho/bg/patas eram conferidos e a
+// haste do tema Noite divergiu em silêncio (#6FA8C8 no splash x #4A8AAB na abertura).
+describe('Abertura: o símbolo do 1º quadro tem as cores do splash gerado', () => {
+  const gerador = JSON.parse(
+    spawnSync(process.execPath, [join(__dirname, '..', 'scripts', 'gerar-assets.mjs'), '--cores'], { encoding: 'utf8' }).stdout,
+  ) as Record<'claro' | 'escuro', Record<'sobreNeutro', Record<string, string | number>>>;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    mockReduzir = false;
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it.each([
+    ['claro', 'light', lightColors],
+    ['escuro', 'dark', darkColors],
+  ] as const)('tema %s', (tema, esquema, tokens) => {
+    jest.spyOn(require('react-native'), 'useColorScheme').mockReturnValue(esquema);
+    const r = montar();
+    const esperado = gerador[tema].sobreNeutro;
+    const svg = within(r.getByTestId('abertura', { includeHiddenElements: true })).getByTestId('Svg', { includeHiddenElements: true });
+    const [corpo, haste, contorno] = within(svg).getAllByTestId('Path', { includeHiddenElements: true });
+    const circulos = within(svg).getAllByTestId('Circle', { includeHiddenElements: true });
+    expect(corpo!.props.fill).toBe(esperado.corpo);
+    expect(corpo!.props.fillOpacity).toBe(esperado.corpoOpac);
+    expect(haste!.props.stroke).toBe(esperado.haste);
+    expect(haste!.props.opacity).toBe(esperado.hasteOpac);
+    expect(contorno!.props.stroke).toBe(esperado.contorno);
+    expect(contorno!.props.opacity).toBe(esperado.contornoOpac);
+    circulos.forEach((c) => expect(c.props.fill).toBe(esperado.patas));
+    expect(circulos[1]!.props.opacity).toBe(esperado.lateraisOpac);
+    // pré-condição: o tema renderizado é mesmo o pedido (senão a comparação seria sempre claro x claro)
+    expect(esperado.corpo).toBe(tokens.primaryPale);
+    // patas acesas: a cor vem do json (amberInk), não de um token escolhido na Abertura
+    avancar(PLANO_ABERTURA.voltaMs - 1);
+    within(svg).getAllByTestId('Circle', { includeHiddenElements: true }).forEach((c) => expect(c.props.fill).toBe(gerador[tema].sobreNeutro.pataAcesa));
   });
 });

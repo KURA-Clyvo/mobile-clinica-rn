@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { join } from 'path';
+import { lightColors, darkColors } from '../src/theme/tokens';
 
 // BR-CLI-T04. Os PNG de `assets/` deixaram de ser 4 cópias do mesmo quadrado preto:
 // são consequência de `scripts/gerar-assets.mjs` (forma lida do KuraMark.tsx, cores do
@@ -40,5 +41,17 @@ describe('assets de marca', () => {
     ];
     expect(caminhos).toHaveLength(5);
     for (const c of caminhos) expect(() => readFileSync(join(RAIZ, c))).not.toThrow();
+  });
+
+  // M3 do G2: o app.json repete à mão 3 cores de token. O gerador lê o tokens.ts para os PNG, mas
+  // nada conferia o app.json: mudar `bg` regenerava o PNG e deixava o fundo do splash nativo
+  // diferente do `bg` da Abertura, em silêncio.
+  it('as cores do app.json são as dos tokens (fundo do splash claro/Noite e fundo do ícone adaptativo)', () => {
+    const app = JSON.parse(readFileSync(join(RAIZ, 'app.json'), 'utf8')).expo;
+    const splash = app.plugins.find((p: unknown) => Array.isArray(p) && p[0] === 'expo-splash-screen')[1];
+    const igual = (a: string, b: string) => expect(a.toLowerCase()).toBe(b.toLowerCase());
+    igual(splash.backgroundColor, lightColors.bg);
+    igual(splash.dark.backgroundColor, darkColors.bg);
+    igual(app.android.adaptiveIcon.backgroundColor, lightColors.primary);
   });
 });

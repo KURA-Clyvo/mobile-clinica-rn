@@ -225,7 +225,7 @@ function NavDrawerItem({
 }
 
 export function NavDrawer({ state }: DrawerContentComponentProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = makeStyles(colors);
   const { usuario, email, tpPerfil, clearSession } = useAuthStore();
   const activeRouteName = state.routes[state.index]?.name;
@@ -237,9 +237,11 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
         {/* Marca canônica em knockout (ruling D-3, dev VsClaude,
             KURA_BACKLOG_CLINICA_1, CQ-12). Cores por tema via tokens `nav*`
             (BR-CLI-T01): no claro o fundo é ocean e a marca vai em knockout;
-            no escuro ("Noite") o fundo é `surface`. O par navBrand/navBg é
-            provado em tests/contrast.test.ts. Aposenta o ícone de pata antigo. */}
-        <KuraMark size={32} color={colors.navBrand} />
+            no escuro ("Noite") o fundo é `surface`. A marca usa o MESMO tratamento do
+            icon.png no claro (`sobreOcean`) e o do símbolo sobre fundo neutro no escuro
+            (`sobreNeutro`) — cores em simboloCores.json. O par navBrand/navBg do nome do app
+            é provado em tests/contrast.test.ts. Aposenta o ícone de pata antigo. */}
+        <KuraMark size={32} variante={isDark ? 'sobreNeutro' : 'sobreOcean'} />
         <Text style={styles.brandName}>{STRINGS.app.name}</Text>
       </SafeAreaView>
 

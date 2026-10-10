@@ -1,0 +1,25 @@
+{
+  "_doc": "Fonte UNICA das cores do simbolo KURA por contexto (BR-CLI-T04, I2). Valores sao NOMES de token de src/theme/tokens.ts, nunca hex. Consumido por KuraMark (via simboloCores.ts) e por scripts/gerar-assets.mjs (PNG do splash e dos icones). sobreNeutro: sobre bg/surface (areia no claro, Noite no escuro), corpo ocean-pale SOLIDO (C2). sobreOcean: knockout sobre fundo ocean (icon.png, adaptive-icon.png, gaveta no tema claro).",
+  "sobreNeutro": {
+    "corpo": "primaryPale",
+    "corpoOpac": 1,
+    "haste": "primarySoft",
+    "hasteOpac": 1,
+    "patas": "primary",
+    "lateraisOpac": 1,
+    "contorno": "primary",
+    "contornoOpac": 0.7,
+    "pataAcesa": "amberInk"
+  },
+  "sobreOcean": {
+    "corpo": "textOnPrimary",
+    "corpoOpac": 0.18,
+    "haste": "textOnPrimary",
+    "hasteOpac": 0.6,
+    "patas": "textOnPrimary",
+    "lateraisOpac": 0.85,
+    "contorno": "textOnPrimary",
+    "contornoOpac": 0.8,
+    "pataAcesa": "amberInk"
+  }
+}

@@ -4,6 +4,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 import { SplashScreen } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { KuraMark } from './KuraMark';
+import { resolverSimbolo } from './simboloCores';
 
 /**
  * Abertura do app (BR-CLI-T04, canvas `Main`). Duas camadas: o splash NATIVO (só o
@@ -17,6 +18,10 @@ import { KuraMark } from './KuraMark';
  * resolve (quem a monta a desmonta — ela nunca espera a animação terminar); com
  * Reduce Motion, só um fade de opacidade de 150 ms, sem patas acendendo.
  * Dentro do app o carregamento é skeleton; esta abertura roda só no arranque.
+ *
+ * DIVERGÊNCIA DECLARADA do canvas `Main`/§2b (M4 do G2): o símbolo NÃO se desloca até o lugar
+ * que ocupa na primeira tela. A primeira tela é o login, cujo símbolo tem outro tamanho e lugar;
+ * deslocá-lo exigiria medir o layout em tempo de execução. Aqui a abertura só some.
  */
 
 /** Linha do tempo da abertura, em ms desde o primeiro quadro (canvas `Main`). */
@@ -27,7 +32,7 @@ export const PLANO_ABERTURA = {
   pataLateraisMs: 280,
   /** As patas voltam à cor do símbolo. */
   voltaMs: 450,
-  /** Fim da abertura. Teto duro: 600. */
+  /** Teto duro da animação: nenhum passo agenda além disto. */
   fimMs: 600,
   /** Reduce Motion: fade de opacidade, única propriedade animada. */
   fadeReduzidoMs: 150,
@@ -38,18 +43,11 @@ const TAMANHO_SIMBOLO = 100;
 
 type Etapa = 0 | 1 | 2 | 3;
 
-interface AberturaProps {
-  /** Chamado quando a animação chega ao fim por conta própria (não quando é desmontada antes). */
-  onTerminou?: () => void;
-}
-
-export function Abertura({ onTerminou }: AberturaProps) {
+export function Abertura() {
   const { colors } = useTheme();
   const reduzir = useReducedMotion();
   const [etapa, setEtapa] = useState<Etapa>(0);
   const opacidade = useRef(new Animated.Value(reduzir ? 0 : 1)).current;
-  const aoTerminar = useRef(onTerminou);
-  aoTerminar.current = onTerminou;
   const splashEscondido = useRef(false);
 
   const esconderSplash = useCallback(() => {
@@ -61,29 +59,28 @@ export function Abertura({ onTerminou }: AberturaProps) {
 
   useEffect(() => {
     if (reduzir) {
-      // Só opacidade. O splash nativo (mesmo quadro) segue cobrindo até o fade acabar.
+      // Só opacidade. O splash nativo (mesmo quadro) segue cobrindo até o fade acabar — ou até
+      // a abertura ser desmontada (o callback também roda no `stop()` do cleanup; esconder o
+      // splash nesse caso é o desejado: a tela seguinte já está pronta).
       const fade = Animated.timing(opacidade, {
         toValue: 1,
         duration: PLANO_ABERTURA.fadeReduzidoMs,
         useNativeDriver: true,
       });
-      fade.start(() => {
-        esconderSplash();
-        aoTerminar.current?.();
-      });
+      fade.start(esconderSplash);
       return () => fade.stop();
     }
     const t = [
       setTimeout(() => setEtapa(1), PLANO_ABERTURA.pataCentralMs),
       setTimeout(() => setEtapa(2), PLANO_ABERTURA.pataLateraisMs),
       setTimeout(() => setEtapa(3), PLANO_ABERTURA.voltaMs),
-      setTimeout(() => aoTerminar.current?.(), PLANO_ABERTURA.fimMs),
     ];
     return () => t.forEach(clearTimeout);
   }, [reduzir, opacidade, esconderSplash]);
 
-  const base = colors.primary;
-  const acesa = colors.amber;
+  // Cores do símbolo: as mesmas do splash gerado (simboloCores.json), nos dois temas. A pata
+  // acesa é `amberInk` (DS: tinta de ícone/texto; `amber` puro dá 2,5:1 sobre o corpo claro).
+  const { patas: base, pataAcesa: acesa } = resolverSimbolo('sobreNeutro', colors);
   const patas: [string, string, string] = [
     etapa === 1 || etapa === 2 ? acesa : base,
     etapa === 2 ? acesa : base,
@@ -99,13 +96,7 @@ export function Abertura({ onTerminou }: AberturaProps) {
       testID="abertura"
     >
       <Animated.View style={{ opacity: opacidade }}>
-        <KuraMark
-          size={TAMANHO_SIMBOLO}
-          color={base}
-          corpo={colors.primaryPale}
-          haste={colors.primarySoft}
-          patas={patas}
-        />
+        <KuraMark size={TAMANHO_SIMBOLO} variante="sobreNeutro" patas={patas} />
       </Animated.View>
     </View>
   );

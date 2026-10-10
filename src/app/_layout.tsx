@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SplashScreen, Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { useFonts } from 'expo-font';
@@ -11,6 +11,7 @@ import { queryClient, persistOptions } from '@services/queryClient';
 import { STRINGS } from '@constants/strings';
 import { ConfirmHost } from '@components/feedback/ConfirmHost';
 import { ToastProvider } from '@components/feedback/Toast';
+import { FontesProntasProvider } from '@components/brand/FontesProntas';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -22,8 +23,15 @@ export default function RootLayout() {
     JetBrainsMono_400Regular,
   });
 
+  // Prazo de 3 s: sem fonte e sem erro, o app segue (a abertura não pode ficar para sempre).
+  const [prazoEstourou, setPrazoEstourou] = useState(false);
+  const fontesProntas = fontsLoaded || !!fontError || prazoEstourou;
+
   useEffect(() => {
-    const timeout = setTimeout(() => SplashScreen.hideAsync(), 3000);
+    const timeout = setTimeout(() => {
+      setPrazoEstourou(true);
+      SplashScreen.hideAsync();
+    }, 3000);
     if (fontsLoaded || fontError) {
       clearTimeout(timeout);
       SplashScreen.hideAsync();
@@ -51,7 +59,9 @@ export default function RootLayout() {
       </Head>
       <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <ToastProvider>
-          <Stack screenOptions={{ headerShown: false }} />
+          <FontesProntasProvider value={fontesProntas}>
+            <Stack screenOptions={{ headerShown: false }} />
+          </FontesProntasProvider>
           <ConfirmHost />
         </ToastProvider>
       </PersistQueryClientProvider>

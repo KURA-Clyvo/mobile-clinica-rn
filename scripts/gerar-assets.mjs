@@ -8,6 +8,8 @@
 //
 // Uso:
 //   node scripts/gerar-assets.mjs              grava assets/*.png
+//   node scripts/gerar-assets.mjs --cores     imprime (JSON) as cores resolvidas do símbolo por tema
+//                                              e variante (o Jest compara com o que a Abertura desenha)
 //   node scripts/gerar-assets.mjs --verificar  não grava; compara os pixels de
 //                                              assets/*.png com o que seria gerado
 //                                              (EXIT=1 se divergir). Usado pelo Jest.
@@ -50,7 +52,7 @@ function lerTokens() {
   };
   const claro = bloco('lightColors');
   const escuro = bloco('darkColors');
-  for (const k of ['primary', 'primarySoft', 'primaryPale', 'textOnPrimary', 'bg']) {
+  for (const k of ['primary', 'primarySoft', 'primaryPale', 'textOnPrimary', 'bg', 'amberInk']) {
     if (!claro[k] || !escuro[k]) throw new Error(`gerar-assets: token ${k} não encontrado em tokens.ts`);
   }
   return { claro, escuro };
@@ -59,19 +61,50 @@ function lerTokens() {
 const G = lerGeometria();
 const T = lerTokens();
 
-/** Símbolo completo, com as variantes de cor. `x,y` canto superior esquerdo, `w` largura em px. */
-function simbolo({ x, y, w, corpo, hasteCor, hasteOpac, patas, contorno, contornoOpac, corpoOpac = 1, lateraisOpac = 0.85 }) {
+// ---------- cores do símbolo por contexto: src/components/brand/simboloCores.json ----------
+// Nomes de token, resolvidos aqui contra o tokens.ts — o MESMO json que o KuraMark usa.
+const SPEC = JSON.parse(readFileSync(resolve(RAIZ, 'src/components/brand/simboloCores.json'), 'utf8'));
+function resolverSimbolo(variante, tokens) {
+  const v = SPEC[variante];
+  const cor = (nome) => {
+    if (!tokens[nome]) throw new Error(`gerar-assets: token ${nome} (simboloCores.json) não existe em tokens.ts`);
+    return tokens[nome];
+  };
+  return {
+    corpo: cor(v.corpo),
+    corpoOpac: v.corpoOpac,
+    haste: cor(v.haste),
+    hasteOpac: v.hasteOpac,
+    patas: cor(v.patas),
+    lateraisOpac: v.lateraisOpac,
+    contorno: cor(v.contorno),
+    contornoOpac: v.contornoOpac,
+    pataAcesa: cor(v.pataAcesa),
+  };
+}
+
+if (process.argv.includes('--cores')) {
+  const saida = {};
+  for (const [tema, tokens] of [['claro', T.claro], ['escuro', T.escuro]]) {
+    saida[tema] = Object.fromEntries(['sobreNeutro', 'sobreOcean'].map((v) => [v, resolverSimbolo(v, tokens)]));
+  }
+  console.log(JSON.stringify(saida));
+  process.exit(0);
+}
+
+/** Símbolo completo a partir das cores resolvidas. `x,y` canto superior esquerdo, `w` largura em px. */
+function simbolo({ x, y, w }, c) {
   const k = w / G.vbW;
-  const [c, l, r] = G.circulos;
-  const pata = (ci, cor, op) => `<circle cx="${ci.cx}" cy="${ci.cy}" r="${ci.r}" fill="${cor}" opacity="${op}"/>`;
+  const [pc, pl, pr] = G.circulos;
+  const pata = (ci, op) => `<circle cx="${ci.cx}" cy="${ci.cy}" r="${ci.r}" fill="${c.patas}" opacity="${op}"/>`;
   return (
     `<g transform="translate(${x} ${y}) scale(${k})">` +
-    `<path d="${G.corpo}" fill="${corpo}" fill-opacity="${corpoOpac}"/>` +
-    `<path d="${G.haste}" stroke="${hasteCor}" stroke-width="1.2" opacity="${hasteOpac}" stroke-linecap="round" fill="none"/>` +
-    pata(c, patas, 1) +
-    pata(l, patas, lateraisOpac) +
-    pata(r, patas, lateraisOpac) +
-    `<path d="${G.corpo}" stroke="${contorno}" stroke-width="1.5" fill="none" opacity="${contornoOpac}"/>` +
+    `<path d="${G.corpo}" fill="${c.corpo}" fill-opacity="${c.corpoOpac}"/>` +
+    `<path d="${G.haste}" stroke="${c.haste}" stroke-width="1.2" opacity="${c.hasteOpac}" stroke-linecap="round" fill="none"/>` +
+    pata(pc, 1) +
+    pata(pl, c.lateraisOpac) +
+    pata(pr, c.lateraisOpac) +
+    `<path d="${G.corpo}" stroke="${c.contorno}" stroke-width="1.5" fill="none" opacity="${c.contornoOpac}"/>` +
     `</g>`
   );
 }
@@ -86,49 +119,14 @@ const centrado = (n, alturaFracao) => {
 };
 
 /**
- * Símbolo ocean (claro): corpo `ocean-pale` SÓLIDO (decisão C2), haste `ocean-soft`, patas `ocean`.
- * Os dois símbolos de SPLASH (claro e Noite) reproduzem exatamente o que `KuraMark` desenha no modo
- * `corpo`+`patas` usado pela `Abertura` (haste e patas a 100%, contorno a 70%): o 1º quadro da
- * abertura em JS tem de ser idêntico ao splash nativo, então isto vale mais que a fidelidade fina
- * ao canvas (que usava 85% nas laterais e 60% na haste Noite).
+ * Variantes de cor do símbolo: `sobreNeutro` (splash claro e Noite, corpo `ocean-pale` SÓLIDO —
+ * decisão C2) e `sobreOcean` (knockout do ícone, canvas `Icones`). Cores em simboloCores.json.
+ * O splash reproduz exatamente o que `KuraMark variante="sobreNeutro"` desenha na `Abertura`
+ * (o 1º quadro em JS tem de ser idêntico ao splash nativo), nos dois temas.
  */
-const simboloOceanClaro = (pos) =>
-  simbolo({
-    ...pos,
-    corpo: T.claro.primaryPale,
-    hasteCor: T.claro.primarySoft,
-    hasteOpac: 1,
-    patas: T.claro.primary,
-    contorno: T.claro.primary,
-    contornoOpac: 0.7,
-    lateraisOpac: 1,
-  });
-
-/** Símbolo ocean (Noite): corpo `primaryPale` escuro, haste/patas/contorno em `primary` Noite (canvas Main). */
-const simboloOceanNoite = (pos) =>
-  simbolo({
-    ...pos,
-    corpo: T.escuro.primaryPale,
-    hasteCor: T.escuro.primary,
-    hasteOpac: 1,
-    patas: T.escuro.primary,
-    contorno: T.escuro.primary,
-    contornoOpac: 0.7,
-    lateraisOpac: 1,
-  });
-
-/** Símbolo em knockout (texto-sobre-ocean) para ícone: canvas `Icones`. */
-const simboloKnockout = (pos) =>
-  simbolo({
-    ...pos,
-    corpo: T.claro.textOnPrimary,
-    corpoOpac: 0.18,
-    hasteCor: T.claro.textOnPrimary,
-    hasteOpac: 0.6,
-    patas: T.claro.textOnPrimary,
-    contorno: T.claro.textOnPrimary,
-    contornoOpac: 0.8,
-  });
+const simboloOceanClaro = (pos) => simbolo(pos, resolverSimbolo('sobreNeutro', T.claro));
+const simboloOceanNoite = (pos) => simbolo(pos, resolverSimbolo('sobreNeutro', T.escuro));
+const simboloKnockout = (pos) => simbolo(pos, resolverSimbolo('sobreOcean', T.claro));
 
 const N = 1024;
 const SPLASH_ALTURA = 614 / 1024; // símbolo 512 de largura x 614 de altura num quadro 1024
