@@ -5,6 +5,7 @@ import type { Href } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
+import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import { ROUTES } from '@constants/routes';
@@ -44,6 +45,22 @@ const STEPS: OnboardingStepMeta[] = [
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     card: { marginBottom: 20 },
+    recolhido: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      minHeight: 44,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginBottom: 20,
+    },
+    recolhidoTexto: {
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 13,
+      color: colors.textMuteInk,
+      flex: 1,
+    },
     headerRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -102,9 +119,19 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
-export function OnboardingChecklist() {
+export interface OnboardingChecklistProps {
+  /**
+   * BR-CLI-T06 (D3): no dashboard o checklist nasce RECOLHIDO numa linha de 44 px ("Primeiros passos ·
+   * 4 pendentes" + "Abrir") para o dia da clinica ocupar a dobra; ao abrir, e o mesmo card de sempre,
+   * com os passos e o botao de dispensar. Padrao (`false`): card aberto, como antes.
+   */
+  inicialRecolhido?: boolean;
+}
+
+export function OnboardingChecklist({ inicialRecolhido = false }: OnboardingChecklistProps = {}) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const [aberto, setAberto] = React.useState(!inicialRecolhido);
 
   const completedSteps = useOnboardingStore((s) => s.completedSteps);
   const dismissed = useOnboardingStore((s) => s.dismissed);
@@ -121,6 +148,26 @@ export function OnboardingChecklist() {
     remainingCount === 0
       ? STRINGS.ONBOARDING.SUBTITLE_DONE
       : STRINGS.ONBOARDING.SUBTITLE_REMAINING(remainingCount, STEPS.length);
+
+  if (!aberto) {
+    return (
+      <View style={styles.recolhido} testID="onboarding-recolhido">
+        <Text style={styles.recolhidoTexto}>
+          {STRINGS.ONBOARDING.TITLE}
+          {remainingCount === 0 ? '' : ` · ${STRINGS.ONBOARDING.RECOLHIDO_PENDENTES(remainingCount)}`}
+        </Text>
+        <KCButton
+          variant="ghost"
+          size="sm"
+          onPress={() => setAberto(true)}
+          testID="onboarding-abrir"
+          accessibilityLabel={`${STRINGS.ONBOARDING.ABRIR} ${STRINGS.ONBOARDING.TITLE.toLowerCase()}`}
+        >
+          {STRINGS.ONBOARDING.ABRIR}
+        </KCButton>
+      </View>
+    );
+  }
 
   return (
     <KCCard style={styles.card} testID="onboarding-checklist">

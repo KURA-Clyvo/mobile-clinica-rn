@@ -6,25 +6,25 @@ import { useTheme } from '@theme/index';
 import { lightColors, type BreakpointKey } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useBreakpoint } from '@hooks/useBreakpoint';
-import { useDashboardHoje, useAlertas, useRecentes } from '@hooks/useDashboard';
+import { useDashboardHoje, useAlertas } from '@hooks/useDashboard';
+import { useAgendaHoje } from '@hooks/useAgenda';
 import { useResumoFinanceiro } from '@hooks/useFinanceiro';
 import { useIsGestor } from '@hooks/useIsGestor';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { MetricCard } from '@components/domain/MetricCard';
 import { AlertCard } from '@components/domain/AlertCard';
 import { OnboardingChecklist } from '@components/domain/OnboardingChecklist';
-import { KCCard } from '@components/primitives/KCCard';
-import { KCChip } from '@components/primitives/KCChip';
+import { ProximosDoDia } from '@components/domain/ProximosDoDia';
 import { KCButton } from '@components/primitives/KCButton';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
-import { formatDateFull, formatTime, getGreeting, firstName } from '@utils/date';
+import { formatDateFull, getGreeting, firstName } from '@utils/date';
+import { agora as relogio } from '@utils/agora';
 import { primeiroNomeDeEmail } from '@utils/perfilUsuario';
 import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
-import type { RecentAppointmentResponse, AlertaResponse } from '../../types/api';
-import { statusAgendamentoTone as statusTone, statusAgendamentoLabel as statusLabel } from '@utils/statusAgendamento';
+import type { AgendamentoResponse, AlertaResponse } from '../../types/api';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import type { MetricTone } from '@components/domain/MetricCard';
 import { formatarMoeda, formatarPercentual } from '@utils/moeda';
@@ -98,6 +98,8 @@ function rowSpacers(itemCount: number, columns: number, style: StyleProp<ViewSty
 // notebook mais comuns — hoje recebem a mesma contagem de colunas que um
 // monitor de desktop.
 function metricsColumnsFor(isAtLeast: (key: BreakpointKey) => boolean): 1 | 2 | 4 {
+  // BR-CLI-T06: em xl os KPIs vivem na coluna lateral (340 px) => 2x2.
+  if (isAtLeast('xl')) return 2;
   if (isAtLeast('lg')) return 4;
   if (isAtLeast('md')) return 2;
   return 1;
@@ -106,7 +108,8 @@ function metricsColumnsFor(isAtLeast: (key: BreakpointKey) => boolean): 1 | 2 | 
 // Listas de "próximos atendimentos" e "alertas" ganham 2 colunas a partir de
 // `lg` (1024) — critério explícito do brief ("≥ lg").
 function listColumnsFor(isAtLeast: (key: BreakpointKey) => boolean): 1 | 2 {
-  return isAtLeast('lg') ? 2 : 1;
+  // BR-CLI-T06: em xl os alertas vivem na coluna lateral de 340 px => 1 coluna.
+  return isAtLeast('xl') ? 1 : isAtLeast('lg') ? 2 : 1;
 }
 
 interface MetricItem {
@@ -175,7 +178,10 @@ const makeStyles = (colors: typeof lightColors) =>
       marginTop: 12,
     },
     sectionBlock: { marginBottom: 24 },
-    appointmentCard: { flex: 1 },
+    // BR-CLI-T06: a partir de xl o dia ocupa a coluna principal e KPIs/alertas/onboarding a lateral (340).
+    duasColunas: { flexDirection: 'row', alignItems: 'flex-start', gap: 32 },
+    colunaPrincipal: { flex: 1 },
+    colunaLateral: { width: 340 },
     // CQ-06 G2 fix wave, achado H — `AppointmentRow` ganha altura igual entre
     // os cards de uma mesma linha via `appointmentCard: { flex: 1 }` acima;
     // `AlertCard` não tinha equivalente (achado H.2). `flex: 1` iguala a
@@ -184,56 +190,7 @@ const makeStyles = (colors: typeof lightColors) =>
     // `listGrid` — `luna.tsx`, que não passa esse override, mantém o
     // `marginBottom: 8` original sem mudança de comportamento.
     alertCardInGrid: { flex: 1, marginBottom: 0 },
-    appointmentRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    appointmentLeft: { flex: 1 },
-    appointmentPet: {
-      fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
-      color: colors.text,
-    },
-    appointmentSub: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
-      color: colors.textMuteInk,
-      marginTop: 2,
-    },
-    appointmentRight: { alignItems: 'flex-end', gap: 4 },
-    appointmentTime: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
-      color: colors.textSoft,
-    },
   });
-
-interface AppointmentRowProps {
-  item: RecentAppointmentResponse;
-}
-
-function AppointmentRow({ item }: AppointmentRowProps) {
-  const { colors } = useTheme();
-  const styles = makeStyles(colors);
-
-  return (
-    <KCCard style={styles.appointmentCard} testID="appointment-row">
-      <View style={styles.appointmentRow}>
-        <View style={styles.appointmentLeft}>
-          <Text style={styles.appointmentPet} numberOfLines={1}>
-            {item.nmPet}
-          </Text>
-          <Text style={styles.appointmentSub} numberOfLines={1}>
-            {item.nmTutor} · {item.nmTipoConsulta}
-          </Text>
-        </View>
-        <View style={styles.appointmentRight}>
-          <Text style={styles.appointmentTime}>{formatTime(item.dtAgendamento)}</Text>
-          <KCChip tone={statusTone(item.sgStatus)} dot>
-            {statusLabel(item.sgStatus)}
-          </KCChip>
-        </View>
-      </View>
-    </KCCard>
-  );
-}
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
@@ -253,9 +210,11 @@ export default function DashboardScreen() {
     refetch: refetchHoje,
   } = useDashboardHoje();
   const alertasQuery = useAlertas();
-  const recentesQuery = useRecentes();
+  // BR-CLI-T06: o bloco "Proximo atendimento" le a MESMA agenda do dia da tela Hoje (queryKey
+  // ['agenda','hoje',data]); antes lia `useRecentes`, que devolvia so PASSADOS (rotulo "Proximos" falso).
+  const agendaHojeQuery = useAgendaHoje();
   const { data: alertas, refetch: refetchAlertas } = alertasQuery;
-  const { data: recentes, refetch: refetchRecentes } = recentesQuery;
+  const { refetch: refetchAgendaHoje } = agendaHojeQuery;
 
   // FM-07 — `isGestor` decide DUAS coisas independentes, e as duas importam (ver §1 do
   // brief): (1) se o CARD renderiza (abaixo, no JSX) e (2) se o `enabled` do hook chega a
@@ -287,9 +246,9 @@ export default function DashboardScreen() {
   // desta correção só o spread condicional abaixo impedia a chamada de rede.
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchHoje(), refetchAlertas(), refetchRecentes(), refetchFinanceiro()]);
+    await Promise.all([refetchHoje(), refetchAlertas(), refetchAgendaHoje(), refetchFinanceiro()]);
     setRefreshing(false);
-  }, [refetchHoje, refetchAlertas, refetchRecentes, refetchFinanceiro]);
+  }, [refetchHoje, refetchAlertas, refetchAgendaHoje, refetchFinanceiro]);
 
   const metrics = hoje?.metrics;
   // FM-01 + E26 — duas correções que caem na MESMA linha, e é por isso que o
@@ -314,6 +273,17 @@ export default function DashboardScreen() {
   // digitou no login.
   const nomeDaFicha = usuario ? firstName(usuario.nmVeterinario) : '';
   const name = nomeDaFicha || primeiroNomeDeEmail(email);
+
+  // BR-CLI-T06: "agora" do dispositivo, recalculado a cada 30 s (mesmo tick da tela Hoje) para a marca
+  // e os atrasos nao ficarem parados numa tela deixada aberta.
+  const [agoraAtual, setAgoraAtual] = React.useState(() => relogio());
+  React.useEffect(() => {
+    const intervalo = setInterval(() => setAgoraAtual(relogio()), 30_000);
+    return () => clearInterval(intervalo);
+  }, []);
+  const telaLarga = isAtLeast('xl');
+  const abrirProntuario = (a: AgendamentoResponse) =>
+    router.push(ROUTES.app.consulta(a.pet.id, a.id, a.nrVersion));
 
   const metricsColumns = metricsColumnsFor(isAtLeast);
   const listColumns = listColumnsFor(isAtLeast);
@@ -354,9 +324,7 @@ export default function DashboardScreen() {
   // conteúdo (critério de aceite explícito da task).
   const skeletonMetricRows = chunk([0, 1, 2, 3] as const, metricsColumns);
 
-  const appointmentRows = chunk(recentes ?? [], listColumns);
   const alertRows = chunk(alertas ?? [], listColumns);
-  const skeletonAppointmentRows = chunk([0, 1, 2] as const, listColumns);
   // CQ-06 G2 fix wave, RODADA 2 (I-2): eram 2 placeholders (`[0, 1]`). Com
   // `listColumns` só assumindo 1 ou 2, 2 itens dividem SEMPRE exato
   // (2÷1=2 linhas de 1, 2÷2=1 linha de 2) — `missing` em `rowSpacers()`
@@ -385,12 +353,22 @@ export default function DashboardScreen() {
         <Text style={styles.dateText}>{capitalizeFirst(formatDateFull(new Date()))}</Text>
       </View>
 
-      {/* CQ-13, item 2: card dispensável no TOPO do dashboard, acima de
-          "Atendimentos de hoje" (decisão do Felipe registrada no brief da
-          task). Auto-hide/dismiss/hidratação são responsabilidade do
-          próprio componente — ver OnboardingChecklist.tsx. */}
-      <OnboardingChecklist />
 
+      {telaLarga ? (
+        <View style={styles.duasColunas} testID="dashboard-duas-colunas">
+          <View style={styles.colunaPrincipal}>
+      <View style={styles.sectionBlock} testID="bloco-dia">
+        <ProximosDoDia
+          query={agendaHojeQuery}
+          agora={agoraAtual}
+          limite={telaLarga ? 6 : 4}
+          largo={telaLarga}
+          onAbrirProntuario={abrirProntuario}
+          onVerTodos={() => router.push(ROUTES.app.agendaHoje)}
+        />
+      </View>
+          </View>
+          <View style={styles.colunaLateral}>
       {loadingHoje ? (
         <View style={styles.metricsGrid} testID="metrics-skeleton">
           {skeletonMetricRows.map((row, rowIndex) => (
@@ -430,49 +408,6 @@ export default function DashboardScreen() {
           ))}
         </View>
       )}
-
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionTitle}>{STRINGS.dashboard.proximosAtendimentos}</Text>
-        <QueryState
-          query={recentesQuery}
-          skeleton={
-          <View style={styles.listGrid}>
-            {skeletonAppointmentRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="appointments-skeleton-row">
-                {row.map((i) => (
-                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          }
-          empty={
-          <KCEmptyState
-            icon="agenda"
-            title={STRINGS.dashboard.semAtendimentos}
-            description={STRINGS.dashboard.semAtendimentosDesc}
-            testID="empty-appointments"
-          />
-          }
-          errorTitle="Não foi possível carregar os atendimentos"
-        >
-          {() => (
-          <View style={styles.listGrid}>
-            {appointmentRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="appointments-row">
-                {row.map((item) => (
-                  <View key={item.id} style={styles.listRowItem} testID="appointments-item">
-                    <AppointmentRow item={item} />
-                  </View>
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          )}
-        </QueryState>
-      </View>
 
       <View style={styles.sectionBlock}>
         <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
@@ -638,6 +573,233 @@ export default function DashboardScreen() {
             {STRINGS.dashboard.verPainelCompleto}
           </KCButton>
         </View>
+      )}
+      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
+          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
+      <OnboardingChecklist inicialRecolhido />
+          </View>
+        </View>
+      ) : (
+        <>
+      <View style={styles.sectionBlock} testID="bloco-dia">
+        <ProximosDoDia
+          query={agendaHojeQuery}
+          agora={agoraAtual}
+          limite={telaLarga ? 6 : 4}
+          largo={telaLarga}
+          onAbrirProntuario={abrirProntuario}
+          onVerTodos={() => router.push(ROUTES.app.agendaHoje)}
+        />
+      </View>
+      {loadingHoje ? (
+        <View style={styles.metricsGrid} testID="metrics-skeleton">
+          {skeletonMetricRows.map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.metricsRow} testID="metrics-skeleton-row">
+              {row.map((cardIndex) => (
+                <Skeleton key={cardIndex} variant="card" style={styles.skeletonItem} />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : erroHoje ? (
+        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
+        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
+        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
+        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
+        // esse número.
+        <KCEmptyState
+          icon="alert"
+          title={STRINGS.dashboard.erroMetricas}
+          description={STRINGS.dashboard.erroMetricasDesc}
+          testID="erro-metricas"
+        />
+      ) : (
+        <View style={styles.metricsGrid} testID="metrics-grid">
+          {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.metricsRow} testID="metrics-row">
+              {row.map((item) => (
+                <MetricCard
+                  key={item.key}
+                  label={item.label}
+                  value={item.value}
+                  icon={item.icon}
+                  tone={item.tone}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.sectionBlock}>
+        <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
+        <QueryState
+          query={alertasQuery}
+          skeleton={
+          <View style={styles.listGrid}>
+            {skeletonAlertRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.listRow} testID="alerts-skeleton-row">
+                {row.map((i) => (
+                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
+                ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
+              </View>
+            ))}
+          </View>
+          }
+          empty={
+          <KCEmptyState
+            icon="alert"
+            title={STRINGS.dashboard.semAlertas}
+            description={STRINGS.dashboard.semAlertasDesc}
+            testID="empty-alerts"
+          />
+          }
+          errorTitle="Não foi possível carregar os alertas"
+        >
+          {() => (
+          <View style={styles.listGrid}>
+            {alertRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.listRow} testID="alerts-row">
+                {row.map((alerta: AlertaResponse) => (
+                  <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
+                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
+                  </View>
+                ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
+              </View>
+            ))}
+          </View>
+          )}
+        </QueryState>
+      </View>
+
+      {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
+          isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
+          `SomenteGestor` no controller -- um VETERINARIO puro recebe 403), e o `isGestor &&`
+          aqui impede o CARD de entrar na árvore. Ver comentário no topo do componente sobre
+          por que as duas guardas são necessárias (renderizar condicionalmente sozinho NÃO
+          basta -- o React Query dispara `queryFn` no mount independente do JSX). */}
+      {isGestor && (
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
+          <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
+          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
+              topo do dashboard mostra a data de HOJE: o gestor via um valor
+              mensal ao lado de uma data diária, sem nada ligando os dois.
+              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
+              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
+              palavras, "para que o app confira em vez de acreditar". Exibir o
+              período que o app PEDIU esconderia justamente a divergência que o
+              campo existe para revelar (a junta entre o mês local e a agregação
+              em dia UTC). */}
+          {resumoFinanceiro != null && (
+            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
+              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
+            </Text>
+          )}
+          {loadingFinanceiro ? (
+            <View style={styles.metricsRow} testID="financeiro-skeleton">
+              <Skeleton variant="card" style={styles.skeletonItem} />
+              <Skeleton variant="card" style={styles.skeletonItem} />
+            </View>
+          ) : erroFinanceiro || resumoFinanceiro == null ? (
+            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
+            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
+            // cobrança quanto quando a chamada FALHOU, então o gate anterior
+            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
+            // exibia "Nenhuma cobrança registrada neste período" para um erro
+            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
+            //
+            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
+            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
+            // `variacaoPercentual` são `null` de propósito, e o controller
+            // escreve "Zero para 'não medimos' seria mentira") — e o app
+            // transformava ausência de resposta em afirmação sobre o negócio.
+            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
+            <KCEmptyState
+              icon="alert"
+              title={STRINGS.dashboard.erroFinanceiro}
+              description={STRINGS.dashboard.erroFinanceiroDesc}
+              testID="erro-financeiro"
+            />
+          ) : resumoFinanceiro.nrCobrancas === 0 ? (
+            // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
+            // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
+            // "nenhuma cobrança registrada" seria FALSO nesse caso.
+            <KCEmptyState
+              icon="dashboard"
+              title={STRINGS.dashboard.semFaturamento}
+              description={STRINGS.dashboard.semFaturamentoDesc}
+              testID="empty-financeiro"
+            />
+          ) : (
+            <>
+              <View style={styles.metricsRow} testID="financeiro-row">
+                <MetricCard
+                  label={STRINGS.dashboard.receitaBruta}
+                  value={formatarMoeda(resumoFinanceiro.receitaBruta)}
+                  icon="dashboard"
+                  tone="sage"
+                />
+                <MetricCard
+                  label={STRINGS.dashboard.ticketMedio}
+                  // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
+                  // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
+                  value={
+                    resumoFinanceiro.ticketMedio == null
+                      ? '—'
+                      : formatarMoeda(resumoFinanceiro.ticketMedio)
+                  }
+                  icon="check"
+                  tone="ocean"
+                />
+              </View>
+              {/* FM-08 (item 2 do brief) — comparação com o período anterior. A resposta JÁ
+                  traz `variacaoPercentual` pronto (arredondado no servidor) -- não recalcula,
+                  não faz segunda chamada.
+                  🔴 `variacaoPercentual === null` NÃO é "0%": só ocorre quando a receita do
+                  período anterior é ZERO (ResumoFinanceiroResponseDto.cs:106, "crescer do
+                  zero não tem porcentagem"). Por isso o ramo `null` mostra a frase honesta
+                  com os dois números crus (`receitaBrutaPeriodoAnterior` -> `receitaBruta`),
+                  nunca "0%" nem um traço mudo -- é exatamente por isso que o contrato manda
+                  `receitaBrutaPeriodoAnterior` cru na resposta. */}
+              <Text style={styles.comparacaoText} testID="financeiro-comparacao">
+                {resumoFinanceiro.variacaoPercentual == null
+                  ? `${STRINGS.dashboard.semBaseComparacao} (${formatarMoeda(
+                      resumoFinanceiro.receitaBrutaPeriodoAnterior,
+                    )} → ${formatarMoeda(resumoFinanceiro.receitaBruta)})`
+                  : `${formatarPercentual(resumoFinanceiro.variacaoPercentual)} ${
+                      STRINGS.dashboard.comparacaoPeriodoAnterior
+                    } (${formatarMoeda(resumoFinanceiro.receitaBrutaPeriodoAnterior)})`}
+              </Text>
+            </>
+          )}
+          {/* FM-08 (item 3 do brief, decisão declarada #4) — link para o painel de gestão
+              (`(app)/financeiro/index.tsx`). Fica FORA do ternário acima e SEMPRE visível
+              para GESTOR (não depende de `resumoFinanceiro`/loading/erro): é navegação pura,
+              e o painel tem sua PRÓPRIA chamada/estado de erro -- condicionar este link ao
+              sucesso da chamada do dashboard impediria o gestor de abrir o painel justamente
+              quando o card do dashboard falhou (o cenário em que ele mais precisaria checar).
+              KCButton é componente customizado (não `TouchableOpacity`/`Pressable` crus) --
+              já carrega geometria/alvo de toque própria no registry (`KCButton.tsx`), sem
+              exigir entrada nova aqui (mesmo padrão do `KCChip` documentado em
+              servicos-preco/index.tsx). */}
+          <KCButton
+            variant="ghost"
+            size="sm"
+            onPress={() => router.push(ROUTES.app.financeiro)}
+            testID="btn-ver-painel-financeiro"
+            style={styles.linkPainelButton}
+          >
+            {STRINGS.dashboard.verPainelCompleto}
+          </KCButton>
+        </View>
+      )}
+      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
+          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
+      <OnboardingChecklist inicialRecolhido />
+        </>
       )}
     </ScreenContainer>
   );

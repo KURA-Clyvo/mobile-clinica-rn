@@ -16,7 +16,15 @@ import { resumoVazio } from '../src/mocks/financeiro.mock';
 jest.mock('@hooks/useDashboard', () => ({
   useDashboardHoje: jest.fn(),
   useAlertas: jest.fn(),
-  useRecentes: jest.fn(),
+}));
+
+// BR-CLI-T06: o bloco "Proximo atendimento" le a agenda do dia (MESMO hook da tela Hoje), nao mais
+// `useRecentes`. "Agora" congelado em 12:00 de 09/10/2026 (sem fake timers).
+jest.mock('@hooks/useAgenda', () => ({
+  useAgendaHoje: jest.fn(),
+}));
+jest.mock('@utils/agora', () => ({
+  agora: () => new Date(2026, 9, 9, 12, 0, 0),
 }));
 
 // FM-07 — mockado aqui pela MESMA razão dos 3 hooks acima: este arquivo testa o COMPONENTE
@@ -29,12 +37,14 @@ jest.mock('@hooks/useFinanceiro', () => ({
   useResumoFinanceiro: jest.fn(),
 }));
 
-import { useDashboardHoje, useAlertas, useRecentes } from '../src/hooks/useDashboard';
+import { useDashboardHoje, useAlertas } from '../src/hooks/useDashboard';
+import { useAgendaHoje } from '../src/hooks/useAgenda';
+import { ag, DIA_DO_PRINT } from './helpers_proximos';
 import { useResumoFinanceiro } from '../src/hooks/useFinanceiro';
 
 const mockUseDashboardHoje = useDashboardHoje as jest.Mock;
 const mockUseAlertas = useAlertas as jest.Mock;
-const mockUseRecentes = useRecentes as jest.Mock;
+const mockUseRecentes = useAgendaHoje as jest.Mock; // nome historico; hoje e a agenda do dia
 const mockUseResumoFinanceiro = useResumoFinanceiro as jest.Mock;
 
 // useWindowDimensions é o que useBreakpoint() consome (nunca Dimensions.get(),
@@ -72,21 +82,15 @@ const MOCK_ALERTA = {
   dtCriacao: new Date().toISOString(),
 };
 
-const MOCK_RECENTE = {
-  id: 101,
-  nmPet: 'Thor',
-  nmTutor: 'Carlos Mendes',
-  dtAgendamento: new Date().toISOString(),
+// Agendamentos de HOJE (fixture do print: agora = 12:00). MOCK_RECENTE = 1 item futuro; _3 = 3 itens futuros.
+const MOCK_RECENTE = ag(101, 'Thor', 13, 0, 'AGENDADO', {
+  tutor: { id: 301, nmTutor: 'Carlos Mendes', dsTelefone: '' },
   nmTipoConsulta: 'Consulta de Retorno',
-  sgStatus: 'AGENDADA' as const,
-};
-
-// 3 itens — o suficiente para exercitar agrupamento em pares (2 colunas) com
-// resto ímpar, sem depender de um número "redondo" de itens.
+});
 const MOCK_RECENTES_3 = [
   MOCK_RECENTE,
-  { ...MOCK_RECENTE, id: 102, nmPet: 'Nina' },
-  { ...MOCK_RECENTE, id: 103, nmPet: 'Bento' },
+  ag(102, 'Nina', 13, 30, 'AGENDADO'),
+  ag(103, 'Bento', 14, 0, 'AGENDADO'),
 ];
 
 const MOCK_ALERTAS_3 = [
