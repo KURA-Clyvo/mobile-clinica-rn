@@ -179,6 +179,22 @@ describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => 
   });
 });
 
+describe('DashboardScreen — erro em Próximos atendimentos e Alertas (BR-CLI-02)', () => {
+  it('erro sem dado NUNCA vira "Nenhum atendimento programado" / "Nenhum alerta ativo"; oferece Tentar de novo', () => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: REFETCH });
+
+    const { queryByText, getAllByText, queryByTestId } = wrap(<DashboardScreen />);
+    expect(queryByText('Nenhum atendimento programado')).toBeNull();
+    expect(queryByText('Nenhum alerta ativo')).toBeNull();
+    expect(queryByTestId('empty-appointments')).toBeNull();
+    expect(queryByTestId('empty-alerts')).toBeNull();
+    const botoes = getAllByText('Tentar de novo');
+    expect(botoes).toHaveLength(2);
+  });
+});
+
 describe('DashboardScreen — loaded state', () => {
   beforeEach(() => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
