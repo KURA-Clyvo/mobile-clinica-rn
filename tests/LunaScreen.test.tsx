@@ -201,30 +201,14 @@ describe('LunaScreen', () => {
     expect(queryByTestId('sub-services')).toBeNull();
   });
 
-  it('shows 2 sub-service cards (oracle, kura_api) — CQ-09/D-5: twilio/visaoComputacional não têm produtor', () => {
-    const { getByTestId, queryByTestId } = wrap(<LunaScreen />);
-    expect(getByTestId('svc-oracle')).toBeTruthy();
-    expect(getByTestId('svc-kura_api')).toBeTruthy();
-    expect(queryByTestId('svc-twilio')).toBeNull();
-    expect(queryByTestId('svc-visaoComputacional')).toBeNull();
-  });
-
-  // Shape medido contra a Luna real: oracle/kura_api são BOOLEANOS. Com o tipo antigo
-  // (string) a tela chamava .toLowerCase() num boolean e ficava em branco.
-  it('aceita oracle/kura_api booleanos, que é o que a Luna real devolve', () => {
-    mockUseLunaHealth.mockReturnValue({
-      data: { status: 'degraded', oracle: true, kura_api: false, httpStatus: 503 as const },
-    });
-    const { getByTestId } = wrap(<LunaScreen />);
-    expect(getByTestId('svc-oracle').props.children).toBe('UP');
-    expect(getByTestId('svc-kura_api').props.children).toBe('DOWN');
-  });
-
-  it('sub-service card reflects "down" for a service whose value is not ok/up', () => {
-    mockUseLunaHealth.mockReturnValue({ data: MOCK_HEALTH_DEGRADADO });
-    const { getByTestId } = wrap(<LunaScreen />);
-    expect(getByTestId('svc-oracle').props.children).toBe('UP');
-    expect(getByTestId('svc-kura_api').props.children).toBe('DOWN');
+  // BR-CLI-T07 / C6: a telemetria "Oracle DB / API Kura UP|DOWN" saiu da tela Luna.
+  it('C6: a tela da Luna nao mostra mais os cards de telemetria Oracle/API Kura', () => {
+    const { queryByTestId, queryByText } = wrap(<LunaScreen />);
+    expect(queryByTestId('sub-services')).toBeNull();
+    expect(queryByTestId('svc-oracle')).toBeNull();
+    expect(queryByTestId('svc-kura_api')).toBeNull();
+    expect(queryByText('Oracle DB')).toBeNull();
+    expect(queryByText('API Kura')).toBeNull();
   });
 
   // CQ-09 fix wave (G2 Important-1): isLunaHealthUp() foi trocado de testar 'oracle'
@@ -318,8 +302,8 @@ describe('LunaScreen', () => {
       expect(getByTestId('fila-card-501')).toBeTruthy();
       expect(getByTestId('fila-card-502')).toBeTruthy();
       // Rótulo dentro do KCChip (tone clay=ALTA / amber=MEDIA, ver filaUrgenciaTone).
-      expect(getByText('Alta')).toBeTruthy();
-      expect(getByText('Média')).toBeTruthy();
+      expect(getByTestId('fila-urg-501')).toBeTruthy();
+      expect(getByTestId('fila-urg-502')).toBeTruthy();
       expect(getByTestId('fila-pet-501').props.children).toBe('Rex');
     });
 

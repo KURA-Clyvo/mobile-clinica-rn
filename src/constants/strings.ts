@@ -244,6 +244,17 @@ export const STRINGS = {
     // REC-14 — "Agendar" (tutor identificado) / "Cadastrar tutor" (tutor null, E34).
     AGENDAR: 'Agendar',
     CADASTRAR_TUTOR: 'Cadastrar tutor',
+    // BR-CLI-T07 — card de triagem auditável.
+    TRIAGEM_SUBIU: 'O que subiu este caso',
+    TRIAGEM_DISPAROU: (palavras: string) => `disparou: ${palavras}`,
+    TRIAGEM_PONTUACAO: 'Pontuação',
+    TRIAGEM_REGRAS: (v: string) => `regras ${v}`,
+    TRIAGEM_NOTA_SCORE:
+      'A pontuação soma tudo o que a Luna reconheceu, inclusive sintomas de nível menor. Aqui aparecem só as palavras do nível mais alto, que foram as que decidiram a fila.',
+    TRIAGEM_NOTA_EQUIPE: 'A Luna sugere o nível pelas regras. Quem decide o atendimento é a equipe.',
+    TRIAGEM_VER_MENSAGEM: 'Ver mensagem inteira',
+    TRIAGEM_RECOLHER: 'Recolher',
+    DIAGNOSTICO_TITLE: 'Diagnóstico da Luna',
     RELATORIO_TITLE: 'Relatório de Triagens',
     PERIODO_7: '7 dias',
     PERIODO_30: '30 dias',

@@ -10,19 +10,20 @@ import { useAlertas } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { TriagemCard } from '@components/domain/TriagemCard';
+import { URGENCIA_VISUAL } from '@utils/triagem';
+import type { Urgencia } from '@utils/triagem';
 import { KCButton } from '@components/primitives/KCButton';
-import { KCIcon } from '@components/primitives/KCIcon';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
 import { getTutorById, telefoneDisponivel } from '@services/tutores.service';
-import { calcularIntervaloPeriodo, formatRelativeTime } from '@utils/date';
+import { calcularIntervaloPeriodo } from '@utils/date';
 import { ROUTES } from '@constants/routes';
 import { STRINGS } from '@constants/strings';
 import type { LunaHealthResult } from '@services/luna.service';
-import type { KCIconName } from '@components/primitives/KCIcon';
 import type { TriagemListaItem } from '../../types/api';
 
 type Periodo = 7 | 30 | 90;
@@ -36,15 +37,6 @@ const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 30, label: STRINGS.LUNA.PERIODO_30 },
   { value: 90, label: STRINGS.LUNA.PERIODO_90 },
 ];
-
-// CQ-09/D-5 (ruling já decidida, não reaberta aqui): os 3 cards antigos (twilio/oracle/
-// visaoComputacional) não tinham produtor nenhum — nem twilio nem visaoComputacional
-// existem em endpoint algum da Luna. Trocados pelos 2 campos reais que GET /ready
-// devolve.
-const SERVICO_META: Record<'oracle' | 'kura_api', { label: string; icon: KCIconName }> = {
-  oracle: { label: 'Oracle DB', icon: 'more' },
-  kura_api: { label: 'API Kura', icon: 'share' },
-};
 
 const URG_LEVELS: UrgLevel[] = ['BAIXO', 'MEDIO', 'ALTO'];
 
@@ -84,41 +76,17 @@ function isServicoUp(valor: boolean | string | undefined | null): boolean {
   return v === 'ok' || v === 'up';
 }
 
+// BR-CLI-T07 (M-2 da T01): o relatorio fala BAIXO/MEDIO/ALTO, a fila BAIXA/MEDIA/ALTA; os
+// dois leem a MESMA tabela (utils/triagem.ts) -- Alta = clayInk, Media = amberInk, Baixa = textMute,
+// de luminosidades diferentes. Vocabulario unico: Alta/Média/Baixa (BR-CLI-13).
+const URG_RELATORIO: Record<UrgLevel, Urgencia> = { BAIXO: 'BAIXA', MEDIO: 'MEDIA', ALTO: 'ALTA' };
+
 function urgColor(level: UrgLevel, colors: typeof lightColors): string {
-  switch (level) {
-    case 'BAIXO': return colors.success;
-    case 'MEDIO': return colors.warning;
-    case 'ALTO':  return colors.amber;
-  }
+  return colors[URGENCIA_VISUAL[URG_RELATORIO[level]].grafico];
 }
 
 function urgLabel(level: UrgLevel): string {
-  switch (level) {
-    case 'BAIXO': return 'Baixo';
-    case 'MEDIO': return 'Médio';
-    case 'ALTO':  return 'Alto';
-  }
-}
-
-// LU-09 — Fila da Luna: tokens canônicos do app da clínica (KCChip `tone`), não hex
-// inventado. ALTA usa `clay`, MEDIA usa `amber` (brief da task); BAIXA usa `mute`
-// (neutro — a fila não tem token dedicado para o nível mais baixo).
-type UrgenciaFio = 'ALTA' | 'MEDIA' | 'BAIXA';
-
-function filaUrgenciaTone(urgencia: UrgenciaFio): 'clay' | 'amber' | 'mute' {
-  switch (urgencia) {
-    case 'ALTA': return 'clay';
-    case 'MEDIA': return 'amber';
-    case 'BAIXA': return 'mute';
-  }
-}
-
-function filaUrgenciaLabel(urgencia: UrgenciaFio): string {
-  switch (urgencia) {
-    case 'ALTA': return 'Alta';
-    case 'MEDIA': return 'Média';
-    case 'BAIXA': return 'Baixa';
-  }
+  return URGENCIA_VISUAL[URG_RELATORIO[level]].label;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -145,24 +113,6 @@ const makeStyles = (colors: typeof lightColors) =>
     statusText: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 12,
-    },
-    subServicesRow: {
-      flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      marginTop: 8,
-    },
-    subCard: { flex: 1, padding: 10 },
-    subLabel: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
-      color: colors.textMuteInk,
-      marginTop: 4,
-    },
-    subStatus: {
-      fontFamily: 'Lexend_500Medium',
-      fontSize: 11,
-      marginTop: 2,
     },
     // CQ-07: sem flexWrap, o título e os 3 chips de período disputavam a
     // mesma linha e se comprimiam em telas estreitas (Bloco 0 §2, B0.5).
@@ -250,47 +200,12 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.text,
       marginBottom: 10,
     },
-    filaCard: { marginBottom: 10 },
-    filaCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    filaTempo: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
-      color: colors.textMuteInk,
-    },
-    filaPet: {
-      fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
-      color: colors.text,
-      marginTop: 8,
-    },
-    filaChipsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-      marginTop: 6,
-    },
-    filaTrecho: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.textSoft,
-      marginTop: 8,
-    },
     filaErro: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 13,
       color: colors.danger,
       textAlign: 'center',
       paddingVertical: 16,
-    },
-    filaActionsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 12,
     },
   });
 
@@ -459,25 +374,7 @@ export default function LunaScreen() {
         </KCCard>
       </View>
 
-      {/* SUB-SERVIÇOS */}
-      {healthUp && (
-        <View style={styles.subServicesRow} testID="sub-services">
-          {(Object.keys(SERVICO_META) as (keyof typeof SERVICO_META)[]).map((key) => {
-            const isUp = isServicoUp(health[key]);
-            const meta = SERVICO_META[key];
-            const svcColor = isUp ? colors.success : colors.danger;
-            return (
-              <KCCard key={key} style={styles.subCard}>
-                <KCIcon name={meta.icon} size={20} color={svcColor} />
-                <Text style={styles.subLabel}>{meta.label}</Text>
-                <Text style={[styles.subStatus, { color: svcColor }]} testID={`svc-${key}`}>
-                  {isUp ? 'UP' : 'DOWN'}
-                </Text>
-              </KCCard>
-            );
-          })}
-        </View>
-      )}
+      {/* C6 (BR-CLI-T07): a telemetria Oracle/API Kura saiu daqui; vive em Configuracoes (gestor). */}
 
       {/* FILA DA LUNA (LU-09) */}
       <View style={styles.section}>
@@ -504,39 +401,7 @@ export default function LunaScreen() {
       ) : (
         <View style={styles.section} testID="fila-luna-lista">
           {fila.items.map((item) => (
-            <KCCard
-              key={item.idTriagem}
-              style={styles.filaCard}
-              testID={`fila-card-${item.idTriagem}`}
-            >
-              <View style={styles.filaCardHeader}>
-                <KCChip tone={filaUrgenciaTone(item.urgencia)} testID={`fila-urg-${item.idTriagem}`}>
-                  {filaUrgenciaLabel(item.urgencia)}
-                </KCChip>
-                <Text style={styles.filaTempo} testID={`fila-tempo-${item.idTriagem}`}>
-                  {formatRelativeTime(item.dtTriagem)}
-                </Text>
-              </View>
-              {item.pets[0] && (
-                <Text style={styles.filaPet} testID={`fila-pet-${item.idTriagem}`}>
-                  {item.pets[0].nome}
-                </Text>
-              )}
-              {item.sintomas.length > 0 && (
-                <View style={styles.filaChipsRow}>
-                  {item.sintomas.map((sintoma) => (
-                    <KCChip key={sintoma} tone="mute">
-                      {sintoma}
-                    </KCChip>
-                  ))}
-                </View>
-              )}
-              {item.trechoMensagem && (
-                <Text style={styles.filaTrecho} numberOfLines={2} testID={`fila-trecho-${item.idTriagem}`}>
-                  {item.trechoMensagem}
-                </Text>
-              )}
-              <View style={styles.filaActionsRow}>
+            <TriagemCard key={item.idTriagem} item={item}>
                 {item.tutor && (
                   <KCButton
                     variant="secondary"
@@ -582,8 +447,7 @@ export default function LunaScreen() {
                     {STRINGS.LUNA.CADASTRAR_TUTOR}
                   </KCButton>
                 )}
-              </View>
-            </KCCard>
+            </TriagemCard>
           ))}
         </View>
       )}
