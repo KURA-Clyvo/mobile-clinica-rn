@@ -20,7 +20,7 @@ type ConsultaSearchParams = { idPet: string; idAgendamento?: string; nrVersion?:
 const mockUseLocalSearchParams = jest.fn<ConsultaSearchParams, []>(() => ({ idPet: '1' }));
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockUseLocalSearchParams(),
-  useRouter: () => ({ back: mockBack, replace: mockReplace }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => true, replace: mockReplace }),
 }));
 
 // REC-13: hook de mutação mockado no nível do módulo — mesmo padrão de

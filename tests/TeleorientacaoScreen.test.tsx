@@ -12,7 +12,7 @@ const mockBack = jest.fn();
 const mockUseLocalSearchParams = jest.fn(() => ({ idPet: '1' } as Record<string, string>));
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockUseLocalSearchParams(),
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => true }),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só

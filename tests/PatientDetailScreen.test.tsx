@@ -12,7 +12,7 @@ const mockBack = jest.fn();
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ id: '1' })),
-  useRouter: () => ({ push: mockPush, back: mockBack }),
+  useRouter: () => ({ push: mockPush, back: mockBack, canGoBack: () => true }),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só

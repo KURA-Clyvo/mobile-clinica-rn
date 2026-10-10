@@ -23,7 +23,7 @@ const MOCK_DOCUMENTO = {
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(() => ({ idPet: '1' })),
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => true }),
 }));
 
 // CQ-15: ScreenContainer usa <SafeAreaView> deste módulo — o mock antigo só
