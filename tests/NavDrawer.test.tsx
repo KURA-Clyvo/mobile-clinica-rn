@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { render, within } from '@testing-library/react-native';
+import { render, within, fireEvent, waitFor } from '@testing-library/react-native';
+import { confirmar } from '../src/components/feedback/confirmar';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { ThemeProvider, lightColors } from '../src/theme';
 import { NavDrawer } from '../src/components/layout/NavDrawer';
@@ -305,8 +306,6 @@ describe('NavDrawer — identidade do rodapé (FM-01)', () => {
 jest.mock('../src/components/feedback/confirmar', () => ({
   confirmar: jest.fn(),
 }));
-import { confirmar } from '../src/components/feedback/confirmar';
-import { fireEvent, waitFor } from '@testing-library/react-native';
 
 describe('NavDrawer — logout (BR-CLI-T05)', () => {
   const logada = () =>
