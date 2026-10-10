@@ -110,6 +110,11 @@ export default function AppLayout() {
   return (
     <Drawer
       drawerContent={(props) => <NavDrawer {...props} />}
+      // BR-CLI-T05 (G2 I-1): o padrão do Drawer é `firstRoute` — `canGoBack()` fica verdadeiro em qualquer rota
+      // que não seja a primeira e `back()` cai SEMPRE na Hoje (medido no web: lista→ficha→consulta→Voltar = /dashboard).
+      // `history` faz o Voltar desfazer a navegação de verdade; sem histórico (URL direta) o `canGoBack()` é falso
+      // e o fallback `destinoSemHistorico` leva à tela-pai.
+      backBehavior="history"
       screenOptions={{ headerShown: false, drawerType }}
     >
       <Drawer.Screen
