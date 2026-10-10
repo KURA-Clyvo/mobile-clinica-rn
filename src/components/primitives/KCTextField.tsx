@@ -44,7 +44,9 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       borderWidth: 1.5,
       borderRadius: 10,
-      paddingVertical: 12,
+      // BR-CLI-T05 (achado da fix wave): o padding vertical mora no TextInput, não no
+      // contêiner — com ele aqui o <input> media ~19px no web e clicar no padding não
+      // focava o campo. A caixa visual continua ~46px; a área clicável passa a ser ela.
       paddingHorizontal: 14,
       backgroundColor: colors.surface,
     },
@@ -66,7 +68,9 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 15,
       color: colors.text,
       fontFamily: 'Lexend_400Regular',
-      padding: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 12,
+      minHeight: touchTarget.min,
     },
     inputMultiline: {
       minHeight: 90,
