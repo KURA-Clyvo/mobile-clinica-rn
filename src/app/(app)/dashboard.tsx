@@ -364,6 +364,221 @@ export default function DashboardScreen() {
     </View>
   );
 
+  // Metricas, alertas, card financeiro (gestor) e checklist: UM bloco so, renderizado na coluna lateral
+  // (tela larga) ou em sequencia (celular). Antes da fix wave da G2 este JSX existia 2x.
+  const blocoLateral = (
+    <>
+      {loadingHoje ? (
+        <View style={styles.metricsGrid} testID="metrics-skeleton">
+          {skeletonMetricRows.map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.metricsRow} testID="metrics-skeleton-row">
+              {row.map((cardIndex) => (
+                <Skeleton key={cardIndex} variant="card" style={styles.skeletonItem} />
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : erroHoje ? (
+        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
+        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
+        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
+        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
+        // esse número.
+        <KCEmptyState
+          icon="alert"
+          title={STRINGS.dashboard.erroMetricas}
+          description={STRINGS.dashboard.erroMetricasDesc}
+          testID="erro-metricas"
+        />
+      ) : (
+        <View style={styles.metricsGrid} testID="metrics-grid">
+          {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.metricsRow} testID="metrics-row">
+              {row.map((item) => (
+                <MetricCard
+                  key={item.key}
+                  label={item.label}
+                  value={item.value}
+                  icon={item.icon}
+                  tone={item.tone}
+                />
+              ))}
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.sectionBlock}>
+        <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
+        <QueryState
+          query={alertasQuery}
+          skeleton={
+          <View style={styles.listGrid}>
+            {skeletonAlertRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.listRow} testID="alerts-skeleton-row">
+                {row.map((i) => (
+                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
+                ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
+              </View>
+            ))}
+          </View>
+          }
+          empty={
+          <KCEmptyState
+            icon="alert"
+            title={STRINGS.dashboard.semAlertas}
+            description={STRINGS.dashboard.semAlertasDesc}
+            testID="empty-alerts"
+          />
+          }
+          errorTitle="Não foi possível carregar os alertas"
+        >
+          {() => (
+          <View style={styles.listGrid}>
+            {alertRows.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.listRow} testID="alerts-row">
+                {row.map((alerta: AlertaResponse) => (
+                  <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
+                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
+                  </View>
+                ))}
+                {rowSpacers(row.length, listColumns, styles.listRowItem)}
+              </View>
+            ))}
+          </View>
+          )}
+        </QueryState>
+      </View>
+
+      {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
+          isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
+          `SomenteGestor` no controller -- um VETERINARIO puro recebe 403), e o `isGestor &&`
+          aqui impede o CARD de entrar na árvore. Ver comentário no topo do componente sobre
+          por que as duas guardas são necessárias (renderizar condicionalmente sozinho NÃO
+          basta -- o React Query dispara `queryFn` no mount independente do JSX). */}
+      {isGestor && (
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
+          <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
+          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
+              topo do dashboard mostra a data de HOJE: o gestor via um valor
+              mensal ao lado de uma data diária, sem nada ligando os dois.
+              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
+              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
+              palavras, "para que o app confira em vez de acreditar". Exibir o
+              período que o app PEDIU esconderia justamente a divergência que o
+              campo existe para revelar (a junta entre o mês local e a agregação
+              em dia UTC). */}
+          {resumoFinanceiro != null && (
+            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
+              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
+            </Text>
+          )}
+          {loadingFinanceiro ? (
+            <View style={styles.metricsRow} testID="financeiro-skeleton">
+              <Skeleton variant="card" style={styles.skeletonItem} />
+              <Skeleton variant="card" style={styles.skeletonItem} />
+            </View>
+          ) : erroFinanceiro || resumoFinanceiro == null ? (
+            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
+            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
+            // cobrança quanto quando a chamada FALHOU, então o gate anterior
+            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
+            // exibia "Nenhuma cobrança registrada neste período" para um erro
+            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
+            //
+            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
+            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
+            // `variacaoPercentual` são `null` de propósito, e o controller
+            // escreve "Zero para 'não medimos' seria mentira") — e o app
+            // transformava ausência de resposta em afirmação sobre o negócio.
+            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
+            <KCEmptyState
+              icon="alert"
+              title={STRINGS.dashboard.erroFinanceiro}
+              description={STRINGS.dashboard.erroFinanceiroDesc}
+              testID="erro-financeiro"
+            />
+          ) : resumoFinanceiro.nrCobrancas === 0 ? (
+            // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
+            // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
+            // "nenhuma cobrança registrada" seria FALSO nesse caso.
+            <KCEmptyState
+              icon="dashboard"
+              title={STRINGS.dashboard.semFaturamento}
+              description={STRINGS.dashboard.semFaturamentoDesc}
+              testID="empty-financeiro"
+            />
+          ) : (
+            <>
+              <View style={styles.metricsRow} testID="financeiro-row">
+                <MetricCard
+                  label={STRINGS.dashboard.receitaBruta}
+                  value={formatarMoeda(resumoFinanceiro.receitaBruta)}
+                  icon="dashboard"
+                  tone="sage"
+                />
+                <MetricCard
+                  label={STRINGS.dashboard.ticketMedio}
+                  // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
+                  // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
+                  value={
+                    resumoFinanceiro.ticketMedio == null
+                      ? '—'
+                      : formatarMoeda(resumoFinanceiro.ticketMedio)
+                  }
+                  icon="check"
+                  tone="ocean"
+                />
+              </View>
+              {/* FM-08 (item 2 do brief) — comparação com o período anterior. A resposta JÁ
+                  traz `variacaoPercentual` pronto (arredondado no servidor) -- não recalcula,
+                  não faz segunda chamada.
+                  🔴 `variacaoPercentual === null` NÃO é "0%": só ocorre quando a receita do
+                  período anterior é ZERO (ResumoFinanceiroResponseDto.cs:106, "crescer do
+                  zero não tem porcentagem"). Por isso o ramo `null` mostra a frase honesta
+                  com os dois números crus (`receitaBrutaPeriodoAnterior` -> `receitaBruta`),
+                  nunca "0%" nem um traço mudo -- é exatamente por isso que o contrato manda
+                  `receitaBrutaPeriodoAnterior` cru na resposta. */}
+              <Text style={styles.comparacaoText} testID="financeiro-comparacao">
+                {resumoFinanceiro.variacaoPercentual == null
+                  ? `${STRINGS.dashboard.semBaseComparacao} (${formatarMoeda(
+                      resumoFinanceiro.receitaBrutaPeriodoAnterior,
+                    )} → ${formatarMoeda(resumoFinanceiro.receitaBruta)})`
+                  : `${formatarPercentual(resumoFinanceiro.variacaoPercentual)} ${
+                      STRINGS.dashboard.comparacaoPeriodoAnterior
+                    } (${formatarMoeda(resumoFinanceiro.receitaBrutaPeriodoAnterior)})`}
+              </Text>
+            </>
+          )}
+          {/* FM-08 (item 3 do brief, decisão declarada #4) — link para o painel de gestão
+              (`(app)/financeiro/index.tsx`). Fica FORA do ternário acima e SEMPRE visível
+              para GESTOR (não depende de `resumoFinanceiro`/loading/erro): é navegação pura,
+              e o painel tem sua PRÓPRIA chamada/estado de erro -- condicionar este link ao
+              sucesso da chamada do dashboard impediria o gestor de abrir o painel justamente
+              quando o card do dashboard falhou (o cenário em que ele mais precisaria checar).
+              KCButton é componente customizado (não `TouchableOpacity`/`Pressable` crus) --
+              já carrega geometria/alvo de toque própria no registry (`KCButton.tsx`), sem
+              exigir entrada nova aqui (mesmo padrão do `KCChip` documentado em
+              servicos-preco/index.tsx). */}
+          <KCButton
+            variant="ghost"
+            size="sm"
+            onPress={() => router.push(ROUTES.app.financeiro)}
+            testID="btn-ver-painel-financeiro"
+            style={styles.linkPainelButton}
+          >
+            {STRINGS.dashboard.verPainelCompleto}
+          </KCButton>
+        </View>
+      )}
+      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
+          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
+      <OnboardingChecklist inicialRecolhido />
+    </>
+  );
+
   return (
     <ScreenContainer
       refreshControl={
@@ -386,430 +601,16 @@ export default function DashboardScreen() {
       {telaLarga ? (
         <View style={styles.duasColunas} testID="dashboard-duas-colunas">
           <View style={styles.colunaPrincipal}>
-      {blocoDia}
+            {blocoDia}
           </View>
           <View style={styles.colunaLateral}>
-      {loadingHoje ? (
-        <View style={styles.metricsGrid} testID="metrics-skeleton">
-          {skeletonMetricRows.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.metricsRow} testID="metrics-skeleton-row">
-              {row.map((cardIndex) => (
-                <Skeleton key={cardIndex} variant="card" style={styles.skeletonItem} />
-              ))}
-            </View>
-          ))}
-        </View>
-      ) : erroHoje ? (
-        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
-        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
-        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
-        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
-        // esse número.
-        <KCEmptyState
-          icon="alert"
-          title={STRINGS.dashboard.erroMetricas}
-          description={STRINGS.dashboard.erroMetricasDesc}
-          testID="erro-metricas"
-        />
-      ) : (
-        <View style={styles.metricsGrid} testID="metrics-grid">
-          {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.metricsRow} testID="metrics-row">
-              {row.map((item) => (
-                <MetricCard
-                  key={item.key}
-                  label={item.label}
-                  value={item.value}
-                  icon={item.icon}
-                  tone={item.tone}
-                />
-              ))}
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
-        <QueryState
-          query={alertasQuery}
-          skeleton={
-          <View style={styles.listGrid}>
-            {skeletonAlertRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="alerts-skeleton-row">
-                {row.map((i) => (
-                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          }
-          empty={
-          <KCEmptyState
-            icon="alert"
-            title={STRINGS.dashboard.semAlertas}
-            description={STRINGS.dashboard.semAlertasDesc}
-            testID="empty-alerts"
-          />
-          }
-          errorTitle="Não foi possível carregar os alertas"
-        >
-          {() => (
-          <View style={styles.listGrid}>
-            {alertRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="alerts-row">
-                {row.map((alerta: AlertaResponse) => (
-                  <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
-                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
-                  </View>
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          )}
-        </QueryState>
-      </View>
-
-      {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
-          isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
-          `SomenteGestor` no controller -- um VETERINARIO puro recebe 403), e o `isGestor &&`
-          aqui impede o CARD de entrar na árvore. Ver comentário no topo do componente sobre
-          por que as duas guardas são necessárias (renderizar condicionalmente sozinho NÃO
-          basta -- o React Query dispara `queryFn` no mount independente do JSX). */}
-      {isGestor && (
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
-          <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
-          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
-              topo do dashboard mostra a data de HOJE: o gestor via um valor
-              mensal ao lado de uma data diária, sem nada ligando os dois.
-              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
-              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
-              palavras, "para que o app confira em vez de acreditar". Exibir o
-              período que o app PEDIU esconderia justamente a divergência que o
-              campo existe para revelar (a junta entre o mês local e a agregação
-              em dia UTC). */}
-          {resumoFinanceiro != null && (
-            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
-              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
-            </Text>
-          )}
-          {loadingFinanceiro ? (
-            <View style={styles.metricsRow} testID="financeiro-skeleton">
-              <Skeleton variant="card" style={styles.skeletonItem} />
-              <Skeleton variant="card" style={styles.skeletonItem} />
-            </View>
-          ) : erroFinanceiro || resumoFinanceiro == null ? (
-            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
-            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
-            // cobrança quanto quando a chamada FALHOU, então o gate anterior
-            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
-            // exibia "Nenhuma cobrança registrada neste período" para um erro
-            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
-            //
-            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
-            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
-            // `variacaoPercentual` são `null` de propósito, e o controller
-            // escreve "Zero para 'não medimos' seria mentira") — e o app
-            // transformava ausência de resposta em afirmação sobre o negócio.
-            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
-            <KCEmptyState
-              icon="alert"
-              title={STRINGS.dashboard.erroFinanceiro}
-              description={STRINGS.dashboard.erroFinanceiroDesc}
-              testID="erro-financeiro"
-            />
-          ) : resumoFinanceiro.nrCobrancas === 0 ? (
-            // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
-            // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
-            // "nenhuma cobrança registrada" seria FALSO nesse caso.
-            <KCEmptyState
-              icon="dashboard"
-              title={STRINGS.dashboard.semFaturamento}
-              description={STRINGS.dashboard.semFaturamentoDesc}
-              testID="empty-financeiro"
-            />
-          ) : (
-            <>
-              <View style={styles.metricsRow} testID="financeiro-row">
-                <MetricCard
-                  label={STRINGS.dashboard.receitaBruta}
-                  value={formatarMoeda(resumoFinanceiro.receitaBruta)}
-                  icon="dashboard"
-                  tone="sage"
-                />
-                <MetricCard
-                  label={STRINGS.dashboard.ticketMedio}
-                  // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
-                  // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
-                  value={
-                    resumoFinanceiro.ticketMedio == null
-                      ? '—'
-                      : formatarMoeda(resumoFinanceiro.ticketMedio)
-                  }
-                  icon="check"
-                  tone="ocean"
-                />
-              </View>
-              {/* FM-08 (item 2 do brief) — comparação com o período anterior. A resposta JÁ
-                  traz `variacaoPercentual` pronto (arredondado no servidor) -- não recalcula,
-                  não faz segunda chamada.
-                  🔴 `variacaoPercentual === null` NÃO é "0%": só ocorre quando a receita do
-                  período anterior é ZERO (ResumoFinanceiroResponseDto.cs:106, "crescer do
-                  zero não tem porcentagem"). Por isso o ramo `null` mostra a frase honesta
-                  com os dois números crus (`receitaBrutaPeriodoAnterior` -> `receitaBruta`),
-                  nunca "0%" nem um traço mudo -- é exatamente por isso que o contrato manda
-                  `receitaBrutaPeriodoAnterior` cru na resposta. */}
-              <Text style={styles.comparacaoText} testID="financeiro-comparacao">
-                {resumoFinanceiro.variacaoPercentual == null
-                  ? `${STRINGS.dashboard.semBaseComparacao} (${formatarMoeda(
-                      resumoFinanceiro.receitaBrutaPeriodoAnterior,
-                    )} → ${formatarMoeda(resumoFinanceiro.receitaBruta)})`
-                  : `${formatarPercentual(resumoFinanceiro.variacaoPercentual)} ${
-                      STRINGS.dashboard.comparacaoPeriodoAnterior
-                    } (${formatarMoeda(resumoFinanceiro.receitaBrutaPeriodoAnterior)})`}
-              </Text>
-            </>
-          )}
-          {/* FM-08 (item 3 do brief, decisão declarada #4) — link para o painel de gestão
-              (`(app)/financeiro/index.tsx`). Fica FORA do ternário acima e SEMPRE visível
-              para GESTOR (não depende de `resumoFinanceiro`/loading/erro): é navegação pura,
-              e o painel tem sua PRÓPRIA chamada/estado de erro -- condicionar este link ao
-              sucesso da chamada do dashboard impediria o gestor de abrir o painel justamente
-              quando o card do dashboard falhou (o cenário em que ele mais precisaria checar).
-              KCButton é componente customizado (não `TouchableOpacity`/`Pressable` crus) --
-              já carrega geometria/alvo de toque própria no registry (`KCButton.tsx`), sem
-              exigir entrada nova aqui (mesmo padrão do `KCChip` documentado em
-              servicos-preco/index.tsx). */}
-          <KCButton
-            variant="ghost"
-            size="sm"
-            onPress={() => router.push(ROUTES.app.financeiro)}
-            testID="btn-ver-painel-financeiro"
-            style={styles.linkPainelButton}
-          >
-            {STRINGS.dashboard.verPainelCompleto}
-          </KCButton>
-        </View>
-      )}
-      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
-          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
-      <OnboardingChecklist inicialRecolhido />
+            {blocoLateral}
           </View>
         </View>
       ) : (
         <>
-      {blocoDia}
-      {loadingHoje ? (
-        <View style={styles.metricsGrid} testID="metrics-skeleton">
-          {skeletonMetricRows.map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.metricsRow} testID="metrics-skeleton-row">
-              {row.map((cardIndex) => (
-                <Skeleton key={cardIndex} variant="card" style={styles.skeletonItem} />
-              ))}
-            </View>
-          ))}
-        </View>
-      ) : erroHoje ? (
-        // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
-        // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
-        // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
-        // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
-        // esse número.
-        <KCEmptyState
-          icon="alert"
-          title={STRINGS.dashboard.erroMetricas}
-          description={STRINGS.dashboard.erroMetricasDesc}
-          testID="erro-metricas"
-        />
-      ) : (
-        <View style={styles.metricsGrid} testID="metrics-grid">
-          {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
-            <View key={rowIndex} style={styles.metricsRow} testID="metrics-row">
-              {row.map((item) => (
-                <MetricCard
-                  key={item.key}
-                  label={item.label}
-                  value={item.value}
-                  icon={item.icon}
-                  tone={item.tone}
-                />
-              ))}
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionTitle}>{STRINGS.dashboard.alertas}</Text>
-        <QueryState
-          query={alertasQuery}
-          skeleton={
-          <View style={styles.listGrid}>
-            {skeletonAlertRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="alerts-skeleton-row">
-                {row.map((i) => (
-                  <Skeleton key={i} variant="list" count={1} style={styles.listRowItem} />
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          }
-          empty={
-          <KCEmptyState
-            icon="alert"
-            title={STRINGS.dashboard.semAlertas}
-            description={STRINGS.dashboard.semAlertasDesc}
-            testID="empty-alerts"
-          />
-          }
-          errorTitle="Não foi possível carregar os alertas"
-        >
-          {() => (
-          <View style={styles.listGrid}>
-            {alertRows.map((row, rowIndex) => (
-              <View key={rowIndex} style={styles.listRow} testID="alerts-row">
-                {row.map((alerta: AlertaResponse) => (
-                  <View key={alerta.id} style={styles.listRowItem} testID="alerts-item">
-                    <AlertCard alerta={alerta} style={styles.alertCardInGrid} />
-                  </View>
-                ))}
-                {rowSpacers(row.length, listColumns, styles.listRowItem)}
-              </View>
-            ))}
-          </View>
-          )}
-        </QueryState>
-      </View>
-
-      {/* FM-07 (ciclo FIN) — seção financeira, GESTOR-ONLY nas DUAS metades: o `enabled:
-          isGestor` dentro de useResumoFinanceiro impede a CHAMADA (FinanceiroController é
-          `SomenteGestor` no controller -- um VETERINARIO puro recebe 403), e o `isGestor &&`
-          aqui impede o CARD de entrar na árvore. Ver comentário no topo do componente sobre
-          por que as duas guardas são necessárias (renderizar condicionalmente sozinho NÃO
-          basta -- o React Query dispara `queryFn` no mount independente do JSX). */}
-      {isGestor && (
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionTitle}>{STRINGS.dashboard.financeiro}</Text>
-          <Text style={styles.sectionSubtitle}>{STRINGS.dashboard.financeiroSubtitulo}</Text>
-          {/* I-3 da G2 — a tela nunca dizia DE QUE PERÍODO eram os números, e o
-              topo do dashboard mostra a data de HOJE: o gestor via um valor
-              mensal ao lado de uma data diária, sem nada ligando os dois.
-              🔴 A data vem de `resumoFinanceiro.periodo`, que é o intervalo que
-              o SERVIDOR de fato usou -- o contrato devolve esse campo com estas
-              palavras, "para que o app confira em vez de acreditar". Exibir o
-              período que o app PEDIU esconderia justamente a divergência que o
-              campo existe para revelar (a junta entre o mês local e a agregação
-              em dia UTC). */}
-          {resumoFinanceiro != null && (
-            <Text style={styles.sectionSubtitle} testID="financeiro-periodo">
-              {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
-            </Text>
-          )}
-          {loadingFinanceiro ? (
-            <View style={styles.metricsRow} testID="financeiro-skeleton">
-              <Skeleton variant="card" style={styles.skeletonItem} />
-              <Skeleton variant="card" style={styles.skeletonItem} />
-            </View>
-          ) : erroFinanceiro || resumoFinanceiro == null ? (
-            // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
-            // `resumoFinanceiro` é `undefined` tanto quando o período não teve
-            // cobrança quanto quando a chamada FALHOU, então o gate anterior
-            // (`data == null || nrCobrancas === 0`, os dois no mesmo ramo)
-            // exibia "Nenhuma cobrança registrada neste período" para um erro
-            // de rede — trocando **"não sei" por "não houve"** na tela do gestor.
-            //
-            // ⚠️ É a doutrina deste ciclo violada PELO CLIENTE: o backend se
-            // recusa a devolver `0` para o que não sabe medir (`ticketMedio` e
-            // `variacaoPercentual` são `null` de propósito, e o controller
-            // escreve "Zero para 'não medimos' seria mentira") — e o app
-            // transformava ausência de resposta em afirmação sobre o negócio.
-            // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
-            <KCEmptyState
-              icon="alert"
-              title={STRINGS.dashboard.erroFinanceiro}
-              description={STRINGS.dashboard.erroFinanceiroDesc}
-              testID="erro-financeiro"
-            />
-          ) : resumoFinanceiro.nrCobrancas === 0 ? (
-            // §2.4 do brief — o gate é `nrCobrancas === 0`, NUNCA `receitaBruta === 0`: uma
-            // clínica que deu cortesia o mês inteiro tem receitaBruta 0 e nrCobrancas > 0, e
-            // "nenhuma cobrança registrada" seria FALSO nesse caso.
-            <KCEmptyState
-              icon="dashboard"
-              title={STRINGS.dashboard.semFaturamento}
-              description={STRINGS.dashboard.semFaturamentoDesc}
-              testID="empty-financeiro"
-            />
-          ) : (
-            <>
-              <View style={styles.metricsRow} testID="financeiro-row">
-                <MetricCard
-                  label={STRINGS.dashboard.receitaBruta}
-                  value={formatarMoeda(resumoFinanceiro.receitaBruta)}
-                  icon="dashboard"
-                  tone="sage"
-                />
-                <MetricCard
-                  label={STRINGS.dashboard.ticketMedio}
-                  // 🔴 §2.3 do brief — `ticketMedio: null` NUNCA vira "R$ 0,00" (mentiria "o
-                  // atendimento médio valeu zero"). O traço "—" é o único caso não-monetário.
-                  value={
-                    resumoFinanceiro.ticketMedio == null
-                      ? '—'
-                      : formatarMoeda(resumoFinanceiro.ticketMedio)
-                  }
-                  icon="check"
-                  tone="ocean"
-                />
-              </View>
-              {/* FM-08 (item 2 do brief) — comparação com o período anterior. A resposta JÁ
-                  traz `variacaoPercentual` pronto (arredondado no servidor) -- não recalcula,
-                  não faz segunda chamada.
-                  🔴 `variacaoPercentual === null` NÃO é "0%": só ocorre quando a receita do
-                  período anterior é ZERO (ResumoFinanceiroResponseDto.cs:106, "crescer do
-                  zero não tem porcentagem"). Por isso o ramo `null` mostra a frase honesta
-                  com os dois números crus (`receitaBrutaPeriodoAnterior` -> `receitaBruta`),
-                  nunca "0%" nem um traço mudo -- é exatamente por isso que o contrato manda
-                  `receitaBrutaPeriodoAnterior` cru na resposta. */}
-              <Text style={styles.comparacaoText} testID="financeiro-comparacao">
-                {resumoFinanceiro.variacaoPercentual == null
-                  ? `${STRINGS.dashboard.semBaseComparacao} (${formatarMoeda(
-                      resumoFinanceiro.receitaBrutaPeriodoAnterior,
-                    )} → ${formatarMoeda(resumoFinanceiro.receitaBruta)})`
-                  : `${formatarPercentual(resumoFinanceiro.variacaoPercentual)} ${
-                      STRINGS.dashboard.comparacaoPeriodoAnterior
-                    } (${formatarMoeda(resumoFinanceiro.receitaBrutaPeriodoAnterior)})`}
-              </Text>
-            </>
-          )}
-          {/* FM-08 (item 3 do brief, decisão declarada #4) — link para o painel de gestão
-              (`(app)/financeiro/index.tsx`). Fica FORA do ternário acima e SEMPRE visível
-              para GESTOR (não depende de `resumoFinanceiro`/loading/erro): é navegação pura,
-              e o painel tem sua PRÓPRIA chamada/estado de erro -- condicionar este link ao
-              sucesso da chamada do dashboard impediria o gestor de abrir o painel justamente
-              quando o card do dashboard falhou (o cenário em que ele mais precisaria checar).
-              KCButton é componente customizado (não `TouchableOpacity`/`Pressable` crus) --
-              já carrega geometria/alvo de toque própria no registry (`KCButton.tsx`), sem
-              exigir entrada nova aqui (mesmo padrão do `KCChip` documentado em
-              servicos-preco/index.tsx). */}
-          <KCButton
-            variant="ghost"
-            size="sm"
-            onPress={() => router.push(ROUTES.app.financeiro)}
-            testID="btn-ver-painel-financeiro"
-            style={styles.linkPainelButton}
-          >
-            {STRINGS.dashboard.verPainelCompleto}
-          </KCButton>
-        </View>
-      )}
-      {/* BR-CLI-T06 (D3): o checklist saiu do topo (CQ-13 item 2) para o FIM, recolhido numa linha --
-          o dia da clinica ocupa a dobra. Auto-hide/dismiss/hidratacao continuam do proprio componente. */}
-      <OnboardingChecklist inicialRecolhido />
+          {blocoDia}
+          {blocoLateral}
         </>
       )}
     </ScreenContainer>
