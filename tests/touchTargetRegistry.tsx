@@ -767,7 +767,19 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
+  // BR-CLI-T05: o ramo 'Voltar' do AppHeader vem ANTES no arquivo, então ocupa #1 e empurra menu/busca.
   'AppHeader.tsx::AppHeader#1': {
+    category: 'meets-min',
+    expectedTestId: 'app-header-back',
+    verify: () => {
+      const { getByTestId } = wrap(<AppHeader title="X" onMenuPress={() => {}} onBackPress={() => {}} />);
+      const estilo = flat(getByTestId('app-header-back').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  'AppHeader.tsx::AppHeader#2': {
     category: 'meets-min',
     expectedTestId: 'app-header-menu',
     verify: () => {
@@ -778,7 +790,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
-  'AppHeader.tsx::AppHeader#2': {
+  'AppHeader.tsx::AppHeader#3': {
     category: 'meets-min',
     expectedTestId: 'app-header-search',
     verify: () => {
@@ -802,17 +814,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
+  // BR-CLI-T05: o logout era o pior caso (ícone 20x20 sem margem). Agora 44x44 declarados.
   'NavDrawer.tsx::NavDrawer#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'nav-drawer-logout',
-    reason:
-      'Botão de logout (`nav-drawer-logout`) não declara ESTILO NENHUM de geometria — nem ' +
-      'padding, nem height/minHeight. É o pior caso descoberto por esta varredura (ícone 20×20 ' +
-      'sozinho, sem margem de toque nenhuma). Não corrigido nesta task (fora dos 4 itens do ' +
-      'Escopo 3 do brief) — candidato de maior prioridade a um follow-up.',
     verify: () => {
       const { getByTestId } = renderNavDrawerComUsuario();
-      return expectSemGeometriaExplicita(flat(getByTestId('nav-drawer-logout').props.style));
+      const estilo = flat(getByTestId('nav-drawer-logout').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 

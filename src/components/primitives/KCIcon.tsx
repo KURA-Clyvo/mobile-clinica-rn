@@ -7,7 +7,7 @@ export const ICON_NAMES = [
   'dashboard', 'agenda', 'patients', 'consult', 'tele', 'rx', 'luna',
   'settings', 'search', 'bell', 'plus', 'more', 'arrowR', 'chevR',
   'check', 'alert', 'edit', 'download', 'print', 'paw', 'mic', 'cam',
-  'hangup', 'share', 'filter', 'back', 'close', 'menu',
+  'hangup', 'share', 'filter', 'back', 'close', 'menu', 'sair',
 ] as const;
 
 export type KCIconName = typeof ICON_NAMES[number];
@@ -205,6 +205,10 @@ const ICON_PATHS: Record<KCIconName, IconRenderer> = {
   ),
   menu: (c, sw) => (
     <Path d="M3 12h18M3 6h18M3 18h18" stroke={c} strokeWidth={sw} />
+  ),
+  // BR-CLI-T05: porta com seta de saida - o logout deixa de usar o icone de fechar.
+  sair: (c, sw) => (
+    <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke={c} strokeWidth={sw} />
   ),
 };
 

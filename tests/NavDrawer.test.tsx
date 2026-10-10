@@ -297,3 +297,61 @@ describe('NavDrawer — identidade do rodapé (FM-01)', () => {
     expect(queryByTestId('nav-drawer-user-primary')).toBeNull();
   });
 });
+
+// ─── BR-CLI-T05 — logout do drawer: alvo 44×44, ícone próprio e confirmação ──
+//
+// Antes: um "×" (ícone de fechar) de 20×20 que deslogava sem perguntar. Aqui o `confirmar` é mockado
+// para provar a ORDEM: a sessão só é limpa depois de o usuário confirmar, e recusar não desloga.
+jest.mock('../src/components/feedback/confirmar', () => ({
+  confirmar: jest.fn(),
+}));
+import { confirmar } from '../src/components/feedback/confirmar';
+import { fireEvent, waitFor } from '@testing-library/react-native';
+
+describe('NavDrawer — logout (BR-CLI-T05)', () => {
+  const logada = () =>
+    useAuthStore.setState({
+      token: 'tok',
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      email: 'felipe@kuraclinica.com.br',
+      tpPerfil: 'VETERINARIO',
+      usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-1', dsEmail: 'felipe@kuraclinica.com.br' },
+    });
+  beforeEach(() => {
+    (confirmar as jest.Mock).mockReset();
+    logada();
+  });
+
+  it('o alvo de toque tem 44×44 e role button com rótulo "Sair"', () => {
+    const { getByTestId } = wrap(0);
+    const btn = getByTestId('nav-drawer-logout');
+    const estilo = StyleSheet.flatten(btn.props.style);
+    expect(estilo.width).toBeGreaterThanOrEqual(44);
+    expect(estilo.height).toBeGreaterThanOrEqual(44);
+    expect(btn.props.accessibilityRole).toBe('button');
+    expect(btn.props.accessibilityLabel).toBe('Sair');
+  });
+
+  it('confirmando: pede "Sair da conta?" com "Continuar conectado" e só então limpa a sessão', async () => {
+    (confirmar as jest.Mock).mockResolvedValue(true);
+    const { getByTestId } = wrap(0);
+    fireEvent.press(getByTestId('nav-drawer-logout'));
+    expect(confirmar).toHaveBeenCalledWith(
+      expect.objectContaining({
+        titulo: 'Sair da conta?',
+        verbo: 'Sair da conta',
+        rotuloCancelar: 'Continuar conectado',
+      }),
+    );
+    await waitFor(() => expect(useAuthStore.getState().token).toBeNull());
+  });
+
+  it('recusando: a sessão continua (controle negativo da confirmação)', async () => {
+    (confirmar as jest.Mock).mockResolvedValue(false);
+    const { getByTestId } = wrap(0);
+    fireEvent.press(getByTestId('nav-drawer-logout'));
+    await waitFor(() => expect(confirmar).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useAuthStore.getState().token).toBe('tok');
+  });
+});
