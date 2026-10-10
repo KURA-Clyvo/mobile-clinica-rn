@@ -8,6 +8,7 @@ import { useResumoFinanceiro } from '@hooks/useFinanceiro';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { MetricCard } from '@components/domain/MetricCard';
 import { STRINGS } from '@constants/strings';
@@ -80,7 +81,7 @@ const makeStyles = (colors: typeof lightColors) =>
       marginBottom: 12,
     },
     metricsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-    skeletonCard: { flex: 1, height: 100, borderRadius: 20, opacity: 0.45 },
+    skeletonItem: { flex: 1 },
     comparacaoCard: { gap: 4 },
     comparacaoPeriodos: {
       fontFamily: 'Lexend_400Regular',
@@ -225,8 +226,8 @@ export default function FinanceiroScreen() {
 
       {isLoading ? (
         <View style={styles.metricsRow} testID="financeiro-painel-skeleton">
-          <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
-          <View testID="skeleton" style={[styles.skeletonCard, { backgroundColor: colors.border }]} />
+          <Skeleton variant="card" style={styles.skeletonItem} />
+          <Skeleton variant="card" style={styles.skeletonItem} />
         </View>
       ) : isError || resumo == null ? (
         // 🔴 Mesma doutrina do dashboard (I-1 da G2 da FM-07) -- "não sei" NÃO é "não houve".

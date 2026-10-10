@@ -16,6 +16,8 @@ export interface ErrorStateProps {
   titulo?: string;
   descricao?: string;
   onRetry: () => void;
+  /** Linha curta (texto + botão) para dado auxiliar de formulário, em vez do bloco centrado. */
+  compacto?: boolean;
   testID?: string;
 }
 
@@ -25,11 +27,29 @@ const makeStyles = (colors: typeof lightColors) =>
     titulo: { ...typography.bodyMedium, color: colors.text, textAlign: 'center', marginTop: spacing[2] },
     descricao: { ...typography.body, color: colors.textSoft, textAlign: 'center' },
     acao: { marginTop: spacing[3] },
+    linha: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[2] },
+    linhaTexto: { ...typography.body, color: colors.text, flexShrink: 1 },
   });
 
-export function ErrorState({ titulo, descricao, onRetry, testID = 'error-state' }: ErrorStateProps) {
+export function ErrorState({ titulo, descricao, onRetry, compacto, testID = 'error-state' }: ErrorStateProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  if (compacto) {
+    return (
+      <View style={styles.linha} testID={testID} accessibilityRole="alert">
+        <Text style={styles.linhaTexto}>{titulo ?? ERRO_TITULO_PADRAO}.</Text>
+        <KCButton
+          variant="ghost"
+          size="sm"
+          onPress={onRetry}
+          testID={`${testID}-retry`}
+          accessibilityLabel={ROTULO_TENTAR_DE_NOVO}
+        >
+          {ROTULO_TENTAR_DE_NOVO}
+        </KCButton>
+      </View>
+    );
+  }
   return (
     <View style={styles.caixa} testID={testID} accessibilityRole="alert">
       <KCIcon name="alert" size={40} color={colors.textMuteInk} />
