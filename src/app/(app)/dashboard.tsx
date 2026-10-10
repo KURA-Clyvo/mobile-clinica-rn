@@ -335,6 +335,35 @@ export default function DashboardScreen() {
   // muda dado real — só a contagem de barras cinzas durante o loading.
   const skeletonAlertRows = chunk([0, 1, 2] as const, listColumns);
 
+  const blocoDia = (
+    <View style={styles.sectionBlock} testID="bloco-dia">
+      <QueryState
+        query={agendaHojeQuery}
+        skeleton={<Skeleton variant="list" count={3} />}
+        empty={
+          <KCEmptyState
+            icon="agenda"
+            title={STRINGS.dashboard.semAtendimentosHoje}
+            description={STRINGS.dashboard.semAtendimentosHojeDesc}
+            testID="empty-appointments"
+          />
+        }
+        errorTitle="Não foi possível carregar os atendimentos"
+      >
+        {(lista) => (
+          <ProximosDoDia
+            lista={lista}
+            agora={agoraAtual}
+            limite={telaLarga ? 6 : 4}
+            largo={telaLarga}
+            onAbrirProntuario={abrirProntuario}
+            onVerTodos={() => router.push(ROUTES.app.agendaHoje)}
+          />
+        )}
+      </QueryState>
+    </View>
+  );
+
   return (
     <ScreenContainer
       refreshControl={
@@ -357,16 +386,7 @@ export default function DashboardScreen() {
       {telaLarga ? (
         <View style={styles.duasColunas} testID="dashboard-duas-colunas">
           <View style={styles.colunaPrincipal}>
-      <View style={styles.sectionBlock} testID="bloco-dia">
-        <ProximosDoDia
-          query={agendaHojeQuery}
-          agora={agoraAtual}
-          limite={telaLarga ? 6 : 4}
-          largo={telaLarga}
-          onAbrirProntuario={abrirProntuario}
-          onVerTodos={() => router.push(ROUTES.app.agendaHoje)}
-        />
-      </View>
+      {blocoDia}
           </View>
           <View style={styles.colunaLateral}>
       {loadingHoje ? (
@@ -581,16 +601,7 @@ export default function DashboardScreen() {
         </View>
       ) : (
         <>
-      <View style={styles.sectionBlock} testID="bloco-dia">
-        <ProximosDoDia
-          query={agendaHojeQuery}
-          agora={agoraAtual}
-          limite={telaLarga ? 6 : 4}
-          largo={telaLarga}
-          onAbrirProntuario={abrirProntuario}
-          onVerTodos={() => router.push(ROUTES.app.agendaHoje)}
-        />
-      </View>
+      {blocoDia}
       {loadingHoje ? (
         <View style={styles.metricsGrid} testID="metrics-skeleton">
           {skeletonMetricRows.map((row, rowIndex) => (

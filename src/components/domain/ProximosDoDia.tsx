@@ -6,8 +6,6 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { KCIcon } from '@components/primitives/KCIcon';
-import { QueryState, type QueryLike } from '@components/feedback/QueryState';
-import { Skeleton } from '@components/feedback/Skeleton';
 import { STRINGS } from '@constants/strings';
 import { formatTime } from '@utils/date';
 import { etapaRecepcaoLabel, etapaRecepcaoTone } from '@utils/etapaRecepcao';
@@ -59,8 +57,10 @@ function FotoPet({ a, tamanho }: { a: AgendamentoResponse; tamanho: number }) {
   );
 }
 
+// O estado (carregando / vazio / erro) e do QueryState de dashboard.tsx; aqui so o CONTEUDO, que so e
+// montado com a lista JA carregada (e nao vazia).
 export interface ProximosDoDiaProps {
-  query: QueryLike<AgendamentoResponse[]>;
+  lista: AgendamentoResponse[];
   agora: Date;
   /** Quantas linhas de "Seguintes de hoje" cabem (4 no celular, 6 na tela larga). */
   limite: number;
@@ -70,108 +70,90 @@ export interface ProximosDoDiaProps {
   onVerTodos: () => void;
 }
 
-export function ProximosDoDia({ query, agora, limite, largo, onAbrirProntuario, onVerTodos }: ProximosDoDiaProps) {
+export function ProximosDoDia({ lista, agora, limite, largo, onAbrirProntuario, onVerTodos }: ProximosDoDiaProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
 
-  return (
-    <QueryState
-      query={query}
-      skeleton={<Skeleton variant="list" count={3} />}
-      empty={
-        <KCEmptyState
-          icon="agenda"
-          title={STRINGS.dashboard.semAtendimentosHoje}
-          description={STRINGS.dashboard.semAtendimentosHojeDesc}
-          testID="empty-appointments"
-        />
-      }
-      errorTitle="Não foi possível carregar os atendimentos"
-    >
-      {(lista) => {
-        const dia = organizarDia(lista, agora);
-        const visiveis = dia.seguintes.slice(0, limite);
-        const marca = dia.marcaAgora !== null && dia.marcaAgora <= visiveis.length ? dia.marcaAgora : null;
-        const horaAgora = formatTime(agora);
-        const semAtivos = dia.proximo === null && dia.emAtendimento.length === 0;
+    const dia = organizarDia(lista, agora);
+    const visiveis = dia.seguintes.slice(0, limite);
+    const marca = dia.marcaAgora !== null && dia.marcaAgora <= visiveis.length ? dia.marcaAgora : null;
+    const horaAgora = formatTime(agora);
+    const semAtivos = dia.proximo === null && dia.emAtendimento.length === 0;
 
-        if (semAtivos) {
-          return (
-            <View>
-              <KCEmptyState
-                icon="check"
-                title={STRINGS.dashboard.nadaMaisHoje}
-                description={STRINGS.dashboard.nadaMaisHojeDesc(dia.encerrados)}
-                testID="empty-fim-do-dia"
-              />
-              <KCButton variant="ghost" size="sm" onPress={onVerTodos} testID="btn-ver-todos-hoje" style={styles.verTodos}>
-                {STRINGS.dashboard.verTodosHoje}
-              </KCButton>
-            </View>
-          );
-        }
+    if (semAtivos) {
+      return (
+        <View>
+          <KCEmptyState
+            icon="check"
+            title={STRINGS.dashboard.nadaMaisHoje}
+            description={STRINGS.dashboard.nadaMaisHojeDesc(dia.encerrados)}
+            testID="empty-fim-do-dia"
+          />
+          <KCButton variant="ghost" size="sm" onPress={onVerTodos} testID="btn-ver-todos-hoje" style={styles.verTodos}>
+            {STRINGS.dashboard.verTodosHoje}
+          </KCButton>
+        </View>
+      );
+    }
 
-        return (
-          <View>
-            {dia.emAtendimento.length > 0 && (
-              <View style={styles.faixa} testID="em-atendimento">
-                {dia.emAtendimento.map((a) => (
-                  <View key={a.id} style={styles.faixaItem} testID={`em-atendimento-${a.id}`}>
-                    <KCChip tone="sage" dot>
-                      {etapaRecepcaoLabel('EM_ATENDIMENTO')}
-                    </KCChip>
-                    <Text style={styles.faixaTexto}>
-                      <Text style={styles.faixaPet}>{a.pet.nmPet}</Text>
-                      {`, ${a.tutor.nmTutor}`}
-                      {a.dtInicioAtendimento ? (
-                        <>
-                          {', desde '}
-                          <Text style={styles.mono}>{formatTime(a.dtInicioAtendimento)}</Text>
-                        </>
-                      ) : null}
-                    </Text>
-                  </View>
-                ))}
+    return (
+      <View>
+        {dia.emAtendimento.length > 0 && (
+          <View style={styles.faixa} testID="em-atendimento">
+            {dia.emAtendimento.map((a) => (
+              <View key={a.id} style={styles.faixaItem} testID={`em-atendimento-${a.id}`}>
+                <KCChip tone="sage" dot>
+                  {etapaRecepcaoLabel('EM_ATENDIMENTO')}
+                </KCChip>
+                <Text style={styles.faixaTexto}>
+                  <Text style={styles.faixaPet}>{a.pet.nmPet}</Text>
+                  {`, ${a.tutor.nmTutor}`}
+                  {a.dtInicioAtendimento ? (
+                    <>
+                      {', desde '}
+                      <Text style={styles.mono}>{formatTime(a.dtInicioAtendimento)}</Text>
+                    </>
+                  ) : null}
+                </Text>
               </View>
-            )}
-
-            {dia.proximo && (
-              <Destaque
-                a={dia.proximo}
-                agora={agora}
-                largo={Boolean(largo)}
-                onAbrirProntuario={onAbrirProntuario}
-              />
-            )}
-
-            {visiveis.length > 0 && (
-              <View style={styles.secao}>
-                <View style={styles.secaoCabecalho}>
-                  <Text style={styles.secaoTitulo} accessibilityRole="header">
-                    {STRINGS.dashboard.seguintesDeHoje}
-                  </Text>
-                  <Text style={styles.secaoContagem} testID="seguintes-contagem">
-                    {dia.seguintes.length}
-                  </Text>
-                </View>
-                {visiveis.map((a, i) => (
-                  <React.Fragment key={a.id}>
-                    {marca === i && <MarcaAgora hora={horaAgora} />}
-                    <LinhaSeguinte a={a} agora={agora} />
-                  </React.Fragment>
-                ))}
-                {marca === visiveis.length && <MarcaAgora hora={horaAgora} />}
-              </View>
-            )}
-
-            <KCButton variant="ghost" size="sm" onPress={onVerTodos} testID="btn-ver-todos-hoje" style={styles.verTodos}>
-              {STRINGS.dashboard.verTodosHoje}
-            </KCButton>
+            ))}
           </View>
-        );
-      }}
-    </QueryState>
-  );
+        )}
+
+        {dia.proximo && (
+          <Destaque
+            a={dia.proximo}
+            agora={agora}
+            largo={Boolean(largo)}
+            onAbrirProntuario={onAbrirProntuario}
+          />
+        )}
+
+        {visiveis.length > 0 && (
+          <View style={styles.secao}>
+            <View style={styles.secaoCabecalho}>
+              <Text style={styles.secaoTitulo} accessibilityRole="header">
+                {STRINGS.dashboard.seguintesDeHoje}
+              </Text>
+              <Text style={styles.secaoContagem} testID="seguintes-contagem">
+                {dia.seguintes.length}
+              </Text>
+            </View>
+            {visiveis.map((a, i) => (
+              <React.Fragment key={a.id}>
+                {marca === i && <MarcaAgora hora={horaAgora} />}
+                <LinhaSeguinte a={a} agora={agora} />
+              </React.Fragment>
+            ))}
+            {marca === visiveis.length && <MarcaAgora hora={horaAgora} />}
+          </View>
+        )}
+
+        <KCButton variant="ghost" size="sm" onPress={onVerTodos} testID="btn-ver-todos-hoje" style={styles.verTodos}>
+          {STRINGS.dashboard.verTodosHoje}
+        </KCButton>
+      </View>
+    );
 }
 
 function Destaque({
