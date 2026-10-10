@@ -114,6 +114,16 @@ describe('Hoje -- marca "agora" e proximo realcado', () => {
     expect(proximo.findAllByProps({ testID: 'etapa-2' }).length).toBeGreaterThan(0); // Thor = id 2
   });
 
+  it('M-4: o chip de etapa no cartao realcado tem fundo diferente do cartao; fora do realce nao muda', () => {
+    mockSearchParams = { modo: 'hoje' };
+    const { getByTestId } = wrap();
+    const cardBg = StyleSheet.flatten(getByTestId('agenda-proximo').findByProps({ testID: 'agenda-hoje-card' }).props.style).backgroundColor;
+    const chipDestaque = StyleSheet.flatten(getByTestId('etapa-2').props.style);
+    expect(chipDestaque.backgroundColor).toBe(lightColors.surface);
+    expect(chipDestaque.backgroundColor).not.toBe(cardBg);
+    expect(StyleSheet.flatten(getByTestId('etapa-3').props.style).backgroundColor).not.toBe(lightColors.surface);
+  });
+
   it('B-17 na Hoje: atrasado sem check-in antes de um "Chegou" nao e o realce; o realce e quem espera', () => {
     mockSearchParams = { modo: 'hoje' };
     (useAgendaHoje as jest.Mock).mockReturnValue(

@@ -267,6 +267,9 @@ const makeStyles = (colors: typeof lightColors) =>
       elevation: 0,
     },
     hojeMetaTextDestaque: { color: colors.textSoft },
+    // G2 M-4: o chip de etapa ("Agendado" = ocean-pale) sumia no fundo do card realcado (mesmo primaryPale);
+    // no destaque ele ganha fundo de superficie e segue distinguivel pelo contorno + fundo.
+    hojeChipDestaque: { backgroundColor: colors.surface },
     hojeRow: { flexDirection: 'row', gap: 12 },
     hojeFotoWrap: {
       width: 48,
@@ -591,7 +594,11 @@ function AgendaHojeCard({
             </Text>
           ) : null}
           <View style={styles.hojeBadgeRow}>
-            <KCChip tone={etapaRecepcaoTone(etapa)} testID={`etapa-${a.id}`}>
+            <KCChip
+              tone={etapaRecepcaoTone(etapa)}
+              testID={`etapa-${a.id}`}
+              style={destaque ? styles.hojeChipDestaque : undefined}
+            >
               {etapaRecepcaoLabel(etapa)}
             </KCChip>
             <KCChip

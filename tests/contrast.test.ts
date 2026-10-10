@@ -345,6 +345,10 @@ const USOS: Uso[] = [
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeCardDestaque: \{\s*backgroundColor: colors\.primaryPale/, texto: 'textSoft', fundo: 'primaryPale' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeMetaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeEsperaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
+  // ...e o chip de etapa no realce (G2 M-4): fundo surface; textos dos tons que a etapa ativa usa.
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'primary', fundo: 'surface' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'sage', fundo: 'surface' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'amberInk', fundo: 'surface' },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {
