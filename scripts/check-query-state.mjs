@@ -14,7 +14,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Chave: "<arquivo relativo a src/app>::<hook>". Razão precisa explicar por que erro não importa.
-export const ALLOWLIST = {};
+export const ALLOWLIST = {
+  '(app)/teleorientacao/[idPet].tsx::usePetDetail':
+    'pet rende só o subtítulo opcional "pet · tutor" sobre o vídeo; se a query falha o subtítulo some e a tela não afirma nada sobre o paciente',
+  '(app)/usuarios/index.tsx::useVeterinariosParaSelecao':
+    'lookup auxiliar só do nome da ficha vinculada no cartão do usuário; se falha, o nome é omitido e a lista de usuários (QueryState) segue honesta',
+};
 
 const RAZAO_MIN = 30;
 
@@ -128,6 +133,10 @@ export function analisar(root) {
 const principal = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (principal) {
   const args = process.argv.slice(2);
+  if (args.includes('--allowlist')) {
+    console.log(JSON.stringify(ALLOWLIST));
+    process.exit(0);
+  }
   const iRoot = args.indexOf('--root');
   const root = iRoot >= 0 ? path.resolve(args[iRoot + 1]) : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
   const r = analisar(root);

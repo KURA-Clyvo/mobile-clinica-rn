@@ -4,7 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const ARQS = ['ConfirmHost.tsx', 'Toast.tsx'].map((f) =>
+const ARQS = ['ConfirmHost.tsx', 'Toast.tsx', 'QueryState.tsx', 'ErrorState.tsx', 'Skeleton.tsx'].map((f) =>
   path.join(__dirname, '..', 'src', 'components', 'feedback', f),
 );
 
@@ -19,7 +19,7 @@ const achados = (t: string) =>
     .filter((l) => LITERAL.test(l));
 
 describe('gate: feedback sem valor visual literal', () => {
-  it('a varredura enxerga os 2 arquivos (controle)', () => {
+  it('a varredura enxerga os 5 arquivos (controle)', () => {
     for (const f of ARQS) expect(fs.readFileSync(f, 'utf8')).toMatch(/StyleSheet\.create/);
   });
 

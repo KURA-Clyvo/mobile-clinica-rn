@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -206,7 +207,7 @@ export default function ConsultaScreen() {
     }
   }, [usuario, petId, router]);
 
-  const { data: pet } = usePetDetail(petId);
+  const { data: pet, isError: petFalhou, refetch: refazerPet } = usePetDetail(petId);
   const { mutate: criarConsulta, isPending } = useCriarConsulta();
   const { mutate: enviarTranscricao, isPending: isEnviandoAudio } = useEnviarTranscricao();
   const { mutate: confirmarSoap, isPending: isConfirmandoSoap } = useConfirmarSoap();
@@ -437,7 +438,17 @@ export default function ConsultaScreen() {
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
-          <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>
+          {petFalhou ? (
+            // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
+            <ErrorState
+              compacto
+              titulo="Não foi possível carregar o paciente"
+              onRetry={() => void refazerPet()}
+              testID="erro-pet-header"
+            />
+          ) : (
+            <Text style={styles.petName}>{pet?.nmPet ?? '—'}</Text>
+          )}
           <Text style={styles.petDate}>{formatDateFull(new Date())}</Text>
         </View>
         <KCIcon name="consult" size={20} color={colors.primary} />

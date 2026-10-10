@@ -34,7 +34,7 @@ function montarIsca(telaSrc: string): string {
 }
 
 describe('gate: tela que lê dado de servidor trata o erro (check-query-state)', () => {
-  it('app real: 0 violações (EXIT 0), sem allowlist', () => {
+  it('app real: 0 violações (EXIT 0)', () => {
     const { status, r } = rodar(RAIZ);
     expect(r.violacoes).toEqual([]);
     expect(status).toBe(0);
@@ -69,10 +69,16 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     expect(rodar(ignorado).status).toBe(1);
   });
 
-  it('allowlist com razão curta não vale (contrato do script)', () => {
-    const src = fs.readFileSync(SCRIPT, 'utf8');
-    expect(src).toMatch(/RAZAO_MIN = 30/);
-    expect(src).toMatch(/export const ALLOWLIST = \{\}/);
+  it('allowlist: toda entrada tem razão > 30 caracteres, aponta para chamada que existe e NÃO cobre os blocos da F2', () => {
+    const lista = JSON.parse(execFileSync('node', [SCRIPT, '--allowlist'], { encoding: 'utf8' })) as Record<string, string>;
+    const { r } = rodar(RAIZ);
+    for (const [chave, razao] of Object.entries(lista)) {
+      expect(razao.length).toBeGreaterThan(30);
+      const [tela, hook] = chave.split('::');
+      expect(r.chamadas.some((c) => c.tela === tela && c.hook === hook)).toBe(true);
+      // hooks dos blocos que mentiam na F2 (BR-CLI-02) nunca entram em allowlist
+      expect(hook).not.toMatch(/^(useUsuariosClinica|useServicosPreco|useAlertas|useRecentes|useRelatorioTriagens|useAgendaSemana|usePets|usePetTimeline)$/);
+    }
   });
 
   it('o CLI imprime a contagem e sai 0 no app real', () => {
