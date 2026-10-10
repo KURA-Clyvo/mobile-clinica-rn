@@ -60,7 +60,7 @@ const G = lerGeometria();
 const T = lerTokens();
 
 /** Símbolo completo, com as variantes de cor. `x,y` canto superior esquerdo, `w` largura em px. */
-function simbolo({ x, y, w, corpo, hasteCor, hasteOpac, patas, contorno, contornoOpac, corpoOpac = 1 }) {
+function simbolo({ x, y, w, corpo, hasteCor, hasteOpac, patas, contorno, contornoOpac, corpoOpac = 1, lateraisOpac = 0.85 }) {
   const k = w / G.vbW;
   const [c, l, r] = G.circulos;
   const pata = (ci, cor, op) => `<circle cx="${ci.cx}" cy="${ci.cy}" r="${ci.r}" fill="${cor}" opacity="${op}"/>`;
@@ -69,8 +69,8 @@ function simbolo({ x, y, w, corpo, hasteCor, hasteOpac, patas, contorno, contorn
     `<path d="${G.corpo}" fill="${corpo}" fill-opacity="${corpoOpac}"/>` +
     `<path d="${G.haste}" stroke="${hasteCor}" stroke-width="1.2" opacity="${hasteOpac}" stroke-linecap="round" fill="none"/>` +
     pata(c, patas, 1) +
-    pata(l, patas, 0.85) +
-    pata(r, patas, 0.85) +
+    pata(l, patas, lateraisOpac) +
+    pata(r, patas, lateraisOpac) +
     `<path d="${G.corpo}" stroke="${contorno}" stroke-width="1.5" fill="none" opacity="${contornoOpac}"/>` +
     `</g>`
   );
@@ -85,7 +85,13 @@ const centrado = (n, alturaFracao) => {
   return { x: (n - w) / 2, y: (n - h) / 2, w };
 };
 
-/** Símbolo ocean (claro): corpo `ocean-pale` SÓLIDO (decisão C2), haste `ocean-soft`, patas `ocean`. */
+/**
+ * Símbolo ocean (claro): corpo `ocean-pale` SÓLIDO (decisão C2), haste `ocean-soft`, patas `ocean`.
+ * Os dois símbolos de SPLASH (claro e Noite) reproduzem exatamente o que `KuraMark` desenha no modo
+ * `corpo`+`patas` usado pela `Abertura` (haste e patas a 100%, contorno a 70%): o 1º quadro da
+ * abertura em JS tem de ser idêntico ao splash nativo, então isto vale mais que a fidelidade fina
+ * ao canvas (que usava 85% nas laterais e 60% na haste Noite).
+ */
 const simboloOceanClaro = (pos) =>
   simbolo({
     ...pos,
@@ -95,6 +101,7 @@ const simboloOceanClaro = (pos) =>
     patas: T.claro.primary,
     contorno: T.claro.primary,
     contornoOpac: 0.7,
+    lateraisOpac: 1,
   });
 
 /** Símbolo ocean (Noite): corpo `primaryPale` escuro, haste/patas/contorno em `primary` Noite (canvas Main). */
@@ -103,10 +110,11 @@ const simboloOceanNoite = (pos) =>
     ...pos,
     corpo: T.escuro.primaryPale,
     hasteCor: T.escuro.primary,
-    hasteOpac: 0.6,
+    hasteOpac: 1,
     patas: T.escuro.primary,
     contorno: T.escuro.primary,
-    contornoOpac: 0.8,
+    contornoOpac: 0.7,
+    lateraisOpac: 1,
   });
 
 /** Símbolo em knockout (texto-sobre-ocean) para ícone: canvas `Icones`. */
