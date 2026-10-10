@@ -92,6 +92,8 @@ export function KCChip({ tone = 'mute', dot = false, onPress, children, style, t
     <Container
       onPress={onPress}
       testID={testID}
+      // BR-CLI-T05: chip clicavel e um botao para leitor de tela; sem onPress segue rotulo (sem role).
+      accessibilityRole={onPress ? 'button' : undefined}
       // Mesmo raciocínio do spread condicional de `styles.interactive`
       // abaixo: só passar os handlers de mouse/foco quando `onPress` existe
       // evita props extras (mesmo que inertes) na variante-rótulo.

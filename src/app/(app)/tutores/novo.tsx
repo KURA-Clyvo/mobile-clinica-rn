@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Switch,
 } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -12,11 +11,12 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { KCSwitchRow } from '@components/primitives/KCSwitchRow';
 import { ROUTES } from '@constants/routes';
 import { useCriarTutor } from '@hooks/useTutores';
 import { mensagemErroCadastroTutor } from '@services/tutores.service';
@@ -69,6 +69,8 @@ type FormValues = z.infer<typeof schema>;
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
+    // BR-CLI-T05: alvo de toque 44x44 (era o icone solto, 20x20); margem negativa mantem o icone no lugar.
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 8 },
     headerRow: {
       flexDirection: 'row',
@@ -94,7 +96,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     avisoTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
     avisoNota: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.textSoft, fontStyle: 'italic' },
-    checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: touchTarget.min },
     checkbox: {
       width: 22,
       height: 22,
@@ -291,6 +293,7 @@ export default function NovoTutorScreen() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-form-tutor"
             accessibilityLabel="Voltar"
@@ -371,15 +374,15 @@ export default function NovoTutorScreen() {
           control={control}
           name="usaMesmoWhatsapp"
           render={({ field: { value, onChange } }) => (
-            <View style={styles.switchRow}>
+            <KCSwitchRow
+              value={value}
+              onValueChange={onChange}
+              accessibilityLabel="WhatsApp é o mesmo número do telefone"
+              testID="switch-mesmo-whatsapp"
+              style={styles.switchRow}
+            >
               <Text style={styles.switchLabel}>WhatsApp é o mesmo número do telefone</Text>
-              <Switch
-                value={value}
-                onValueChange={onChange}
-                testID="switch-mesmo-whatsapp"
-                accessibilityLabel="WhatsApp é o mesmo número do telefone"
-              />
-            </View>
+            </KCSwitchRow>
           )}
         />
 

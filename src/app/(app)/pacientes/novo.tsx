@@ -4,7 +4,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -18,6 +18,8 @@ import type { ApiError, ConviteTutor, TutorBuscaWireDto } from '../../../types/a
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
+    // BR-CLI-T05: alvo de toque 44x44 (era o icone solto, 20x20); margem negativa mantem o icone no lugar.
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 8 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
@@ -206,6 +208,7 @@ export default function NovoPacienteScreen() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => setTutorSelecionado(null)}
             testID="btn-voltar-selecao-tutor"
             accessibilityLabel="Voltar para a busca de tutor"
@@ -230,6 +233,7 @@ export default function NovoPacienteScreen() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-novo-paciente"
             accessibilityLabel="Voltar"

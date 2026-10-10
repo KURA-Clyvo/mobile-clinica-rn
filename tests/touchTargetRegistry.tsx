@@ -92,6 +92,7 @@ import { KCCard } from '../src/components/primitives/KCCard';
 import { KCChip } from '../src/components/primitives/KCChip';
 import { KCTextField } from '../src/components/primitives/KCTextField';
 import { AppHeader } from '../src/components/layout/AppHeader';
+import { KCSwitchRow } from '../src/components/primitives/KCSwitchRow';
 import { NavDrawer } from '../src/components/layout/NavDrawer';
 import { LunaSuggestionBadge } from '../src/components/domain/LunaSuggestionBadge';
 import { PetListItem } from '../src/components/domain/PetListItem';
@@ -751,19 +752,47 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
-  'KCTextField.tsx::KCTextField#1': {
-    category: 'no-explicit-geometry',
-    expectedTestId: 'password-toggle',
+  // BR-CLI-T05: a LINHA do Switch é o alvo (o Switch nativo mede ~40x20 e não aceita hitSlop).
+  'KCSwitchRow.tsx::KCSwitchRow#1': {
+    category: 'meets-min-one-axis',
     reason:
-      'Botão de mostrar/ocultar senha (`eyeButton`) só declara `paddingLeft: 8` — sem height/' +
-      'minHeight/width/minWidth. Gap real de acessibilidade (ícone de texto ~16px + 8px de ' +
-      'padding de um lado só, bem abaixo de 44px), não corrigido nesta task (fora dos 4 itens ' +
-      'do Escopo 3 do brief) — candidato a follow-up.',
+      'BR-CLI-T05: minHeight 44 declarado na linha; a largura é a do contêiner (linha cheia), então só 1 eixo é provado.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <KCSwitchRow value={false} onValueChange={() => {}} accessibilityLabel="Teste" testID="sw-teste">
+          <></>
+        </KCSwitchRow>,
+      );
+      const estilo = flat(getByTestId('sw-teste-row').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo)];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
+    },
+  },
+
+  'KCSwitchRow.tsx::KCSwitchRow#2': {
+    category: 'no-explicit-geometry',
+    reason:
+      'O <Switch> em si (~40x20 no web) é só a representação visual: fica com pointerEvents none dentro da linha de 44px, que recebe o toque. É o ÚNICO <Switch> permitido no app (o gate falha se aparecer outro).',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <KCSwitchRow value={false} onValueChange={() => {}} accessibilityLabel="Teste" testID="sw-teste">
+          <></>
+        </KCSwitchRow>,
+      );
+      return expectSemGeometriaExplicita(flat(getByTestId('sw-teste', { hidden: true }).props.style));
+    },
+  },
+
+  'KCTextField.tsx::KCTextField#1': {
+    category: 'meets-min',
+    expectedTestId: 'password-toggle',
     verify: () => {
       const { getByTestId } = wrap(
         <KCTextField label="Senha" value="" onChangeText={() => {}} secureTextEntry />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('password-toggle').props.style));
+      const estilo = flat(getByTestId('password-toggle').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -855,27 +884,19 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   },
 
   'TimelineItem.tsx::TimelineItem#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'expand-toggle',
-    reason:
-      'Botão "Ver mais"/"Ver menos" (`expand-toggle`) não recebe NENHUM `style` — TouchableOpacity ' +
-      'sem padding nem geometria, só o texto (fontSize 12) como área de toque. Gap real de ' +
-      'acessibilidade, não corrigido nesta task (fora dos 4 itens do Escopo 3 do brief) — ' +
-      'candidato a follow-up.',
     verify: () => {
       const { getByTestId } = wrap(<TimelineItem evento={TIMELINE_EVENTO_FIXTURE} />);
-      return expectSemGeometriaExplicita(flat(getByTestId('expand-toggle').props.style));
+      const estilo = flat(getByTestId('expand-toggle').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   'WhatsAppModal.tsx::WhatsAppModal#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-fechar-whatsapp',
-    reason:
-      'Botão de fechar (`btn-fechar-whatsapp`) só declara `{ padding: 4 }` inline — sem height/' +
-      'minHeight/width/minWidth. Ícone 20px + 4px de padding de cada lado ≈ 28px, abaixo de ' +
-      '44px. Não corrigido nesta task (fora dos 4 itens do Escopo 3 do brief) — candidato a ' +
-      'follow-up.',
     verify: () => {
       const { getByTestId } = wrap(
         <WhatsAppModal
@@ -886,7 +907,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           dsTelefone="11999990001"
         />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-whatsapp').props.style));
+      const estilo = flat(getByTestId('btn-fechar-whatsapp').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -895,13 +918,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // componente) é mockado pelo `jest.mock('@hooks/useAgenda', ...)` deste
   // arquivo (ver acima).
   'AgendamentoStatusMenu.tsx::AgendamentoStatusMenu#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-fechar-status-menu',
-    reason:
-      'Botão de fechar (`btn-fechar-status-menu`) só declara `{ padding: 4 }` inline — sem ' +
-      'height/minHeight/width/minWidth. Ícone 20px + 4px de padding de cada lado ≈ 28px, ' +
-      'abaixo de 44px. Mesmo padrão de WhatsAppModal.tsx::WhatsAppModal#1 (não corrigido lá ' +
-      'também) — candidato a follow-up conjunto.',
     verify: () => {
       const { getByTestId } = wrap(
         <AgendamentoStatusMenu
@@ -913,7 +931,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           nmPet="Thor"
         />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-status-menu').props.style));
+      const estilo = flat(getByTestId('btn-fechar-status-menu').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -923,13 +943,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // dublês. ---
 
   'UsuarioClinicaFormModal.tsx::UsuarioClinicaFormModal#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-fechar-form-usuario',
-    reason:
-      'Botão de fechar (`btn-fechar-form-usuario`) só declara `{ padding: 4 }` inline — sem ' +
-      'height/minHeight/width/minWidth. Mesmo padrão de WhatsAppModal.tsx::WhatsAppModal#1 e ' +
-      'AgendamentoStatusMenu.tsx::AgendamentoStatusMenu#1 (não corrigido nesses também) — ' +
-      'candidato a follow-up conjunto dos 3.',
     verify: () => {
       const { getByTestId } = wrap(
         <UsuarioClinicaFormModal
@@ -939,7 +954,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           veterinarios={[VETERINARIO_FIXTURE]}
         />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-form-usuario').props.style));
+      const estilo = flat(getByTestId('btn-fechar-form-usuario').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1004,17 +1021,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   },
 
   'TrocarSenhaModal.tsx::TrocarSenhaModal#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-fechar-trocar-senha',
-    reason:
-      'Botão de fechar (`btn-fechar-trocar-senha`) só declara `{ padding: 4 }` inline — sem ' +
-      'height/minHeight/width/minWidth. Mesmo padrão dos outros 2 "X" de modal deste registry ' +
-      '(WhatsAppModal, AgendamentoStatusMenu) — candidato a follow-up conjunto.',
     verify: () => {
       const { getByTestId } = wrap(
         <TrocarSenhaModal visible onClose={() => {}} usuarioId={1} dsEmail="ativo@kura.vet" />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-trocar-senha').props.style));
+      const estilo = flat(getByTestId('btn-fechar-trocar-senha').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1024,13 +1039,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // AST (arquivo, depois ordem de aparição no arquivo). ---
 
   '(app)/agenda.tsx::AgendaAppointmentCard#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-iniciar-teleconsulta',
-    reason:
-      'Botão "Teleconsulta" (`btn-iniciar-teleconsulta`) — `teleBtn` só declara ' +
-      'paddingVertical:4/paddingHorizontal:8/borderRadius:8 — sem height/minHeight/width/' +
-      'minWidth. Não corrigido nesta task (fora do escopo declarado da fix wave 2b, só ' +
-      'descoberta) — candidato a follow-up.',
     verify: () => {
       mockUseAgendaSemanaReturn.mockReturnValue({
         data: [AGENDAMENTO_FIXTURE],
@@ -1041,7 +1051,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-iniciar-teleconsulta').props.style));
+      const estilo = flat(getByTestId('btn-iniciar-teleconsulta').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1049,12 +1061,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // AgendaAppointmentCard (aparece depois do teleBtn no JSX, dentro do MESMO
   // actionsRow). Mesma limitação de geometria do teleBtn ao lado.
   '(app)/agenda.tsx::AgendaAppointmentCard#2': {
-    category: 'no-explicit-geometry',
-    reason:
-      'Botão "Status" (`btn-status-menu-{id}`) — `statusBtn` só declara paddingVertical:4/' +
-      'paddingHorizontal:8/borderRadius:8/borderWidth:1 — sem height/minHeight/width/' +
-      'minWidth, mesmo padrão do teleBtn vizinho (AgendaAppointmentCard#1). Não corrigido ' +
-      'nesta task (FM-04, fora do escopo declarado) — candidato a follow-up.',
+    category: 'meets-min',
     verify: () => {
       mockUseAgendaSemanaReturn.mockReturnValue({
         data: [AGENDAMENTO_FIXTURE],
@@ -1065,20 +1072,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId(`btn-status-menu-${AGENDAMENTO_FIXTURE.id}`).props.style));
+      const estilo = flat(getByTestId(`btn-status-menu-${AGENDAMENTO_FIXTURE.id}`).props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   '(app)/agenda.tsx::AgendaScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-prev-week',
-    reason:
-      'Botão "semana anterior" (`btn-prev-week`) — `navBtn: { padding: 4 }`, sem height/' +
-      'minHeight/width/minWidth explícitos. Violação REAL conhecida (ícone 20px + padding 4px ' +
-      'de cada lado ≈ 28px, abaixo de 44px), mas SEM geometria explícita no estilo — este ' +
-      'ambiente de teste não computa layout Yoga, então não é afirmado como conforme NEM como ' +
-      'violação por render (só por leitura). Tela que entra na demonstração. Não corrigido ' +
-      'nesta task (fora do escopo declarado da fix wave 2b) — candidato a follow-up.',
     verify: () => {
       mockUseAgendaSemanaReturn.mockReturnValue({
         data: [],
@@ -1089,17 +1091,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-prev-week').props.style));
+      const estilo = flat(getByTestId('btn-prev-week').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   '(app)/agenda.tsx::AgendaScreen#2': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-next-week',
-    reason:
-      'Botão "próxima semana" (`btn-next-week`) — mesmo `navBtn: { padding: 4 }` do botão ' +
-      'anterior (mesma violação real, mesma limitação de verificação sem Yoga). Não corrigido ' +
-      'nesta task — candidato a follow-up.',
     verify: () => {
       mockUseAgendaSemanaReturn.mockReturnValue({
         data: [],
@@ -1110,7 +1110,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         semanaEnd: new Date(),
       });
       const { getByTestId } = wrap(<AgendaScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-next-week').props.style));
+      const estilo = flat(getByTestId('btn-next-week').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1294,12 +1296,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   },
 
   '(app)/pacientes/[id].tsx::TimelineItemRow#1': {
-    category: 'no-explicit-geometry',
-    reason:
-      'Botão "Ver mais"/"Ver menos" do item de timeline não recebe NENHUM `style` — mesmo gap ' +
-      'já catalogado em `TimelineItem.tsx::TimelineItem#1` (componente irmão, mesmo padrão de ' +
-      'UI), aqui na variante inline da tela de detalhe do paciente. Não corrigido nesta task — ' +
-      'candidato a follow-up.',
+    category: 'meets-min',
     verify: () => {
       mockUsePetDetailReturn.mockReturnValue({ data: PET_FIXTURE, isLoading: false, isError: false });
       mockUsePetTimelineReturn.mockReturnValue({ data: [TIMELINE_EVENTO_FIXTURE], isLoading: false });
@@ -1316,7 +1313,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
           (child.props as { children?: unknown }).children === 'Ver mais'
         );
       });
-      return expectSemGeometriaExplicita(flat(toggle!.props.style));
+      const estilo = flat(toggle!.props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1404,42 +1403,13 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // `TouchableOpacity` de "Convidar membro" na ordem de aparição no
   // arquivo, então a numeração de `SettingsScreen#n` inteira deslocou:
   // o que era `#1` (btn-convidar) virou `#3`.
+
+
   '(app)/settings.tsx::SettingsScreen#1': {
-    category: 'no-explicit-geometry',
-    expectedTestId: 'switch-dark-mode',
-    reason:
-      'Switch "Modo escuro" (`switch-dark-mode`) não recebe `style` nenhum — medido por render ' +
-      'real: o estilo achatado do nó nativo é `{alignSelf:"flex-start"}`, sem height/minHeight/' +
-      'width/minWidth (o RN não expõe geometria de `Switch` de forma útil via `style`; o ' +
-      'tamanho visual vem do nativo, fora do que este walker consegue provar sem Yoga real). ' +
-      'Não corrigido nesta task — candidato a follow-up.',
-    verify: () => {
-      const { getByTestId } = wrap(<SettingsScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('switch-dark-mode').props.style));
-    },
-  },
-
-  '(app)/settings.tsx::SettingsScreen#2': {
-    category: 'no-explicit-geometry',
-    expectedTestId: 'switch-notif',
-    reason:
-      'Switch "Notificações push" (`switch-notif`) — mesmo caso do `switch-dark-mode` acima ' +
-      '(sem `style`, mesmo estilo nativo achatado sem height/width explícitos). Não corrigido ' +
-      'nesta task — candidato a follow-up.',
-    verify: () => {
-      const { getByTestId } = wrap(<SettingsScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('switch-notif').props.style));
-    },
-  },
-
-  '(app)/settings.tsx::SettingsScreen#3': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min-one-axis',
     expectedTestId: 'btn-convidar',
     reason:
-      'Botão "Convidar membro" (`btn-convidar`) — `inviteRow: { flexDirection:"row", ' +
-      'alignItems:"center", gap:6, paddingVertical:6 }`, sem height/minHeight/width/minWidth. ' +
-      'Mesmo padrão de "funcionalidade em breve" de `pacientes/index.tsx::PacientesScreen#1`. ' +
-      'Não corrigido — candidato a follow-up.',
+      'BR-CLI-T05: altura declarada >= 44; a largura é definida pelo contêiner/conteúdo (linha cheia), então só 1 eixo é provado.',
     verify: () => {
       // FM-03 — a secao "Time" (que contem `btn-convidar`) passou a gatear em
       // `isGestor` (`useIsGestor`, papel), nao mais em `email` (so "esta
@@ -1455,7 +1425,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-convidar').props.style));
+      const estilo = flat(getByTestId('btn-convidar').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo)];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 
@@ -1564,43 +1536,38 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   },
 
   'login.tsx::LoginScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'login-register-link',
-    reason:
-      'Link "Cadastrar clínica" (`login-register-link`) — `registerLink: { alignItems:"center", ' +
-      'marginTop:16 }`, sem height/minHeight/width/minWidth. Não corrigido — candidato a follow-up.',
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<LoginScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('login-register-link').props.style));
+      const estilo = flat(getByTestId('login-register-link').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   'register.tsx::RegisterScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'register-back',
-    reason:
-      'Botão de voltar (`register-back`) não recebe NENHUM `style` — sem height/minHeight/width/' +
-      'minWidth, só o ícone (22px) como área de toque. Um dos 2 tocáveis desta wave totalmente ' +
-      'sem `style` (o outro é `pacientes/index.tsx::PacientesScreen#1`). Não corrigido — follow-up.',
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<RegisterScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('register-back').props.style));
+      const estilo = flat(getByTestId('register-back').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   'register.tsx::RegisterScreen#2': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'register-go-login',
-    reason:
-      'Link "Já tenho conta" (`register-go-login`) — `loginLink: { alignItems:"center", ' +
-      'marginTop:16, marginBottom:8 }`, sem height/minHeight/width/minWidth. Não corrigido — ' +
-      'candidato a follow-up.',
     verify: () => {
       useAuthStore.setState({ token: null, expiresAt: null, usuario: null });
       const { getByTestId } = wrapWithQuery(<RegisterScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('register-go-login').props.style));
+      const estilo = flat(getByTestId('register-go-login').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1659,7 +1626,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
-  '(app)/settings.tsx::SettingsScreen#4': {
+  '(app)/settings.tsx::SettingsScreen#2': {
     category: 'meets-min',
     expectedTestId: 'btn-rever-onboarding',
     verify: () => {
@@ -1680,13 +1647,11 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // settings.tsx) + 1 na tela nova `(app)/servicos-preco/index.tsx` + 1 em
   // `ServicoPrecoFormModal.tsx`. ---
 
-  '(app)/settings.tsx::SettingsScreen#5': {
-    category: 'no-explicit-geometry',
+  '(app)/settings.tsx::SettingsScreen#3': {
+    category: 'meets-min-one-axis',
     expectedTestId: 'btn-tabela-precos',
     reason:
-      'Botão "Gerenciar tabela de preços" (`btn-tabela-precos`) reusa o MESMO estilo ' +
-      '`inviteRow` de SettingsScreen#3 (`btn-convidar`, seção "Time") — sem height/minHeight/' +
-      'width/minWidth. Mesmo padrão, não corrigido nesta task pela mesma razão de #3.',
+      'BR-CLI-T05: altura declarada >= 44; a largura é definida pelo contêiner/conteúdo (linha cheia), então só 1 eixo é provado.',
     verify: () => {
       useAuthStore.setState({
         token: 'tok',
@@ -1696,7 +1661,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-tabela-precos').props.style));
+      const estilo = flat(getByTestId('btn-tabela-precos').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo)];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 
@@ -1714,18 +1681,15 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   },
 
   'ServicoPrecoFormModal.tsx::ServicoPrecoFormModal#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-fechar-form-servico',
-    reason:
-      'Botão de fechar (`btn-fechar-form-servico`) só declara `{ padding: 4 }` inline -- sem ' +
-      'height/minHeight/width/minWidth. Mesmo padrão de UsuarioClinicaFormModal.tsx::' +
-      'UsuarioClinicaFormModal#1/TrocarSenhaModal.tsx::TrocarSenhaModal#1 (não corrigido nesses ' +
-      'também) — candidato a follow-up conjunto dos 3.',
     verify: () => {
       const { getByTestId } = wrap(
         <ServicoPrecoFormModal visible onClose={() => {}} servico={null} />,
       );
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-fechar-form-servico').props.style));
+      const estilo = flat(getByTestId('btn-fechar-form-servico').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1753,14 +1717,11 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     },
   },
 
-  '(app)/settings.tsx::SettingsScreen#6': {
-    category: 'no-explicit-geometry',
+  '(app)/settings.tsx::SettingsScreen#4': {
+    category: 'meets-min-one-axis',
     expectedTestId: 'btn-painel-financeiro',
     reason:
-      'Botão "Ver painel de gestão" (`btn-painel-financeiro`) reusa o MESMO estilo ' +
-      '`inviteRow` de SettingsScreen#3/#5 (`btn-convidar`/`btn-tabela-precos`) -- sem ' +
-      'height/minHeight/width/minWidth. Mesmo padrão, não corrigido nesta task pela mesma ' +
-      'razão de #5.',
+      'BR-CLI-T05: altura declarada >= 44; a largura é definida pelo contêiner/conteúdo (linha cheia), então só 1 eixo é provado.',
     verify: () => {
       useAuthStore.setState({
         token: 'tok',
@@ -1770,7 +1731,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
         usuario: { id: 1, nmVeterinario: 'Dr. Felipe', nrCRMV: 'SP-12345', dsEmail: 'f@k.com' },
       });
       const { getByTestId } = wrap(<SettingsScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-painel-financeiro').props.style));
+      const estilo = flat(getByTestId('btn-painel-financeiro').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo)];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 
@@ -1779,48 +1742,27 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // `KCButton` (já coberto por `KCButton.tsx::KCButton#1`, tag não-literal
   // para este walker) — nenhum touchable novo nasce ali.
   '(app)/tutores/novo.tsx::NovoTutorScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-voltar-form-tutor',
-    reason:
-      'Botão de voltar do cabeçalho (`btn-voltar-form-tutor`) não recebe `style` nenhum — só ' +
-      'embrulha o ícone "back". Sem height/minHeight/width/minWidth. Mesmo padrão de outros ' +
-      'botões de ícone solto deste registry (ex.: `UsuarioClinicaFormModal.tsx::' +
-      'UsuarioClinicaFormModal#1`). Não corrigido nesta task — candidato a follow-up.',
     verify: () => {
       const { getByTestId } = wrap(<NovoTutorScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-form-tutor').props.style));
+      const estilo = flat(getByTestId('btn-voltar-form-tutor').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
+
 
   '(app)/tutores/novo.tsx::NovoTutorScreen#2': {
-    category: 'no-explicit-geometry',
-    expectedTestId: 'switch-mesmo-whatsapp',
-    reason:
-      'Switch "WhatsApp é o mesmo número" (`switch-mesmo-whatsapp`) — mesmo caso de ' +
-      '`settings.tsx::SettingsScreen#1`/`#2` (sem `style`, geometria de `Switch` vem do ' +
-      'nativo, fora do que este walker prova sem Yoga real). Não corrigido — candidato a ' +
-      'follow-up conjunto com os outros 2 `Switch` deste app.',
-    verify: () => {
-      const { getByTestId } = wrap(<NovoTutorScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('switch-mesmo-whatsapp').props.style));
-    },
-  },
-
-  '(app)/tutores/novo.tsx::NovoTutorScreen#3': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min-one-axis',
     expectedTestId: 'checkbox-aviso-privacidade',
     reason:
-      'Checkbox do aviso de privacidade (`checkbox-aviso-privacidade`) — `checkboxRow: { ' +
-      'flexDirection:"row", alignItems:"center", gap:10 }` no PRÓPRIO `TouchableOpacity` ' +
-      '(o quadrado visual de 22×22 é um `View` filho, não o alvo de toque medido aqui) — sem ' +
-      'height/minHeight/width/minWidth no elemento tocável. Não corrigido — candidato a ' +
-      'follow-up (ex.: `hitSlop`, mesmo remédio já registrado em ' +
-      '`discoverInteractiveTouchables.ts`).',
+      'BR-CLI-T05: altura declarada >= 44; a largura é definida pelo contêiner/conteúdo (linha cheia), então só 1 eixo é provado.',
     verify: () => {
       const { getByTestId } = wrap(<NovoTutorScreen />);
-      return expectSemGeometriaExplicita(
-        flat(getByTestId('checkbox-aviso-privacidade').props.style),
-      );
+      const estilo = flat(getByTestId('checkbox-aviso-privacidade').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo)];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 
@@ -1858,12 +1800,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // selecionado, é `PetForm.tsx`, já coberto acima; a tela de sucesso só usa
   // `KCButton`, sem tocável novo).
   '(app)/pacientes/novo.tsx::NovoPacienteScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-voltar-selecao-tutor',
-    reason:
-      'Botão de voltar (`btn-voltar-selecao-tutor`, da etapa "tutor selecionado" pra "busca") ' +
-      'não recebe `style` nenhum. Mesmo padrão de `NovoTutorScreen#1`/`PacientesScreen#1` (ícone ' +
-      'solto, sem geometria declarada). Não corrigido — candidato a follow-up.',
     verify: () => {
       mockUseBuscarTutoresReturn.mockReturnValue({
         data: [{ id: 42, nmTutor: 'Ana Beatriz', nrCpf: '1', dsEmail: 'a@b.com', nrTelefone: '1', stAtiva: true }],
@@ -1872,20 +1810,21 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const { getByTestId } = wrap(<NovoPacienteScreen />);
       fireEvent.changeText(getByTestId('search-tutor-existente'), 'ana');
       fireEvent.press(getByTestId('tutor-item-42'));
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-selecao-tutor').props.style));
+      const estilo = flat(getByTestId('btn-voltar-selecao-tutor').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
   '(app)/pacientes/novo.tsx::NovoPacienteScreen#2': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-voltar-novo-paciente',
-    reason:
-      'Botão de voltar do cabeçalho da tela de busca (`btn-voltar-novo-paciente`) — mesmo ' +
-      'padrão do `#1` acima, sem `style`. Não corrigido — candidato a follow-up.',
     verify: () => {
       mockUseBuscarTutoresReturn.mockReturnValue({ data: [], isLoading: false });
       const { getByTestId } = wrap(<NovoPacienteScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-novo-paciente').props.style));
+      const estilo = flat(getByTestId('btn-voltar-novo-paciente').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 
@@ -1918,12 +1857,8 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
   // chamada de rede real acontece por trás deste render (`getTutorById`/`getPetById`
   // não são mockados neste arquivo de propósito — não precisam ser, aqui).
   '(app)/agenda-novo.tsx::NovoAgendamentoScreen#1': {
-    category: 'no-explicit-geometry',
+    category: 'meets-min',
     expectedTestId: 'btn-voltar-agenda-novo-form',
-    reason:
-      'Botão de voltar do cabeçalho (`btn-voltar-agenda-novo-form`) não recebe `style` ' +
-      'nenhum — mesmo padrão de `NovoPacienteScreen#1/#2` (ícone solto, sem geometria ' +
-      'declarada). Não corrigido — candidato a follow-up conjunto.',
     verify: () => {
       // `mockUseLocalSearchParams` fica com `{ idPet: '1' }` desde as entradas de
       // `PacienteDetailScreen` (linhas 1346/1363) — nenhuma limpa depois de setar, e
@@ -1933,7 +1868,9 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       mockUseLocalSearchParams.mockReturnValue({});
       mockUseBuscarTutoresReturn.mockReturnValue({ data: [], isLoading: false });
       const { getByTestId } = wrap(<NovoAgendamentoScreen />);
-      return expectSemGeometriaExplicita(flat(getByTestId('btn-voltar-agenda-novo-form').props.style));
+      const estilo = flat(getByTestId('btn-voltar-agenda-novo-form').props.style);
+      const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
+      return { categoriaMedida: 'meets-min', eixos };
     },
   },
 

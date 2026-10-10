@@ -118,13 +118,18 @@ describe('SettingsScreen', () => {
 
   it('calls toggleTheme when pressing dark mode switch', () => {
     const { getByTestId } = wrap(<SettingsScreen />);
-    fireEvent(getByTestId('switch-dark-mode'), 'valueChange', true);
+    // BR-CLI-T05: o toque real é na LINHA (44px, role switch); o Switch interno é só visual.
+    fireEvent.press(getByTestId('switch-dark-mode-row'));
     expect(mockToggleTheme).toHaveBeenCalledWith(true);
   });
 
   it('dark mode switch has value matching isDark', () => {
     const { getByTestId } = wrap(<SettingsScreen />);
-    expect(getByTestId('switch-dark-mode').props.value).toBe(false);
+    expect(getByTestId('switch-dark-mode', { hidden: true }).props.value).toBe(false);
+    // A linha expõe o estado ao leitor de tela.
+    const linha = getByTestId('switch-dark-mode-row');
+    expect(linha.props.accessibilityRole).toBe('switch');
+    expect(linha.props.accessibilityState).toEqual({ checked: false });
   });
 
   it('pressing "Sair da conta" pede confirmação com o verbo da ação, em destrutivo', async () => {

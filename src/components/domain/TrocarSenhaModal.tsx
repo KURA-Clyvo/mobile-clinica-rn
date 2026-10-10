@@ -7,7 +7,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -98,7 +98,7 @@ export function TrocarSenhaModal({ visible, onClose, usuarioId, dsEmail }: Troca
           <View style={[styles.sheet, { paddingBottom: insets.bottom }]}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Trocar senha</Text>
-              <TouchableOpacity onPress={onClose} testID="btn-fechar-trocar-senha" style={{ padding: 4 }}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose} testID="btn-fechar-trocar-senha" style={{ minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' }}>
                 <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>

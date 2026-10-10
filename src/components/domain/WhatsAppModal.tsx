@@ -12,7 +12,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -147,8 +147,9 @@ export function WhatsAppModal({
               <TouchableOpacity
                 accessibilityRole="button"
                 onPress={onClose}
+                accessibilityLabel="Fechar"
                 testID="btn-fechar-whatsapp"
-                style={{ padding: 4 }}
+                style={{ minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' }}
               >
                 <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>

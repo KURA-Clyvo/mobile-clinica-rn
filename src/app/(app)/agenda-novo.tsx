@@ -3,7 +3,7 @@ import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'r
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -24,6 +24,8 @@ import type { ApiError, PetResponse, TutorBuscaWireDto } from '../../types/api';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
+    // BR-CLI-T05: alvo de toque 44x44 (era o icone solto, 20x20); margem negativa mantem o icone no lugar.
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 24 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
@@ -352,6 +354,7 @@ export default function NovoAgendamentoScreen() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => router.back()}
             testID="btn-voltar-agenda-novo-form"
             accessibilityLabel="Voltar"

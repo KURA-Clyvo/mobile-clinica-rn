@@ -12,7 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { usePetDetail, useUploadFotoPet } from '@hooks/usePetDetail';
 import { usePetTimeline } from '@hooks/usePetTimeline';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -100,7 +100,11 @@ function TimelineItemRow({
         >
           {evento.dsObservacao}
         </Text>
-        <TouchableOpacity onPress={() => setExpanded((v) => !v)}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: touchTarget.min, minWidth: touchTarget.min, justifyContent: 'center', alignSelf: 'flex-start' }}
+          onPress={() => setExpanded((v) => !v)}
+        >
           <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary, marginTop: 2 }}>
             {expanded ? 'Ver menos' : 'Ver mais'}
           </Text>

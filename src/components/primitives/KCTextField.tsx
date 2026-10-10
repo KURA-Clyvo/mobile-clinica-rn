@@ -10,7 +10,7 @@ import {
   KeyboardTypeOptions,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 
 export interface KCTextFieldProps {
   label: string;
@@ -89,8 +89,13 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.textMuteInk,
       fontFamily: 'Lexend_400Regular',
     },
+    // BR-CLI-T05: alvo de toque 44x44 (era so paddingLeft: 8 em volta de um emoji de ~16px).
     eyeButton: {
       paddingLeft: 8,
+      minWidth: touchTarget.min,
+      minHeight: touchTarget.min,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     eyeText: {
       fontSize: 16,
