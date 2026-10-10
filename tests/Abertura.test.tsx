@@ -1,4 +1,5 @@
 import React from 'react';
+import * as RN from 'react-native';
 import { Animated, Text } from 'react-native';
 import { spawnSync } from 'child_process';
 import { join } from 'path';
@@ -137,7 +138,7 @@ describe('Abertura: o símbolo do 1º quadro tem as cores do splash gerado', () 
     ['claro', 'light', lightColors],
     ['escuro', 'dark', darkColors],
   ] as const)('tema %s', (tema, esquema, tokens) => {
-    jest.spyOn(require('react-native'), 'useColorScheme').mockReturnValue(esquema);
+    jest.spyOn(RN, 'useColorScheme').mockReturnValue(esquema);
     const r = montar();
     const esperado = gerador[tema].sobreNeutro;
     const svg = within(r.getByTestId('abertura', { includeHiddenElements: true })).getByTestId('Svg', { includeHiddenElements: true });
