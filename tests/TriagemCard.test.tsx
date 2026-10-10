@@ -91,6 +91,10 @@ describe('destacarTrecho', () => {
     expect(segs.filter((s) => s.destaque).map((s) => s.texto)).toEqual(['vomito', 'VÔMITO']);
     expect(segs.map((s) => s.texto).join('')).toBe('vomito, outro e VÔMITO');
   });
+  it('realca a palavra inteira da mensagem, nao um pedaco ("vomito" em "vomitou")', () => {
+    const segs = destacarTrecho('Ele vomitou duas vezes.', ['vômito']);
+    expect(segs.filter((s) => s.destaque).map((s) => s.texto)).toEqual(['vomitou']);
+  });
   it('sem palavras devolve o texto inteiro sem destaque', () => {
     expect(destacarTrecho('abc', [])).toEqual([{ texto: 'abc', destaque: false }]);
   });

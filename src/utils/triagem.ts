@@ -36,6 +36,8 @@ function normalizar(texto: string): string {
     .join('');
 }
 
+const LETRA = /[\p{L}\p{N}]/u;
+
 /**
  * Divide o trecho da mensagem em segmentos, marcando as ocorrências das palavras que
  * decidiram o nível. Insensível a caixa e a acento. Se nenhuma palavra aparece no trecho,
@@ -49,8 +51,14 @@ export function destacarTrecho(trecho: string, palavras: string[]): SegmentoTrec
     if (!n) continue;
     let i = alvo.indexOf(n);
     while (i !== -1) {
-      faixas.push([i, i + n.length]);
-      i = alvo.indexOf(n, i + n.length);
+      // O motor casa por trecho de palavra ("vomito" casa "vomitou"): realca a palavra INTEIRA
+      // da mensagem, senao o destaque corta "vomit|ou" no meio.
+      let ini = i;
+      let fim = i + n.length;
+      while (ini > 0 && LETRA.test(alvo.charAt(ini - 1))) ini--;
+      while (fim < alvo.length && LETRA.test(alvo.charAt(fim))) fim++;
+      faixas.push([ini, fim]);
+      i = alvo.indexOf(n, fim);
     }
   }
   if (faixas.length === 0) return [{ texto: trecho, destaque: false }];
