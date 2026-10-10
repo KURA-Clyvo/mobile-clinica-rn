@@ -73,7 +73,8 @@ const makeStyles = (colors: typeof lightColors) =>
       minHeight: touchTarget.min,
     },
     inputMultiline: {
-      minHeight: 90,
+      // M-6 (re-G2): 90 de conteudo + 24 de padding vertical (que migrou do contêiner para o input) = 114 → caixa 116 como antes.
+      minHeight: 90 + 24,
       textAlignVertical: 'top',
     },
     inputContainerMultiline: {

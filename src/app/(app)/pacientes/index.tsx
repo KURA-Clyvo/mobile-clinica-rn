@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, spacing } from '@theme/tokens';
+import { lightColors, spacing, touchTarget } from '@theme/tokens';
 import { usePets } from '@hooks/usePets';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { PetListItem } from '@components/domain/PetListItem';
@@ -40,7 +40,8 @@ const makeStyles = (colors: typeof lightColors) =>
       borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
-      paddingVertical: 10,
+      // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
+      paddingVertical: 0,
       gap: 8,
     },
     searchInput: {
@@ -48,6 +49,8 @@ const makeStyles = (colors: typeof lightColors) =>
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
       color: colors.text,
+      paddingVertical: 10,
+      minHeight: touchTarget.min,
     },
     countRow: {
       paddingHorizontal: 16,

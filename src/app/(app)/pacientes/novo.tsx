@@ -32,7 +32,8 @@ const makeStyles = (colors: typeof lightColors) =>
       borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
-      paddingVertical: 10,
+      // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
+      paddingVertical: 0,
       gap: 8,
     },
     searchInput: {
@@ -40,6 +41,8 @@ const makeStyles = (colors: typeof lightColors) =>
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
       color: colors.text,
+      paddingVertical: 10,
+      minHeight: touchTarget.min,
     },
     tutorItem: {
       paddingHorizontal: 12,

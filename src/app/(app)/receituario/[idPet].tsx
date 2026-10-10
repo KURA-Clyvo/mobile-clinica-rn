@@ -19,7 +19,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import {
   useCriarPrescricao,
@@ -94,6 +94,7 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 15,
       color: colors.text,
       padding: 12,
+      minHeight: touchTarget.min,
     },
     medItem: {
       paddingHorizontal: 12,
