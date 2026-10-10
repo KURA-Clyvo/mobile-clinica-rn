@@ -250,6 +250,34 @@ const USOS: Uso[] = [
     texto: 'text',
     fundo: 'surface',
   },
+  // BR-CLI-T05: "Entrar na sala" e "Iniciar chamada" (secondary, fundo surface) dentro do vídeo — texto.
+  {
+    arq: TELE,
+    ancora: /style=\{\{ backgroundColor: colors\.surface \}\}\s*onPress=\{handleEntrarNaSala\}\s*testID="btn-entrar-sala"/,
+    texto: 'text',
+    fundo: 'surface',
+  },
+  {
+    arq: TELE,
+    ancora: /style=\{\{ backgroundColor: colors\.surface \}\}\s*onPress=\{\(\) => criarSalaMutation\.mutate\(\)\}\s*testID="btn-iniciar-chamada"/,
+    texto: 'text',
+    fundo: 'surface',
+  },
+  // ...e a FORMA: a borda do `secondary` (borderControl) contra o painel de vídeo, componente de UI >= 3:1 (o primary tinha o mesmo hex do painel no claro).
+  {
+    arq: TELE,
+    ancora: /variant="secondary"\s*size="md"[\s\S]{0,420}onPress=\{handleEntrarNaSala\}/,
+    texto: 'borderControl',
+    fundo: 'videoBg',
+    limiar: 3,
+  },
+  {
+    arq: TELE,
+    ancora: /variant="secondary"\s*size="md"[\s\S]{0,420}onPress=\{\(\) => criarSalaMutation\.mutate\(\)\}\s*testID="btn-iniciar-chamada"/,
+    texto: 'borderControl',
+    fundo: 'videoBg',
+    limiar: 3,
+  },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {
