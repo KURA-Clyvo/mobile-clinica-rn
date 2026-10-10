@@ -76,6 +76,9 @@ export function KCSwitchRow({
           // `borderControl` é o token de borda de controle do DS (>= 3 nos 2 temas; ver USOS em contrast.test.ts).
           trackColor={{ false: colors.borderControl, true: colors.primary }}
           thumbColor={colors.bgElev}
+          // Ligado, o RN-web usa `#009688` (teal fora do DS) se `activeThumbColor` faltar — visto no print de Configurações.
+          // (prop só do RN-web, fora dos tipos do RN; no nativo `thumbColor` já vale nos dois estados)
+          {...({ activeThumbColor: colors.bgElev } as object)}
           testID={testID}
         />
       </View>

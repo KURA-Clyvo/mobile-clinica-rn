@@ -288,6 +288,21 @@ const USOS: Uso[] = [
     fundo,
     limiar: 3,
   })),
+  // ...e o polegar (`bgElev`) sobre o trilho nos dois estados: desligado = borderControl, ligado = primary (UI >= 3).
+  {
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /thumbColor=\{colors\.bgElev\}/,
+    texto: 'bgElev',
+    fundo: 'borderControl',
+    limiar: 3,
+  },
+  {
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /activeThumbColor: colors\.bgElev/,
+    texto: 'bgElev',
+    fundo: 'primary',
+    limiar: 3,
+  },
   // BR-CLI-T05 fix wave (G2 M-4): Voltar do AppHeader (rótulo = texto 4.5; ícone = UI 3) sobre o fundo do cabeçalho (`bg`).
   { arq: 'components/layout/AppHeader.tsx', ancora: /backLabel: \{[^}]*color: colors\.text,/, texto: 'text', fundo: 'bg' },
   { arq: 'components/layout/AppHeader.tsx', ancora: /safe: \{ backgroundColor: colors\.bg \}/, texto: 'text', fundo: 'bg' },

@@ -62,4 +62,9 @@ describe('KCSwitchRow', () => {
     expect([lightColors.borderControl, darkColors.borderControl]).toContain(track);
     expect([lightColors.border, darkColors.border]).not.toContain(track);
   });
+
+  it('polegar ligado usa token do DS (sem o teal padrão #009688 do RN-web)', () => {
+    const { UNSAFE_getByType } = montar(true);
+    expect([lightColors.bgElev, darkColors.bgElev]).toContain(UNSAFE_getByType(Switch).props.activeThumbColor);
+  });
 });
