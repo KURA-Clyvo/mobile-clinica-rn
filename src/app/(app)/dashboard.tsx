@@ -211,7 +211,7 @@ export default function DashboardScreen() {
   } = useDashboardHoje();
   const alertasQuery = useAlertas();
   // BR-CLI-T06: o bloco "Proximo atendimento" le a MESMA agenda do dia da tela Hoje (queryKey
-  // ['agenda','hoje',data]); antes lia `useRecentes`, que devolvia so PASSADOS (rotulo "Proximos" falso).
+  // ['agenda','hoje',data]); antes lia o hook de "recentes", que devolvia so PASSADOS (rotulo "Proximos" falso).
   const agendaHojeQuery = useAgendaHoje();
   const { data: alertas, refetch: refetchAlertas } = alertasQuery;
   const { refetch: refetchAgendaHoje } = agendaHojeQuery;
