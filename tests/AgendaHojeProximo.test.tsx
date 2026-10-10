@@ -28,13 +28,22 @@ jest.mock('react-native-safe-area-context', () => {
 
 const mockPush = jest.fn();
 let mockSearchParams: { modo?: string } = {};
+// setParams real do expo-router: mescla os params; `undefined` remove a chave.
+const mockRouter = {
+  push: mockPush,
+  setParams: jest.fn((p: { modo?: string }) => {
+    mockSearchParams = { ...mockSearchParams, ...p };
+    if (p.modo === undefined) delete mockSearchParams.modo;
+  }),
+};
 jest.mock('expo-router', () => {
   const ReactForMock = require('react');
   return {
-    useRouter: () => ({ push: mockPush }),
+    useRouter: () => mockRouter,
     useLocalSearchParams: () => mockSearchParams,
+    // Semantica real do useFocusEffect: roda ao focar e SEMPRE que a identidade do callback muda.
     useFocusEffect: (cb: () => void | (() => void)) => {
-      ReactForMock.useEffect(() => cb(), []);
+      ReactForMock.useEffect(() => cb(), [cb]);
     },
   };
 });
@@ -142,6 +151,27 @@ describe('Hoje -- marca "agora" e proximo realcado', () => {
     const { root } = wrap();
     const ids = ordem(root);
     expect(ids.indexOf('marca-agora')).toBeLessThan(ids.indexOf('agenda-hoje-card'));
+  });
+});
+
+describe('Hoje -- "Ver todos de hoje" depois de o operador ir a Semana (G2 da T06, I-4)', () => {
+  it('o param e consumido e limpo; uma 2a ida com a tela ainda montada volta a abrir em Hoje', () => {
+    mockSearchParams = { modo: 'hoje' };
+    const { getByTestId, queryByTestId, rerender } = wrap();
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
+    expect(mockRouter.setParams).toHaveBeenCalledWith({ modo: undefined });
+    expect(mockSearchParams.modo).toBeUndefined();
+    // operador toca Semana (a tela segue montada; o drawer so a esconde)
+    fireEvent.press(getByTestId('btn-modo-semana'));
+    expect(queryByTestId('agenda-hoje-lista')).toBeNull();
+    // 2a ida: o dashboard navega para /agenda?modo=hoje com a MESMA instancia montada
+    mockSearchParams = { modo: 'hoje' };
+    rerender(
+      <ThemeProvider>
+        <AgendaScreen />
+      </ThemeProvider>,
+    );
+    expect(getByTestId('agenda-hoje-lista')).toBeTruthy();
   });
 });
 

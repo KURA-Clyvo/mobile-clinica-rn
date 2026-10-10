@@ -740,10 +740,18 @@ export default function AgendaScreen() {
   // existente (a suíte pré-REC-12 nunca pressiona um toggle, então precisa
   // continuar vendo o modo Semana sem precisar de nenhuma ação extra).
   const [modo, setModo] = React.useState<ModoAgenda>(modoParam === 'hoje' ? 'hoje' : 'semana');
-  // Drawer mantem a tela montada: quando o param chega depois do mount, acompanha.
-  React.useEffect(() => {
-    if (modoParam === 'hoje') setModo('hoje');
-  }, [modoParam]);
+  // Drawer mantem a tela montada (e o param pode ja ser 'hoje' de uma ida anterior): por isso o param e
+  // CONSUMIDO ao ganhar foco e depois LIMPO (G2 da T06, I-4). Sem limpar, "Ver todos de hoje" ->
+  // Semana -> menu "Dashboard" -> "Ver todos de hoje" de novo nao muda o valor do param e a tela
+  // abria em Semana com a URL ?modo=hoje.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (modoParam === 'hoje') {
+        setModo('hoje');
+        router.setParams({ modo: undefined });
+      }
+    }, [modoParam, router]),
+  );
 
   // Fix wave G2 (I-1) — a tela "Hoje" fica aberta o dia todo na recepção; sem
   // isto, "Esperando há N min" e o gate de "Faltou" só recomputavam no
