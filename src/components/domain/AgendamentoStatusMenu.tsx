@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { useAtualizarStatusAgendamento } from '@hooks/useAgenda';
@@ -121,9 +121,10 @@ export function AgendamentoStatusMenu({
                 {nmPet}
               </Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={onClose}
                 testID="btn-fechar-status-menu"
-                style={{ padding: 4 }}
+                style={{ minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' }}
                 accessibilityLabel="Fechar"
               >
                 <KCIcon name="close" size={20} color={colors.textMuteInk} />

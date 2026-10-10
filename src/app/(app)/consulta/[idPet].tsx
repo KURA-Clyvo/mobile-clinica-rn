@@ -10,6 +10,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu, fichaDoPet } from '@utils/navegacao';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -382,7 +383,7 @@ export default function ConsultaScreen() {
       {
         onSuccess: () => {
           toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado' });
-          router.back();
+          voltarOu(router, fichaDoPet(idPet));
         },
         onError: (err: unknown) => {
           const e = err as { message?: string };
@@ -600,7 +601,7 @@ export default function ConsultaScreen() {
             <KCButton
               variant="ghost"
               size="lg"
-              onPress={() => router.back()}
+              onPress={() => voltarOu(router, fichaDoPet(idPet))}
               testID="btn-concluir-sem-soap"
             >
               Concluir sem confirmar SOAP

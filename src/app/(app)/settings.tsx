@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { confirmar } from '@components/feedback/confirmar';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { queryClient } from '@services/queryClient';
@@ -11,6 +11,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
+import { KCSwitchRow } from '@components/primitives/KCSwitchRow';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { perfilLabel } from '@utils/perfilUsuario';
@@ -34,7 +35,8 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     prefLabel: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
     prefCaption: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 2 },
-    inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
+    // BR-CLI-T05: linha-link com alvo >= 44 de altura (era so paddingVertical: 6, ~30px).
+    inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, minHeight: touchTarget.min },
     inviteText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.primary },
     noteText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 4 },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
@@ -155,42 +157,36 @@ export default function SettingsScreen() {
             <Text style={styles.titleText}>Preferências</Text>
           </View>
           <View style={styles.separator} />
-          <View style={styles.prefRow}>
-            <View>
-              <Text style={styles.prefLabel}>Modo escuro</Text>
-              <Text style={styles.prefCaption}>
-                Adapta cores para ambientes com pouca luz
-              </Text>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.bgElev}
-              testID="switch-dark-mode"
-            />
-          </View>
+          <KCSwitchRow
+            value={isDark}
+            onValueChange={toggleTheme}
+            accessibilityLabel="Modo escuro"
+            testID="switch-dark-mode"
+            style={styles.prefRow}
+          >
+            <Text style={styles.prefLabel}>Modo escuro</Text>
+            <Text style={styles.prefCaption}>
+              Adapta cores para ambientes com pouca luz
+            </Text>
+          </KCSwitchRow>
           <View style={styles.separator} />
           <View style={styles.prefRow}>
             <Text style={styles.prefLabel}>Idioma</Text>
             <KCChip tone="mute">PT-BR (padrão)</KCChip>
           </View>
           <View style={styles.separator} />
-          <View style={styles.prefRow}>
-            <View>
-              <Text style={styles.prefLabel}>Notificações push</Text>
-              <Text style={styles.prefCaption}>
-                Alertas de pacientes e agendamentos
-              </Text>
-            </View>
-            <Switch
-              value={notifEnabled}
-              onValueChange={setNotifEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.bgElev}
-              testID="switch-notif"
-            />
-          </View>
+          <KCSwitchRow
+            value={notifEnabled}
+            onValueChange={setNotifEnabled}
+            accessibilityLabel="Notificações push"
+            testID="switch-notif"
+            style={styles.prefRow}
+          >
+            <Text style={styles.prefLabel}>Notificações push</Text>
+            <Text style={styles.prefCaption}>
+              Alertas de pacientes e agendamentos
+            </Text>
+          </KCSwitchRow>
         </KCCard>
       </View>
 
@@ -226,6 +222,7 @@ export default function SettingsScreen() {
                 sendo ESTE nó — `npx jest touchTargetRegistry` reconfirmado
                 sem rebind, ver relatório da task). */}
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.usuarios)}
               testID="btn-convidar"
@@ -289,6 +286,7 @@ export default function SettingsScreen() {
               Tabela de preços
             </Text>
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.servicosPreco)}
               testID="btn-tabela-precos"
@@ -310,6 +308,7 @@ export default function SettingsScreen() {
               Painel de gestão
             </Text>
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.financeiro)}
               testID="btn-painel-financeiro"

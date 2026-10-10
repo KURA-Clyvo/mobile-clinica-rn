@@ -12,7 +12,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
@@ -62,7 +62,8 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     form: { gap: 16 },
     submitBtn: { marginTop: 8 },
-    registerLink: { alignItems: 'center', marginTop: 16 },
+    // BR-CLI-T05: alvo de toque >= 44 nos dois eixos.
+    registerLink: { alignItems: 'center', justifyContent: 'center', minHeight: touchTarget.min, minWidth: touchTarget.min, marginTop: 16 },
     registerLinkText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 14,
@@ -171,6 +172,7 @@ export default function LoginScreen() {
           </KCButton>
 
           <TouchableOpacity
+            accessibilityRole="link"
             onPress={() => router.push('/register')}
             style={styles.registerLink}
             testID="login-register-link"

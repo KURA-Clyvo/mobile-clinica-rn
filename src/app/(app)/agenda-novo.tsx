@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -24,6 +25,8 @@ import type { ApiError, PetResponse, TutorBuscaWireDto } from '../../types/api';
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
+    // BR-CLI-T05: alvo de toque 44x44 (era o icone solto, 20x20); margem negativa mantem o icone no lugar.
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 24 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
@@ -44,10 +47,18 @@ const makeStyles = (colors: typeof lightColors) =>
       borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
-      paddingVertical: 10,
+      // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
+      paddingVertical: 0,
       gap: 8,
     },
-    searchInput: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
+    searchInput: {
+      flex: 1,
+      fontFamily: 'Lexend_400Regular',
+      fontSize: 15,
+      color: colors.text,
+      paddingVertical: 10,
+      minHeight: touchTarget.min,
+    },
     itemRow: {
       paddingHorizontal: 12,
       paddingVertical: 10,
@@ -351,7 +362,9 @@ export default function NovoAgendamentoScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            accessibilityRole="button"
+            style={styles.backBtn}
+            onPress={() => voltarOu(router, ROUTES.app.agenda)}
             testID="btn-voltar-agenda-novo-form"
             accessibilityLabel="Voltar"
           >
@@ -400,6 +413,7 @@ export default function NovoAgendamentoScreen() {
                   scrollEnabled={false}
                   renderItem={({ item }) => (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       style={styles.itemRow}
                       onPress={() => handleSelecionarTutor(item)}
                       testID={`tutor-opcao-${item.id}`}

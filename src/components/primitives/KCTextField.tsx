@@ -10,7 +10,7 @@ import {
   KeyboardTypeOptions,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 
 export interface KCTextFieldProps {
   label: string;
@@ -44,7 +44,9 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       borderWidth: 1.5,
       borderRadius: 10,
-      paddingVertical: 12,
+      // BR-CLI-T05 (achado da fix wave): o padding vertical mora no TextInput, não no
+      // contêiner — com ele aqui o <input> media ~19px no web e clicar no padding não
+      // focava o campo. A caixa visual continua ~46px; a área clicável passa a ser ela.
       paddingHorizontal: 14,
       backgroundColor: colors.surface,
     },
@@ -66,10 +68,13 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 15,
       color: colors.text,
       fontFamily: 'Lexend_400Regular',
-      padding: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 12,
+      minHeight: touchTarget.min,
     },
     inputMultiline: {
-      minHeight: 90,
+      // M-6 (re-G2): 90 de conteudo + 24 de padding vertical (que migrou do contêiner para o input) = 114 → caixa 116 como antes.
+      minHeight: 90 + 24,
       textAlignVertical: 'top',
     },
     inputContainerMultiline: {
@@ -89,8 +94,13 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.textMuteInk,
       fontFamily: 'Lexend_400Regular',
     },
+    // BR-CLI-T05: alvo de toque 44x44 (era so paddingLeft: 8 em volta de um emoji de ~16px).
     eyeButton: {
       paddingLeft: 8,
+      minWidth: touchTarget.min,
+      minHeight: touchTarget.min,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     eyeText: {
       fontSize: 16,
@@ -160,6 +170,7 @@ export function KCTextField({
         />
         {secureTextEntry && (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setIsSecure(v => !v)}
             style={styles.eyeButton}
             testID="password-toggle"

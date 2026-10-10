@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Link } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { KCIcon } from '@components/primitives/KCIcon';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import { KuraMark } from '@components/brand/KuraMark';
 import { useAuthStore } from '@store/authStore';
 import { STRINGS } from '@constants/strings';
+import { confirmar } from '@components/feedback/confirmar';
+import { queryClient } from '@services/queryClient';
 import { ROUTES } from '@constants/routes';
 import { useWebInteractionState } from '@hooks/useWebInteractionState';
 import { getWebInteractionStyle } from '@theme/webInteraction';
@@ -132,6 +134,13 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'space-between',
     },
     userInfo: { flex: 1, marginRight: 12 },
+    // BR-CLI-T05: alvo de toque 44×44 (era o ícone solto, 20×20).
+    logoutBtn: {
+      width: touchTarget.min,
+      height: touchTarget.min,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     userName: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 14,
@@ -231,6 +240,21 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
   const activeRouteName = state.routes[state.index]?.name;
   const logoutInteraction = useWebInteractionState();
 
+  // BR-CLI-T05: sair pede confirmação (canal único, igual no web e no nativo) e limpa o cache de
+  // consultas — o mesmo caminho do "Sair da conta" de Configurações.
+  const sair = async () => {
+    const ok = await confirmar({
+      titulo: 'Sair da conta?',
+      mensagem: 'Você vai precisar entrar de novo para ver a agenda e os pacientes. Nada do que está salvo se perde.',
+      verbo: 'Sair da conta',
+      rotuloCancelar: 'Continuar conectado',
+      destrutivo: true,
+    });
+    if (!ok) return;
+    await clearSession();
+    queryClient.clear();
+  };
+
   return (
     <View style={styles.container} testID="nav-drawer">
       <SafeAreaView style={styles.header} edges={['top']}>
@@ -291,17 +315,17 @@ export function NavDrawer({ state }: DrawerContentComponentProps) {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={clearSession}
+            onPress={sair}
             onMouseEnter={logoutInteraction.onMouseEnter}
             onMouseLeave={logoutInteraction.onMouseLeave}
             onFocus={logoutInteraction.onFocus}
             onBlur={logoutInteraction.onBlur}
-            style={getWebInteractionStyle(logoutInteraction, colors.navText)}
+            style={[styles.logoutBtn, getWebInteractionStyle(logoutInteraction, colors.navText)]}
             testID="nav-drawer-logout"
             accessibilityRole="button"
             accessibilityLabel={STRINGS.configuracoes.sair}
           >
-            <KCIcon name="close" size={20} color={colors.navText} />
+            <KCIcon name="sair" size={22} color={colors.navText} />
           </TouchableOpacity>
         </SafeAreaView>
       )}

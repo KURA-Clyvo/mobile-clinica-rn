@@ -4,7 +4,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -18,6 +18,8 @@ import type { ApiError, ConviteTutor, TutorBuscaWireDto } from '../../../types/a
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
+    // BR-CLI-T05: alvo de toque 44x44 (era o icone solto, 20x20); margem negativa mantem o icone no lugar.
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 8 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
     title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
@@ -30,7 +32,8 @@ const makeStyles = (colors: typeof lightColors) =>
       borderColor: colors.borderControl,
       borderRadius: 14,
       paddingHorizontal: 10,
-      paddingVertical: 10,
+      // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
+      paddingVertical: 0,
       gap: 8,
     },
     searchInput: {
@@ -38,6 +41,8 @@ const makeStyles = (colors: typeof lightColors) =>
       fontFamily: 'Lexend_400Regular',
       fontSize: 15,
       color: colors.text,
+      paddingVertical: 10,
+      minHeight: touchTarget.min,
     },
     tutorItem: {
       paddingHorizontal: 12,
@@ -205,6 +210,8 @@ export default function NovoPacienteScreen() {
       <ScreenContainer keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => setTutorSelecionado(null)}
             testID="btn-voltar-selecao-tutor"
             accessibilityLabel="Voltar para a busca de tutor"
@@ -228,6 +235,8 @@ export default function NovoPacienteScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.backBtn}
             onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-novo-paciente"
             accessibilityLabel="Voltar"
@@ -282,6 +291,7 @@ export default function NovoPacienteScreen() {
             scrollEnabled={false}
             renderItem={({ item }) => (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.tutorItem}
                 onPress={() => setTutorSelecionado(item)}
                 testID={`tutor-item-${item.id}`}

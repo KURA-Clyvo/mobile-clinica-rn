@@ -12,7 +12,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
@@ -87,7 +87,9 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     form: { gap: 12 },
     submitBtn: { marginTop: 24 },
-    loginLink: { alignItems: 'center', marginTop: 16, marginBottom: 8 },
+    // BR-CLI-T05: alvo de toque >= 44 nos dois eixos.
+    loginLink: { alignItems: 'center', justifyContent: 'center', minHeight: touchTarget.min, minWidth: touchTarget.min, marginTop: 16, marginBottom: 8 },
+    backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     loginLinkText: {
       fontFamily: 'Lexend_400Regular',
       fontSize: 14,
@@ -149,7 +151,13 @@ export default function RegisterScreen() {
           </View>
 
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.replace('/login')} testID="register-back">
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Voltar para o login"
+              style={styles.backBtn}
+              onPress={() => router.replace('/login')}
+              testID="register-back"
+            >
               <KCIcon name="back" size={22} color={colors.text} />
             </TouchableOpacity>
             <Text style={styles.pageTitle}>Cadastrar Clínica</Text>
@@ -375,6 +383,7 @@ export default function RegisterScreen() {
             </KCButton>
 
             <TouchableOpacity
+              accessibilityRole="link"
               onPress={() => router.replace('/login')}
               style={styles.loginLink}
               testID="register-go-login"

@@ -7,6 +7,9 @@ export type { KCTextFieldProps } from './KCTextField';
 export { KCBadge } from './KCBadge';
 export type { KCBadgeProps } from './KCBadge';
 
+export { KCSwitchRow } from './KCSwitchRow';
+export type { KCSwitchRowProps } from './KCSwitchRow';
+
 export { KCChip } from './KCChip';
 export type { KCChipProps, ChipTone } from './KCChip';
 

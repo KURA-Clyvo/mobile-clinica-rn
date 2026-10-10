@@ -1,5 +1,5 @@
 import React from 'react';
-import { Redirect, usePathname } from 'expo-router';
+import { Redirect, usePathname, useRouter } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore, type OnboardingStepId } from '@store/onboardingStore';
@@ -8,6 +8,7 @@ import type { BreakpointKey } from '@theme/tokens';
 import { NavDrawer } from '@components/layout/NavDrawer';
 import { AppHeader } from '@components/layout/AppHeader';
 import { ROUTES } from '@constants/routes';
+import { destinoSemHistorico, voltarOu } from '@utils/navegacao';
 import { STRINGS } from '@constants/strings';
 
 // CQ-13 (dev VsClaude, KURA_BACKLOG_CLINICA_1) — item 2: "como um passo é
@@ -47,6 +48,37 @@ export function resolveDrawerType(isAtLeast: (key: BreakpointKey) => boolean): '
   return isAtLeast('lg') ? 'permanent' : 'front';
 }
 
+// BR-CLI-T05 (C3, fecha o E27): telas de AÇÃO/DETALHE do paciente ganham cabeçalho com "Voltar" 44px.
+// A regra de destino (`voltarOu`/`destinoSemHistorico`) vive em `@utils/navegacao` — fonte única (G2 I-4).
+export { destinoSemHistorico };
+
+interface TelaComVoltar {
+  nome: string;
+  titulo: string;
+  destino: 'ficha' | 'idPet';
+}
+
+const TELAS_COM_VOLTAR: TelaComVoltar[] = [
+  { nome: 'pacientes/[id]', titulo: STRINGS.saida.ficha, destino: 'ficha' },
+  { nome: 'consulta/[idPet]', titulo: STRINGS.saida.consulta, destino: 'idPet' },
+  { nome: 'receituario/[idPet]', titulo: STRINGS.saida.receituario, destino: 'idPet' },
+  { nome: 'teleorientacao/[idPet]', titulo: STRINGS.saida.teleorientacao, destino: 'idPet' },
+];
+
+function HeaderComVoltar({
+  titulo,
+  destino,
+  params,
+}: {
+  titulo: string;
+  destino: 'ficha' | 'idPet';
+  params?: { idPet?: string };
+}) {
+  const router = useRouter();
+  const voltar = () => voltarOu(router, destinoSemHistorico(destino, params));
+  return <AppHeader title={titulo} onMenuPress={() => undefined} onBackPress={voltar} />;
+}
+
 export default function AppLayout() {
   const { isAuthenticated } = useAuthStore();
   const { isAtLeast } = useBreakpoint();
@@ -68,6 +100,11 @@ export default function AppLayout() {
   return (
     <Drawer
       drawerContent={(props) => <NavDrawer {...props} />}
+      // BR-CLI-T05 (G2 I-1): o padrão do Drawer é `firstRoute` — `canGoBack()` fica verdadeiro em qualquer rota
+      // que não seja a primeira e `back()` cai SEMPRE na Hoje (medido no web: lista→ficha→consulta→Voltar = /dashboard).
+      // `history` faz o Voltar desfazer a navegação de verdade; sem histórico (URL direta) o `canGoBack()` é falso
+      // e o fallback `destinoSemHistorico` leva à tela-pai.
+      backBehavior="history"
       screenOptions={{ headerShown: false, drawerType }}
     >
       <Drawer.Screen
@@ -148,6 +185,22 @@ export default function AppLayout() {
           ),
         }}
       />
+      {TELAS_COM_VOLTAR.map((t) => (
+        <Drawer.Screen
+          key={t.nome}
+          name={t.nome}
+          options={{
+            headerShown: true,
+            header: ({ route }) => (
+              <HeaderComVoltar
+                titulo={t.titulo}
+                destino={t.destino}
+                params={route?.params as { idPet?: string } | undefined}
+              />
+            ),
+          }}
+        />
+      ))}
     </Drawer>
   );
 }

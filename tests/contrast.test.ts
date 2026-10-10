@@ -250,6 +250,77 @@ const USOS: Uso[] = [
     texto: 'text',
     fundo: 'surface',
   },
+  // BR-CLI-T05: "Entrar na sala" e "Iniciar chamada" (secondary, fundo surface) dentro do vídeo — texto.
+  {
+    arq: TELE,
+    ancora: /style=\{\{ backgroundColor: colors\.surface \}\}\s*onPress=\{handleEntrarNaSala\}\s*testID="btn-entrar-sala"/,
+    texto: 'text',
+    fundo: 'surface',
+  },
+  {
+    arq: TELE,
+    ancora: /style=\{\{ backgroundColor: colors\.surface \}\}\s*onPress=\{\(\) => criarSalaMutation\.mutate\(\)\}\s*testID="btn-iniciar-chamada"/,
+    texto: 'text',
+    fundo: 'surface',
+  },
+  // ...e a FORMA: a borda do `secondary` (borderControl) contra o painel de vídeo, componente de UI >= 3:1 (o primary tinha o mesmo hex do painel no claro).
+  {
+    arq: TELE,
+    ancora: /variant="secondary"\s*size="md"[\s\S]{0,420}onPress=\{handleEntrarNaSala\}/,
+    texto: 'borderControl',
+    fundo: 'videoBg',
+    limiar: 3,
+  },
+  {
+    arq: TELE,
+    ancora: /variant="secondary"\s*size="md"[\s\S]{0,420}onPress=\{\(\) => criarSalaMutation\.mutate\(\)\}\s*testID="btn-iniciar-chamada"/,
+    texto: 'borderControl',
+    fundo: 'videoBg',
+    limiar: 3,
+  },
+  // BR-CLI-T05 fix wave (G2 I-3): o trilho DESLIGADO do KCSwitchRow é o único sinal de forma do estado "off" —
+  // componente de UI >= 3:1 contra o fundo da linha. Com `border` dava 1.25/1.12. Fundos reais: `surface`
+  // (linhas dentro do KCCard de Configurações) e `bg` (Novo tutor, direto na tela).
+  ...(['surface', 'bg'] as const).map((fundo) => ({
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /trackColor=\{\{ false: colors\.borderControl,/,
+    texto: 'borderControl',
+    fundo,
+    limiar: 3,
+  })),
+  // ...e o polegar (`bgElev`) sobre o trilho nos dois estados: desligado = borderControl, ligado = primary (UI >= 3).
+  {
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /thumbColor=\{colors\.bgElev\}/,
+    texto: 'bgElev',
+    fundo: 'borderControl',
+    limiar: 3,
+  },
+  {
+    arq: 'components/primitives/KCSwitchRow.tsx',
+    ancora: /activeThumbColor: colors\.bgElev/,
+    texto: 'bgElev',
+    fundo: 'primary',
+    limiar: 3,
+  },
+  // BR-CLI-T05 fix wave (G2 M-4): Voltar do AppHeader (rótulo = texto 4.5; ícone = UI 3) sobre o fundo do cabeçalho (`bg`).
+  { arq: 'components/layout/AppHeader.tsx', ancora: /backLabel: \{[^}]*color: colors\.text,/, texto: 'text', fundo: 'bg' },
+  { arq: 'components/layout/AppHeader.tsx', ancora: /safe: \{ backgroundColor: colors\.bg \}/, texto: 'text', fundo: 'bg' },
+  {
+    arq: 'components/layout/AppHeader.tsx',
+    ancora: /<KCIcon name="back" size=\{22\} color=\{colors\.text\} \/>/,
+    texto: 'text',
+    fundo: 'bg',
+    limiar: 3,
+  },
+  // ...e o ícone `sair` do rodapé do NavDrawer (UI >= 3) sobre `navBg`.
+  {
+    arq: 'components/layout/NavDrawer.tsx',
+    ancora: /<KCIcon name="sair" size=\{22\} color=\{colors\.navText\} \/>/,
+    texto: 'navText',
+    fundo: 'navBg',
+    limiar: 3,
+  },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {

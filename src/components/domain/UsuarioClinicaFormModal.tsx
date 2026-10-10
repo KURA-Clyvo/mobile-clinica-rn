@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -206,7 +206,7 @@ export function UsuarioClinicaFormModal({
               <Text style={styles.headerTitle}>
                 {isEdicao ? 'Editar usuário' : 'Novo usuário'}
               </Text>
-              <TouchableOpacity onPress={onClose} testID="btn-fechar-form-usuario" style={{ padding: 4 }}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose} testID="btn-fechar-form-usuario" style={{ minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' }}>
                 <KCIcon name="close" size={20} color={colors.textMuteInk} />
               </TouchableOpacity>
             </View>

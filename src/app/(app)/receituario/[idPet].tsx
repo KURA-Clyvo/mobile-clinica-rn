@@ -14,11 +14,12 @@ import { avisar } from '@components/feedback/confirmar';
 import { ErrorState } from '@components/feedback/ErrorState';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu, fichaDoPet } from '@utils/navegacao';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import {
   useCriarPrescricao,
@@ -93,6 +94,7 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 15,
       color: colors.text,
       padding: 12,
+      minHeight: touchTarget.min,
     },
     medItem: {
       paddingHorizontal: 12,
@@ -424,6 +426,7 @@ export default function ReceituarioScreen() {
                     scrollEnabled={false}
                     renderItem={({ item }) => (
                       <TouchableOpacity
+                        accessibilityRole="button"
                         style={styles.medItem}
                         onPress={() => handleSelectMed(item)}
                         testID={`med-item-${item.id}`}
@@ -480,6 +483,7 @@ export default function ReceituarioScreen() {
           <View>
             <Text style={styles.sectionLabel}>Data da prescrição *</Text>
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.dateRow}
               onPress={() => setShowPicker(true)}
               testID="date-picker-trigger"
@@ -581,7 +585,7 @@ export default function ReceituarioScreen() {
             <KCButton
               variant="ghost"
               size="md"
-              onPress={() => { setShowSuccess(false); router.back(); }}
+              onPress={() => { setShowSuccess(false); voltarOu(router, fichaDoPet(idPet)); }}
               testID="btn-voltar"
             >
               Voltar ao paciente
@@ -594,7 +598,7 @@ export default function ReceituarioScreen() {
       {petId && tutor && telefoneTutorWhatsApp && (
         <WhatsAppModal
           visible={showWhatsApp}
-          onClose={() => { setShowWhatsApp(false); router.back(); }}
+          onClose={() => { setShowWhatsApp(false); voltarOu(router, fichaDoPet(idPet)); }}
           nmPet={pet?.nmPet ?? ''}
           nmTutor={tutor.nmTutor}
           dsTelefone={telefoneTutorWhatsApp}

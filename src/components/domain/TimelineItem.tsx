@@ -4,6 +4,7 @@ import { useTheme } from '@theme/index';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { formatDateShort } from '@utils/date';
 import type { TimelineEventResponse } from '../../types/api';
+import { touchTarget } from '@theme/tokens';
 import type { lightColors } from '@theme/tokens';
 
 export interface TimelineItemProps {
@@ -57,7 +58,12 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
         >
           {evento.dsObservacao}
         </Text>
-        <TouchableOpacity onPress={() => setExpanded((v) => !v)} testID="expand-toggle">
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: touchTarget.min, minWidth: touchTarget.min, justifyContent: 'center', alignSelf: 'flex-start' }}
+          onPress={() => setExpanded((v) => !v)}
+          testID="expand-toggle"
+        >
           <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary, marginTop: 2 }}>
             {expanded ? 'Ver menos' : 'Ver mais'}
           </Text>

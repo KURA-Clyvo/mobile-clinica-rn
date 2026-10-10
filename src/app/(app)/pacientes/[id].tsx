@@ -9,10 +9,11 @@ import {
 import { avisar, escolher } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { usePetDetail, useUploadFotoPet } from '@hooks/usePetDetail';
 import { usePetTimeline } from '@hooks/usePetTimeline';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -100,7 +101,11 @@ function TimelineItemRow({
         >
           {evento.dsObservacao}
         </Text>
-        <TouchableOpacity onPress={() => setExpanded((v) => !v)}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          style={{ minHeight: touchTarget.min, minWidth: touchTarget.min, justifyContent: 'center', alignSelf: 'flex-start' }}
+          onPress={() => setExpanded((v) => !v)}
+        >
           <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary, marginTop: 2 }}>
             {expanded ? 'Ver menos' : 'Ver mais'}
           </Text>
@@ -309,7 +314,7 @@ export default function PacienteDetailScreen() {
               <Text style={styles.errorText}>Paciente não encontrado</Text>
             </>
           )}
-          <KCButton variant="secondary" size="sm" onPress={() => router.back()}>
+          <KCButton variant="secondary" size="sm" onPress={() => voltarOu(router, ROUTES.app.pacientes)}>
             {STRINGS.acoes.voltar}
           </KCButton>
         </KCCard>
@@ -548,6 +553,7 @@ export default function PacienteDetailScreen() {
       <View style={[styles.tabBar, { marginTop: 16 }]}>
         {(['timeline', 'vacinas', 'docs'] as TabKey[]).map((tab) => (
           <TouchableOpacity
+            accessibilityRole="tab"
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}

@@ -11,7 +11,7 @@ import {
 import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, touchTarget } from '@theme/tokens';
 import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStatusAgendamento } from '@hooks/useAgenda';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
@@ -64,7 +64,8 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    navBtn: { padding: 4 },
+    // BR-CLI-T05: setas de semana com alvo 44x44 (eram ~28x28).
+    navBtn: { padding: 4, minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' },
     weekRange: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 15,
@@ -178,6 +179,9 @@ const makeStyles = (colors: typeof lightColors) =>
       marginTop: 8,
     },
     teleBtn: {
+      minHeight: touchTarget.min,
+      minWidth: touchTarget.min,
+      justifyContent: 'center',
       alignSelf: 'flex-start',
       flexDirection: 'row',
       alignItems: 'center',
@@ -198,6 +202,9 @@ const makeStyles = (colors: typeof lightColors) =>
     // (primary, cor de destaque) — teleconsulta é a ação principal do card;
     // mudar status é secundária.
     statusBtn: {
+      minHeight: touchTarget.min,
+      minWidth: touchTarget.min,
+      justifyContent: 'center',
       alignSelf: 'flex-start',
       flexDirection: 'row',
       alignItems: 'center',
@@ -416,6 +423,9 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
   return (
     <View style={styles.modoToggleRow}>
       <TouchableOpacity
+        accessibilityRole="tab"
+        accessibilityState={{ selected: modo === 'semana' }}
+        aria-selected={modo === 'semana'}
         testID="btn-modo-semana"
         accessibilityLabel="Ver agenda da semana"
         style={[styles.modoBtn, modo === 'semana' && styles.modoBtnActive]}
@@ -426,6 +436,9 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
+        accessibilityRole="tab"
+        accessibilityState={{ selected: modo === 'hoje' }}
+        aria-selected={modo === 'hoje'}
         testID="btn-modo-hoje"
         accessibilityLabel="Ver agenda de hoje"
         style={[styles.modoBtn, modo === 'hoje' && styles.modoBtnActive]}
@@ -455,6 +468,7 @@ function RespostaTutorSelo({ appointment: a }: { appointment: AgendamentoRespons
       </KCChip>
       {mostrarRemarcar && (
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.hojeActionBtnSecondary}
           // Só `idPet`/`idTutor`: são os únicos dados do agendamento que o
           // formulário da REC-14 consome (veterinário/tipo/data ficam à escolha
@@ -570,6 +584,7 @@ function AgendaHojeCard({
           <View style={styles.hojeActionsRow}>
             {mostrarChegou && (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.hojeActionBtnPrimary}
                 onPress={() => onChegou(a)}
                 disabled={pendente}
@@ -581,6 +596,7 @@ function AgendaHojeCard({
             )}
             {mostrarFaltou && (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.hojeActionBtnSecondary}
                 onPress={() => onFaltou(a)}
                 disabled={pendente}
@@ -591,6 +607,7 @@ function AgendaHojeCard({
               </TouchableOpacity>
             )}
             <TouchableOpacity
+              accessibilityRole="button"
               style={[styles.hojeActionBtnSecondary, !temPet && { opacity: 0.4 }]}
               onPress={() => temPet && onAbrirProntuario(a)}
               disabled={!temPet}
@@ -655,6 +672,7 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
             <View style={styles.actionsRow}>
               {temTeleconsulta && (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={styles.teleBtn}
                   onPress={() => router.push(ROUTES.app.teleorientacao(a.pet.id, a.id))}
                   testID="btn-iniciar-teleconsulta"
@@ -666,6 +684,7 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
               )}
               {temAcoesStatus && (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={styles.statusBtn}
                   onPress={() => onAbrirStatusMenu(a)}
                   testID={`btn-status-menu-${a.id}`}
@@ -904,6 +923,7 @@ export default function AgendaScreen() {
         <>
           <View style={styles.weekNav}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={goToPrevWeek}
               testID="btn-prev-week"
               style={styles.navBtn}
@@ -915,6 +935,7 @@ export default function AgendaScreen() {
               {formatWeekRange(semanaStart, semanaEnd)}
             </Text>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={goToNextWeek}
               testID="btn-next-week"
               style={styles.navBtn}
@@ -935,6 +956,9 @@ export default function AgendaScreen() {
               const today = isToday(day);
               return (
                 <TouchableOpacity
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected }}
+                  aria-selected={selected}
                   key={i}
                   onPress={() => setSelectedDay(day)}
                   testID={`day-tab-${i}`}

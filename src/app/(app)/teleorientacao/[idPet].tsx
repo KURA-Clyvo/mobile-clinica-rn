@@ -11,6 +11,7 @@ import {
 import { confirmar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { voltarOu, fichaDoPet } from '@utils/navegacao';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
@@ -158,7 +159,7 @@ export default function TeleorientacaoScreen() {
       verbo: 'Encerrar',
       destrutivo: true,
     });
-    if (ok) router.back();
+    if (ok) voltarOu(router, fichaDoPet(idPet));
   };
 
   return (
@@ -257,8 +258,11 @@ export default function TeleorientacaoScreen() {
                 <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
               )}
               <KCButton
-                variant="primary"
+                variant="secondary"
                 size="md"
+                // BR-CLI-T05 (herdado da re-G2 da T01): o primary tem o mesmo hex do painel (videoBg)
+                // no claro — a forma sumia. Fundo surface próprio, como o "Tentar novamente".
+                style={{ backgroundColor: colors.surface }}
                 onPress={handleEntrarNaSala}
                 testID="btn-entrar-sala"
               >
@@ -272,8 +276,10 @@ export default function TeleorientacaoScreen() {
                 <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
               )}
               <KCButton
-                variant="primary"
+                variant="secondary"
                 size="md"
+                // BR-CLI-T05: ver "Entrar na sala" acima.
+                style={{ backgroundColor: colors.surface }}
                 onPress={() => criarSalaMutation.mutate()}
                 testID="btn-iniciar-chamada"
               >

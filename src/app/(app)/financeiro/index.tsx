@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
+import { voltarOu } from '@utils/navegacao';
+import { ROUTES } from '@constants/routes';
 import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { useRequireGestor } from '@hooks/useIsGestor';
@@ -208,8 +210,9 @@ export default function FinanceiroScreen() {
     >
       <View style={styles.headerRow}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => voltarOu(router, ROUTES.app.settings)}
           testID="btn-voltar-financeiro"
           accessibilityLabel="Voltar"
         >
