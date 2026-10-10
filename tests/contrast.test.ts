@@ -135,6 +135,7 @@ const ler = (arq: string) => fs.readFileSync(path.join(SRC_DIR, arq), 'utf8');
 // âncora deixa de bater e o par aqui deixa de ser verdade.
 type Uso = { arq: string; ancora: RegExp; texto: string; fundo: string; limiar?: number };
 const TELE = 'app/(app)/teleorientacao/[idPet].tsx';
+const PD = 'components/domain/ProximosDoDia.tsx';
 const USOS: Uso[] = [
   {
     arq: 'components/primitives/KCButton.tsx',
@@ -321,6 +322,33 @@ const USOS: Uso[] = [
     fundo: 'navBg',
     limiar: 3,
   },
+  // BR-CLI-T06: destaque do proximo (ocean-pale = primaryPale) e blocos do dia sobre `bg`. Texto secundario SOBRE o destaque
+  // e `textSoft` (9.33/7.79), NUNCA `textMuteInk` (4.24 no claro: reprova) -- controle negativo registrado no G0.
+  { arq: PD, ancora: /kicker: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: PD, ancora: /destaqueHora: \{[^}]*color: colors\.text \}/, texto: 'text', fundo: 'primaryPale' },
+  { arq: PD, ancora: /fontSize: fontSize\['2xl'\],\s*lineHeight: fontSize\['2xl'\] \* 1\.2,\s*color: colors\.text,/, texto: 'text', fundo: 'primaryPale' },
+  { arq: PD, ancora: /destaqueTutor: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: PD, ancora: /destaqueServico: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: PD, ancora: /destaqueTextoSuave: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: PD, ancora: /marcaTexto: \{[^}]*color: colors\.amberInk/, texto: 'amberInk', fundo: 'bg' },
+  { arq: PD, ancora: /marcaLinha: \{[^}]*backgroundColor: colors\.amberInk/, texto: 'amberInk', fundo: 'bg', limiar: 3 },
+  { arq: PD, ancora: /borderColor: colors\.primary,\s*borderRadius: radius\.xl/, texto: 'primary', fundo: 'bg', limiar: 3 },
+  { arq: PD, ancora: /linhaHora: \{[^}]*color: colors\.text,/, texto: 'text', fundo: 'bg' },
+  { arq: PD, ancora: /linhaPet: \{[^}]*color: colors\.text \}/, texto: 'text', fundo: 'bg' },
+  { arq: PD, ancora: /linhaSub: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'bg' },
+  { arq: PD, ancora: /linhaAtraso: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'bg' },
+  { arq: PD, ancora: /secaoContagem: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'bg' },
+  { arq: PD, ancora: /secaoTitulo: \{[^}]*color: colors\.text \}/, texto: 'text', fundo: 'bg' },
+  { arq: PD, ancora: /faixaTexto: \{[^}]*color: colors\.text,/, texto: 'text', fundo: 'bg' },
+  { arq: 'components/domain/OnboardingChecklist.tsx', ancora: /recolhidoTexto: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'bg' },
+  // ...e o realce do proximo na Hoje (mesmo par: textSoft sobre primaryPale).
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeCardDestaque: \{\s*backgroundColor: colors\.primaryPale/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeMetaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeEsperaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
+  // ...e o chip de etapa no realce (G2 M-4): fundo surface; textos dos tons que a etapa ativa usa.
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'primary', fundo: 'surface' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'sage', fundo: 'surface' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'amberInk', fundo: 'surface' },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {

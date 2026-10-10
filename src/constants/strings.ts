@@ -24,14 +24,25 @@ export const STRINGS = {
     // três seções abaixo, no card financeiro). Mesmo padrão de nomenclatura.
     erroMetricas: 'Não foi possível carregar os números de hoje',
     erroMetricasDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
-    proximosAtendimentos: 'Próximos atendimentos',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
     // CQ-13: descrição instrutiva do estado vazio — o título continua
     // idêntico ao de antes (mordida preservada em DashboardScreen.test.tsx).
     semAlertasDesc: 'Alertas de vacina e de temperatura aparecem aqui assim que forem gerados.',
-    semAtendimentos: 'Nenhum atendimento programado',
-    semAtendimentosDesc: 'Quando um agendamento for confirmado, ele aparece aqui.',
+    // BR-CLI-T06: o bloco "Proximo" le a agenda de HOJE (mesma fonte da tela Hoje). Dois vazios
+    // VERDADEIROS e distintos: nada agendado x o dia acabou. Nunca a frase do erro.
+    semAtendimentosHoje: 'Nenhum atendimento hoje',
+    semAtendimentosHojeDesc: 'Quando um agendamento for marcado para hoje, ele aparece aqui.',
+    nadaMaisHoje: 'Nada mais por hoje',
+    nadaMaisHojeDesc: (n: number) =>
+      n === 1 ? '1 atendimento encerrado hoje.' : `${n} atendimentos encerrados hoje.`,
+    proximoKicker: 'PRÓXIMO ATENDIMENTO',
+    seguintesDeHoje: 'Seguintes de hoje',
+    verTodosHoje: 'Ver todos de hoje',
+    abrirProntuario: 'Abrir prontuário',
+    agora: 'AGORA',
+    esperandoHa: (min: number) => `Esperando há ${min} min`,
+    minDeAtraso: (min: number) => `${min} min de atraso`,
     // FM-07 (ciclo FIN) — seção financeira, visível só para GESTOR (useIsGestor).
     // 🔴 `receitaBruta` é "Receita bruta", com essas palavras (ruling D-6) — "Receita" sozinho
     // é impreciso, e imprecisão financeira numa tela de gestor é erro fatal. O rótulo do KPI
@@ -257,6 +268,10 @@ export const STRINGS = {
     TITLE: 'Primeiros passos',
     SUBTITLE_REMAINING: (n: number, total: number) => `${n} de ${total} restantes`,
     SUBTITLE_DONE: 'Você concluiu os primeiros passos.',
+    // BR-CLI-T06: linha recolhida no fim do dashboard (ruling B-16: "N pendentes", nao "N de N restantes").
+    RECOLHIDO_PENDENTES: (n: number) => (n === 1 ? '1 pendente' : `${n} pendentes`),
+    ABRIR: 'Abrir',
+    RECOLHER: 'Recolher',
     CLOSE_A11Y: 'Dispensar checklist de primeiros passos',
     STEP_AGENDA: 'Veja sua agenda da semana',
     STEP_PACIENTES: 'Veja a lista de pacientes',

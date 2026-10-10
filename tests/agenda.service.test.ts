@@ -64,6 +64,22 @@ describe('agenda.service', () => {
     // são os 2 campos que o PATCH de status precisa (achado nº 1 do brief).
     expect(item.nrVersion).toBe(1);
     expect(item.dsStatusOrigem).toBe('AGENDADO');
+    // BR-CLI-T06 (D5): o servico da consulta (wire `dsTipoConsulta`) e repassado como nmTipoConsulta.
+    expect(item.nmTipoConsulta).toBe('Consulta de Retorno');
+  });
+
+  it('BR-CLI-T06: dsTipoConsulta vazio ou ausente vira nmTipoConsulta vazio (nunca undefined)', async () => {
+    mockApiGet.mockResolvedValue({
+      data: {
+        dataInicio: 'x',
+        dataFim: 'x',
+        agendamentos: [
+          { idAgendamento: 1, dtAgendamento: 'x', duracaoMinutos: 30, nmTutor: 't', nmPet: 'p', idVeterinario: 1, nmVeterinario: 'v', dsTipoConsulta: null, dsStatus: 'AGENDADO', nrVersion: 1, dsEtapaRecepcao: 'AGENDADO' },
+        ],
+      },
+    });
+    const [item] = await getAgenda(query);
+    expect(item!.nmTipoConsulta).toBe('');
   });
 
   // FM-04, achado nº 2 do brief: antes desta task, CONFIRMADO virava

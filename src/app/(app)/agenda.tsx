@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@theme/index';
 import { lightColors, touchTarget } from '@theme/tokens';
 import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStatusAgendamento } from '@hooks/useAgenda';
@@ -22,6 +22,7 @@ import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AgendamentoStatusMenu } from '@components/domain/AgendamentoStatusMenu';
+import { MarcaAgora } from '@components/domain/ProximosDoDia';
 import { getTransicoesPermitidas } from '@services/agenda.service';
 import { ROUTES } from '@constants/routes';
 import {
@@ -46,6 +47,8 @@ import {
   podeMarcarFalta,
 } from '@utils/etapaRecepcao';
 import { seloRespostaTutor, podeOferecerRemarcar } from '@utils/respostaConfirmacao';
+import { indiceMarcaAgora, organizarDia } from '@utils/proximosDoDia';
+import { agora as relogio } from '@utils/agora';
 import { STRINGS } from '@constants/strings';
 import type { AgendamentoResponse } from '../../types/api';
 // FM-04 (revisão pós-medição do maestro): statusTone/statusLabel eram locais
@@ -255,6 +258,18 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.textOnPrimary,
     },
     hojeCard: { marginBottom: 10 },
+    // BR-CLI-T06: o proximo realcado na Hoje (mesma moldura do dashboard): ocean-pale + borda ocean 1px,
+    // sem barra lateral, gradiente nem sombra. Texto secundario em `textSoft` (mute-ink sobre ocean-pale = 4.24).
+    hojeCardDestaque: {
+      backgroundColor: colors.primaryPale,
+      borderColor: colors.primary,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    hojeMetaTextDestaque: { color: colors.textSoft },
+    // G2 M-4: o chip de etapa ("Agendado" = ocean-pale) sumia no fundo do card realcado (mesmo primaryPale);
+    // no destaque ele ganha fundo de superficie e segue distinguivel pelo contorno + fundo.
+    hojeChipDestaque: { backgroundColor: colors.surface },
     hojeRow: { flexDirection: 'row', gap: 12 },
     hojeFotoWrap: {
       width: 48,
@@ -285,6 +300,7 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 12,
       color: colors.textMuteInk,
     },
+    hojeEsperaTextDestaque: { color: colors.textSoft },
     hojeEsperaText: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 12,
@@ -490,6 +506,8 @@ interface AgendaHojeCardProps {
   onFaltou: (appointment: AgendamentoResponse) => void;
   onAbrirProntuario: (appointment: AgendamentoResponse) => void;
   pendingId?: number;
+  /** BR-CLI-T06: este e o proximo da recepcao (primeiro ativo que nao esta em atendimento). */
+  destaque?: boolean;
 }
 
 // Componente-função PRÓPRIO — mesma razão de `ModoAgendaToggle` acima: os 3
@@ -501,6 +519,7 @@ function AgendaHojeCard({
   onFaltou,
   onAbrirProntuario,
   pendingId,
+  destaque = false,
 }: AgendaHojeCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -537,7 +556,7 @@ function AgendaHojeCard({
   const mostrarFoto = Boolean(a.dsFotoThumbUrl) && !fotoQuebrada;
 
   return (
-    <KCCard style={styles.hojeCard} testID="agenda-hoje-card">
+    <KCCard style={[styles.hojeCard, destaque && styles.hojeCardDestaque]} testID="agenda-hoje-card">
       <View style={styles.hojeRow}>
         <View style={styles.hojeFotoWrap}>
           {mostrarFoto && a.dsFotoThumbUrl ? (
@@ -559,13 +578,27 @@ function AgendaHojeCard({
             <Text style={styles.hojePetName} numberOfLines={1}>
               {a.pet.nmPet}
             </Text>
-            <Text style={styles.hojeMetaText}>{formatTime(a.dtInicio)}</Text>
+            <Text style={[styles.hojeMetaText, destaque && styles.hojeMetaTextDestaque]}>{formatTime(a.dtInicio)}</Text>
           </View>
-          <Text style={styles.hojeMetaText} numberOfLines={1}>
+          <Text style={[styles.hojeMetaText, destaque && styles.hojeMetaTextDestaque]} numberOfLines={1}>
             {a.tutor.nmTutor} · {a.veterinario.nmVeterinario}
           </Text>
+          {/* BR-CLI-T06 (D5): o servico (wire dsTipoConsulta) agora chega ao cartao. */}
+          {a.nmTipoConsulta ? (
+            <Text
+              style={[styles.hojeMetaText, destaque && styles.hojeMetaTextDestaque]}
+              numberOfLines={1}
+              testID={`servico-${a.id}`}
+            >
+              {a.nmTipoConsulta}
+            </Text>
+          ) : null}
           <View style={styles.hojeBadgeRow}>
-            <KCChip tone={etapaRecepcaoTone(etapa)} testID={`etapa-${a.id}`}>
+            <KCChip
+              tone={etapaRecepcaoTone(etapa)}
+              testID={`etapa-${a.id}`}
+              style={destaque ? styles.hojeChipDestaque : undefined}
+            >
               {etapaRecepcaoLabel(etapa)}
             </KCChip>
             <KCChip
@@ -577,7 +610,7 @@ function AgendaHojeCard({
           </View>
           <RespostaTutorSelo appointment={a} />
           {espera !== null && (
-            <Text style={styles.hojeEsperaText} testID={`espera-${a.id}`}>
+            <Text style={[styles.hojeEsperaText, destaque && styles.hojeEsperaTextDestaque]} testID={`espera-${a.id}`}>
               Esperando há {espera} min
             </Text>
           )}
@@ -706,11 +739,26 @@ export default function AgendaScreen() {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
+  // BR-CLI-T06 (I2 medida): agenda.tsx NAO aceitava param de rota; o "Ver todos de hoje" do dashboard
+  // abre /agenda?modo=hoje (ROUTES.app.agendaHoje). Sem o param, o default continua 'semana'.
+  const { modo: modoParam } = useLocalSearchParams<{ modo?: string }>();
 
   // REC-12 — R1: modo aditivo, default 'semana' PRESERVA o comportamento
   // existente (a suíte pré-REC-12 nunca pressiona um toggle, então precisa
   // continuar vendo o modo Semana sem precisar de nenhuma ação extra).
-  const [modo, setModo] = React.useState<ModoAgenda>('semana');
+  const [modo, setModo] = React.useState<ModoAgenda>(modoParam === 'hoje' ? 'hoje' : 'semana');
+  // Drawer mantem a tela montada (e o param pode ja ser 'hoje' de uma ida anterior): por isso o param e
+  // CONSUMIDO ao ganhar foco e depois LIMPO (G2 da T06, I-4). Sem limpar, "Ver todos de hoje" ->
+  // Semana -> menu "Dashboard" -> "Ver todos de hoje" de novo nao muda o valor do param e a tela
+  // abria em Semana com a URL ?modo=hoje.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (modoParam === 'hoje') {
+        setModo('hoje');
+        router.setParams({ modo: undefined });
+      }
+    }, [modoParam, router]),
+  );
 
   // Fix wave G2 (I-1) — a tela "Hoje" fica aberta o dia todo na recepção; sem
   // isto, "Esperando há N min" e o gate de "Faltou" só recomputavam no
@@ -730,6 +778,9 @@ export default function AgendaScreen() {
     }, []),
   );
   const [, forcarTick] = React.useState(0);
+  const scrollHojeRef = React.useRef<ScrollView>(null);
+  const proximoYRef = React.useRef<number | null>(null);
+  const rolouAoProximoRef = React.useRef(false);
   React.useEffect(() => {
     if (modo !== 'hoje' || !focado) return undefined;
     const intervalo = setInterval(() => forcarTick((n) => n + 1), 30_000);
@@ -767,6 +818,26 @@ export default function AgendaScreen() {
       (a, b) => new Date(a.dtInicio).getTime() - new Date(b.dtInicio).getTime(),
     );
   }, [dataHoje]);
+
+  // BR-CLI-T06: marca "agora" e realce do proximo (D1: primeiro ativo que nao esta em atendimento),
+  // recalculados a cada render (o tick de 30 s acima forca o re-render). Relogio do dispositivo.
+  const agoraHoje = relogio();
+  const proximoHojeId = organizarDia(appointmentsHoje, agoraHoje).proximo?.id;
+  const marcaHoje = indiceMarcaAgora(appointmentsHoje, agoraHoje);
+
+  // "A Hoje abre rolada ao proximo": uma vez por entrada no modo Hoje, SEM animacao (nada a desligar
+  // com Reduce Motion). proximoYRef vem do onLayout do realcado.
+  const rolarAoProximo = React.useCallback(() => {
+    if (modo !== 'hoje' || rolouAoProximoRef.current || proximoYRef.current === null) return;
+    rolouAoProximoRef.current = true;
+    scrollHojeRef.current?.scrollTo({ y: Math.max(0, proximoYRef.current - 8), animated: false });
+  }, [modo]);
+  React.useEffect(() => {
+    if (modo !== 'hoje') {
+      rolouAoProximoRef.current = false;
+      proximoYRef.current = null;
+    }
+  }, [modo]);
 
   const [refreshingHoje, setRefreshingHoje] = React.useState(false);
   const onRefreshHoje = React.useCallback(async () => {
@@ -1045,6 +1116,7 @@ export default function AgendaScreen() {
 
       {modo === 'hoje' && (
         <ScrollView
+          ref={scrollHojeRef}
           testID="agenda-hoje-lista"
           style={styles.list}
           contentContainerStyle={styles.listContent}
@@ -1090,16 +1162,38 @@ export default function AgendaScreen() {
             />
           ) : (
             <>
-              {appointmentsHoje.map((a) => (
-                <AgendaHojeCard
-                  key={a.id}
-                  appointment={a}
-                  onChegou={handleChegou}
-                  onFaltou={handleFaltou}
-                  onAbrirProntuario={handleAbrirProntuario}
-                  pendingId={pendingHojeId}
-                />
+              {appointmentsHoje.map((a, i) => (
+                <React.Fragment key={a.id}>
+                  {marcaHoje === i && <MarcaAgora hora={formatTime(agoraHoje)} />}
+                  {a.id === proximoHojeId ? (
+                    <View
+                      testID="agenda-proximo"
+                      onLayout={(e) => {
+                        proximoYRef.current = e.nativeEvent.layout.y;
+                        rolarAoProximo();
+                      }}
+                    >
+                      <AgendaHojeCard
+                        appointment={a}
+                        onChegou={handleChegou}
+                        onFaltou={handleFaltou}
+                        onAbrirProntuario={handleAbrirProntuario}
+                        pendingId={pendingHojeId}
+                        destaque
+                      />
+                    </View>
+                  ) : (
+                    <AgendaHojeCard
+                      appointment={a}
+                      onChegou={handleChegou}
+                      onFaltou={handleFaltou}
+                      onAbrirProntuario={handleAbrirProntuario}
+                      pendingId={pendingHojeId}
+                    />
+                  )}
+                </React.Fragment>
               ))}
+              {marcaHoje === appointmentsHoje.length && <MarcaAgora hora={formatTime(agoraHoje)} />}
               <Text style={styles.notaOrigem} testID="nota-origem-hoje">
                 {notaOrigemTexto()}
               </Text>

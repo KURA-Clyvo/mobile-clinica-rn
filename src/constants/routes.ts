@@ -22,6 +22,8 @@ export const ROUTES = {
   app: {
     dashboard: '/dashboard',
     agenda: '/agenda',
+    // BR-CLI-T06: abre a agenda ja no modo "Hoje" (param `modo`, lido por agenda.tsx).
+    agendaHoje: '/agenda?modo=hoje' as Href,
     pacientes: '/pacientes',
     // Rota é estaticamente conhecida (src/app/(app)/pacientes/[id].tsx); o expo-router
     // não tipa segmentos dinâmicos via template literal, só o helper `Href` cobre o alvo.

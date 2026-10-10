@@ -44,6 +44,7 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 const mockPush = jest.fn();
+let mockSearchParams: { modo?: string } = {};
 // Fix wave G2 (I-1) — `useFocusEffect` real (react-navigation) roda a função
 // no foco e a limpeza no blur; este mock roda a função uma vez no mount (via
 // `useEffect(callback, [])`, mesmo padrão já usado em
@@ -63,6 +64,8 @@ jest.mock('expo-router', () => {
   const ReactForMock = require('react');
   return {
     useRouter: () => ({ push: mockPush }),
+    // BR-CLI-T06: agenda.tsx le o param `modo` ("Ver todos de hoje" do dashboard abre ?modo=hoje).
+    useLocalSearchParams: () => mockSearchParams,
     useFocusEffect: (callback: () => void | (() => void)) => {
       ReactForMock.useEffect(() => {
         const cleanup = callback();

@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor, within, act } from '@testing-library/react-native';
+import { render, waitFor, within, act, fireEvent } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import RNRefreshControl from 'react-native/Libraries/Components/RefreshControl/RefreshControl';
 import type { ReactTestInstance } from 'react-test-renderer';
@@ -16,7 +16,15 @@ import { resumoVazio } from '../src/mocks/financeiro.mock';
 jest.mock('@hooks/useDashboard', () => ({
   useDashboardHoje: jest.fn(),
   useAlertas: jest.fn(),
-  useRecentes: jest.fn(),
+}));
+
+// BR-CLI-T06: o bloco "Proximo atendimento" le a agenda do dia (MESMO hook da tela Hoje), nao mais
+// `useRecentes`. "Agora" congelado em 12:00 de 09/10/2026 (sem fake timers).
+jest.mock('@hooks/useAgenda', () => ({
+  useAgendaHoje: jest.fn(),
+}));
+jest.mock('@utils/agora', () => ({
+  agora: () => new Date(2026, 9, 9, 12, 0, 0),
 }));
 
 // FM-07 — mockado aqui pela MESMA razão dos 3 hooks acima: este arquivo testa o COMPONENTE
@@ -29,12 +37,14 @@ jest.mock('@hooks/useFinanceiro', () => ({
   useResumoFinanceiro: jest.fn(),
 }));
 
-import { useDashboardHoje, useAlertas, useRecentes } from '../src/hooks/useDashboard';
+import { useDashboardHoje, useAlertas } from '../src/hooks/useDashboard';
+import { useAgendaHoje } from '../src/hooks/useAgenda';
+import { ag, DIA_DO_PRINT } from './helpers_proximos';
 import { useResumoFinanceiro } from '../src/hooks/useFinanceiro';
 
 const mockUseDashboardHoje = useDashboardHoje as jest.Mock;
 const mockUseAlertas = useAlertas as jest.Mock;
-const mockUseRecentes = useRecentes as jest.Mock;
+const mockUseRecentes = useAgendaHoje as jest.Mock; // nome historico; hoje e a agenda do dia
 const mockUseResumoFinanceiro = useResumoFinanceiro as jest.Mock;
 
 // useWindowDimensions é o que useBreakpoint() consome (nunca Dimensions.get(),
@@ -72,21 +82,15 @@ const MOCK_ALERTA = {
   dtCriacao: new Date().toISOString(),
 };
 
-const MOCK_RECENTE = {
-  id: 101,
-  nmPet: 'Thor',
-  nmTutor: 'Carlos Mendes',
-  dtAgendamento: new Date().toISOString(),
+// Agendamentos de HOJE (fixture do print: agora = 12:00). MOCK_RECENTE = 1 item futuro; _3 = 3 itens futuros.
+const MOCK_RECENTE = ag(101, 'Thor', 13, 0, 'AGENDADO', {
+  tutor: { id: 301, nmTutor: 'Carlos Mendes', dsTelefone: '' },
   nmTipoConsulta: 'Consulta de Retorno',
-  sgStatus: 'AGENDADA' as const,
-};
-
-// 3 itens — o suficiente para exercitar agrupamento em pares (2 colunas) com
-// resto ímpar, sem depender de um número "redondo" de itens.
+});
 const MOCK_RECENTES_3 = [
   MOCK_RECENTE,
-  { ...MOCK_RECENTE, id: 102, nmPet: 'Nina' },
-  { ...MOCK_RECENTE, id: 103, nmPet: 'Bento' },
+  ag(102, 'Nina', 13, 30, 'AGENDADO'),
+  ag(103, 'Bento', 14, 0, 'AGENDADO'),
 ];
 
 const MOCK_ALERTAS_3 = [
@@ -186,7 +190,8 @@ describe('DashboardScreen — erro em Próximos atendimentos e Alertas (BR-CLI-0
     mockUseRecentes.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch: REFETCH });
 
     const { queryByText, getAllByText, queryByTestId } = wrap(<DashboardScreen />);
-    expect(queryByText('Nenhum atendimento programado')).toBeNull();
+    expect(queryByText('Nenhum atendimento hoje')).toBeNull();
+    expect(queryByText('Nada mais por hoje')).toBeNull();
     expect(queryByText('Nenhum alerta ativo')).toBeNull();
     expect(queryByTestId('empty-appointments')).toBeNull();
     expect(queryByTestId('empty-alerts')).toBeNull();
@@ -286,9 +291,9 @@ describe('DashboardScreen — loaded state', () => {
     expect(queryByTestId('metrics-skeleton')).toBeNull();
   });
 
-  it('renders appointment row when recentes has data', () => {
-    const { getByText } = wrap(<DashboardScreen />);
-    expect(getByText('Thor')).toBeTruthy();
+  it('renders the next appointment (agenda do dia) when there is data', () => {
+    const { getByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('proximo-pet').props.children).toBe('Thor');
   });
 
   it('renders alert card when alertas has data', () => {
@@ -309,28 +314,32 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
     mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
   });
 
-  it('renders "Confirmada" (not "Em andamento") for a CONFIRMADA recente item', () => {
+  it('BR-CLI-T06: CONFIRMADO mostra o rotulo da Hoje ("Confirmado"), nunca "Em andamento"', () => {
     mockUseRecentes.mockReturnValue({
-      data: [{ ...MOCK_RECENTE, sgStatus: 'CONFIRMADA' as const }],
+      data: [ag(1, 'Thor', 12, 10, 'AGENDADO'), ag(2, 'Simba', 12, 30, 'CONFIRMADO')],
       isLoading: false,
       isError: false,
       refetch: REFETCH,
     });
     const { getByText, queryByText } = wrap(<DashboardScreen />);
-    expect(getByText('Confirmada')).toBeTruthy();
+    expect(getByText('Confirmado')).toBeTruthy();
     expect(queryByText('Em andamento')).toBeNull();
   });
 
-  it('renders "Não compareceu" (not "Cancelada") for a NAO_COMPARECEU recente item', () => {
+  it('BR-CLI-T06: NAO_COMPARECEU / CANCELADO / FINALIZADO nunca viram linha (so numero no fim do dia)', () => {
     mockUseRecentes.mockReturnValue({
-      data: [{ ...MOCK_RECENTE, sgStatus: 'NAO_COMPARECEU' as const }],
+      data: [ag(1, 'Rex', 9, 0, 'NAO_COMPARECEU'), ag(2, 'Bidu', 10, 0, 'CANCELADO'), ag(3, 'Luna', 11, 0, 'FINALIZADO')],
       isLoading: false,
       isError: false,
       refetch: REFETCH,
     });
-    const { getByText, queryByText } = wrap(<DashboardScreen />);
-    expect(getByText('Não compareceu')).toBeTruthy();
-    expect(queryByText('Cancelada')).toBeNull();
+    const { getByText, queryByText, getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(queryByText('Rex')).toBeNull();
+    expect(queryByText('Não compareceu')).toBeNull();
+    expect(queryByTestId('proximo-atendimento')).toBeNull();
+    expect(getByTestId('empty-fim-do-dia')).toBeTruthy();
+    expect(getByText('Nada mais por hoje')).toBeTruthy();
+    expect(getByText('3 atendimentos encerrados hoje.')).toBeTruthy();
   });
 });
 
@@ -356,8 +365,8 @@ describe('DashboardScreen — empty states', () => {
   // instrutiva, não mais só um `<Text>` mudo.
   it('empty-appointments shows title AND instructive description', () => {
     const { getByText } = wrap(<DashboardScreen />);
-    expect(getByText('Nenhum atendimento programado')).toBeTruthy();
-    expect(getByText('Quando um agendamento for confirmado, ele aparece aqui.')).toBeTruthy();
+    expect(getByText('Nenhum atendimento hoje')).toBeTruthy();
+    expect(getByText('Quando um agendamento for marcado para hoje, ele aparece aqui.')).toBeTruthy();
   });
 
   it('empty-alerts shows title AND instructive description', () => {
@@ -402,10 +411,32 @@ describe('DashboardScreen — onboarding checklist está MONTADO na tela (CQ-13 
   });
 
   it('renderiza o card de onboarding dentro da árvore da tela (não só do componente isolado)', () => {
-    const { getByTestId, getByText } = wrap(<DashboardScreen />);
+    // BR-CLI-T06 (D3, ruling B-16): nasce RECOLHIDO numa linha, no fim: "Primeiros passos · 4 pendentes".
+    const { getByTestId, queryByTestId, getByText } = wrap(<DashboardScreen />);
+    expect(getByTestId('onboarding-recolhido')).toBeTruthy();
+    expect(getByText('Primeiros passos · 4 pendentes')).toBeTruthy();
+    expect(queryByTestId('onboarding-checklist')).toBeNull();
+  });
+
+  it('"Abrir" expande o card de sempre e ele continua dispensavel', () => {
+    const { getByTestId, queryByTestId, getByText } = wrap(<DashboardScreen />);
+    fireEvent.press(getByTestId('onboarding-abrir'));
     expect(getByTestId('onboarding-checklist')).toBeTruthy();
-    expect(getByText('Primeiros passos')).toBeTruthy();
     expect(getByText('4 de 4 restantes')).toBeTruthy();
+    fireEvent.press(getByTestId('onboarding-dismiss'));
+    expect(queryByTestId('onboarding-checklist')).toBeNull();
+    expect(queryByTestId('onboarding-recolhido')).toBeNull();
+  });
+
+  it('o onboarding vem DEPOIS do dia e dos KPI (fora da dobra), nao no topo', () => {
+    const { root } = wrap(<DashboardScreen />);
+    const ids = root
+      .findAll((n) => typeof n.type === 'string' && typeof n.props.testID === 'string')
+      .map((n) => n.props.testID as string);
+    const pos = (id: string) => ids.indexOf(id);
+    expect(pos('proximo-atendimento')).toBeGreaterThan(-1);
+    expect(pos('proximo-atendimento')).toBeLessThan(pos('metrics-grid'));
+    expect(pos('metrics-grid')).toBeLessThan(pos('onboarding-recolhido'));
   });
 });
 
@@ -435,7 +466,8 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
     { label: '1023×768 (md, 1px abaixo de lg) — 2 colunas', width: 1023, height: 768, expectedColumns: 2, expectedRows: 2 },
     { label: '1024×768 (lg, fronteira exata) — 4 colunas', width: 1024, height: 768, expectedColumns: 4, expectedRows: 1 },
     { label: '1280×800 (lg, notebook real) — 4 colunas', width: 1280, height: 800, expectedColumns: 4, expectedRows: 1 },
-    { label: '1440×900 (xl) — 4 colunas', width: 1440, height: 900, expectedColumns: 4, expectedRows: 1 },
+    // BR-CLI-T06: em xl os KPI vivem na coluna lateral de 340 px => 2x2.
+    { label: '1440×900 (xl, coluna lateral) — 2 colunas', width: 1440, height: 900, expectedColumns: 2, expectedRows: 2 },
   ];
 
   // Corte de listas (inalterado pela G2, é literal do brief): sm/md→1,
@@ -445,7 +477,8 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
     { label: '1023×768 (md, 1px abaixo de lg) — 1 coluna', width: 1023, height: 768, expectedColumns: 1 },
     { label: '1024×768 (lg, fronteira exata) — 2 colunas', width: 1024, height: 768, expectedColumns: 2 },
     { label: '1280×800 (lg, notebook real) — 2 colunas', width: 1280, height: 800, expectedColumns: 2 },
-    { label: '1440×900 (xl) — 2 colunas', width: 1440, height: 900, expectedColumns: 2 },
+    // BR-CLI-T06: em xl os alertas vivem na coluna lateral => 1 coluna.
+    { label: '1440×900 (xl, coluna lateral) — 1 coluna', width: 1440, height: 900, expectedColumns: 1 },
   ];
 
   // Confere que uma lista de `totalItems` itens (MOCK_*_3 = 3, ímpar de
@@ -548,17 +581,14 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
         setViewport(width, height);
         const { getAllByTestId } = wrap(<DashboardScreen />);
 
-        const appointmentRows = getAllByTestId('appointments-row');
         const alertRows = getAllByTestId('alerts-row');
 
         // Achado B (G2): com 3 itens (ímpar) e 2 colunas, a última linha
-        // tem 1 item real — a asserção abaixo confere que essa linha ainda
+        // tem 1 item real; a asserção abaixo confere que essa linha ainda
         // assim tem 2 filhos (item + espaçador), não 1.
-        expectRowsGroupedIntoColumns(appointmentRows, 'appointments-item', 3, expectedColumns);
         expectRowsGroupedIntoColumns(alertRows, 'alerts-item', 3, expectedColumns);
 
         // Sanity: todos os itens continuam presentes.
-        expect(getAllByTestId('appointments-item')).toHaveLength(3);
         expect(getAllByTestId('alerts-item')).toHaveLength(3);
 
         // CQ-06 G2 fix wave, RODADA 2 (M-2/mutação "chunk() inverte a
@@ -572,11 +602,6 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
         // filho direto — `AppointmentRow`/`AlertCard` — antes de qualquer
         // render interno) contra a ordem original do mock, em sequência
         // através de TODAS as linhas.
-        const appointmentIds = getAllByTestId('appointments-item').map(
-          (view) => (view.children[0] as ReactTestInstance).props.item.id,
-        );
-        expect(appointmentIds).toEqual(MOCK_RECENTES_3.map((item) => item.id));
-
         const alertIds = getAllByTestId('alerts-item').map(
           (view) => (view.children[0] as ReactTestInstance).props.alerta.id,
         );
@@ -600,6 +625,28 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
     );
   });
 
+  // BR-CLI-T06 (G2 M-3): na coluna lateral (1440) os alertas viram lista compacta, nao cartoes altos.
+  describe('alertas compactos na coluna lateral (xl)', () => {
+    beforeEach(() => {
+      mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+      mockUseAlertas.mockReturnValue({ data: MOCK_ALERTAS_3, isLoading: false, isError: false, refetch: REFETCH });
+    });
+    it('1440: 3 linhas compactas, cada uma com a mensagem do alerta', () => {
+      setViewport(1440, 900);
+      const { getAllByTestId } = wrap(<DashboardScreen />);
+      expect(getAllByTestId('alert-compacto')).toHaveLength(3);
+      expect(getAllByTestId('alert-message')).toHaveLength(3);
+    });
+    it('1280 e 390: continuam cartoes (sem linha compacta)', () => {
+      for (const [w, h] of [[1280, 800], [390, 844]]) {
+        setViewport(w!, h!);
+        const { queryAllByTestId, unmount } = wrap(<DashboardScreen />);
+        expect(queryAllByTestId('alert-compacto')).toHaveLength(0);
+        unmount();
+      }
+    });
+  });
+
   // Achado B (G2), caso extra explicitamente pedido no brief da fix wave:
   // lista com 1 item só em ≥ lg (2 colunas). Sem o fix, o único filho da
   // única linha tem `flex: 1` sozinho numa `View` `flexDirection: 'row'` e
@@ -610,18 +657,16 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
       mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
       mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
       mockUseRecentes.mockReturnValue({ data: [MOCK_RECENTE], isLoading: false, isError: false, refetch: REFETCH });
-      setViewport(1440, 900);
+      setViewport(1280, 800);
 
       const { getAllByTestId } = wrap(<DashboardScreen />);
 
-      const appointmentRows = getAllByTestId('appointments-row');
       const alertRows = getAllByTestId('alerts-row');
       // CQ-06 G2 fix wave, RODADA 2 (I-1): reaproveita a mesma
       // `expectRowsGroupedIntoColumns` do bloco acima — 2 colunas em xl, 1
       // item real e 1 espaçador por linha, e o espaçador tem que carregar
       // `flex: 1` de verdade (não só existir como nó) para provar que ele
       // ocupa a coluna, não só a contagem de filhos.
-      expectRowsGroupedIntoColumns(appointmentRows, 'appointments-item', 1, 2);
       expectRowsGroupedIntoColumns(alertRows, 'alerts-item', 1, 2);
     });
   });
@@ -659,10 +704,8 @@ describe('DashboardScreen — responsive grid (CQ-06)', () => {
         setViewport(width, height);
         const { getAllByTestId } = wrap(<DashboardScreen />);
 
-        const appointmentSkeletonRows = getAllByTestId('appointments-skeleton-row');
         const alertSkeletonRows = getAllByTestId('alerts-skeleton-row');
 
-        expectRowsGroupedIntoColumns(appointmentSkeletonRows, 'skeleton', 3, expectedColumns);
         expectRowsGroupedIntoColumns(alertSkeletonRows, 'skeleton', 3, expectedColumns);
       },
     );
@@ -752,6 +795,29 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(queryByTestId('financeiro-skeleton')).toBeNull();
     expect(queryByTestId('empty-financeiro')).toBeNull();
     expect(queryByText('Financeiro')).toBeNull();
+  });
+
+  it('G2 M-3: no 1440 o "Primeiros passos" vem ANTES do card financeiro (acima da dobra); no celular, depois', () => {
+    const ordemDe = (root: ReactTestInstance) =>
+      root
+        .findAll((n) => typeof n.type === 'string' && typeof n.props.testID === 'string')
+        .map((n) => n.props.testID as string);
+    logarComoGestor();
+    act(() => {
+      useOnboardingStore.setState({ completedSteps: [], dismissed: false, _hasHydrated: true });
+    });
+    mockUseResumoFinanceiro.mockReturnValue({ data: undefined, isLoading: true, isError: false, refetch: REFETCH, isGestor: true });
+    for (const [w, h, onboardingAntes] of [[1440, 900, true], [390, 844, false]] as const) {
+      setViewport(w, h);
+      const { root, unmount } = wrap(<DashboardScreen />);
+      const ids = ordemDe(root);
+      const iOnb = ids.indexOf('onboarding-recolhido');
+      const iFin = ids.indexOf('financeiro-skeleton');
+      expect(iOnb).toBeGreaterThan(-1);
+      expect(iFin).toBeGreaterThan(-1);
+      expect(iOnb < iFin).toBe(onboardingAntes);
+      unmount();
+    }
   });
 
   it('GESTOR: mostra skeleton de 2 cards enquanto o resumo carrega', () => {

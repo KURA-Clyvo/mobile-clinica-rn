@@ -25,6 +25,11 @@ export interface AlertCardProps {
    * coluna única, sem `gap` externo) não muda.
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * BR-CLI-T06 (G2 M-3): lista compacta da coluna lateral de 340 px (1440) -- so a mensagem e a hora,
+   * com divisor, sem cartao nem icone. Mesmo alerta, mesmos testIDs de mensagem.
+   */
+  compacto?: boolean;
 }
 
 type AlertStyle = { tone: ChipTone; icon: KCIconName; label: string };
@@ -83,11 +88,31 @@ const makeStyles = (colors: typeof lightColors) =>
       lineHeight: 17,
     },
     card: { marginBottom: 8 },
+    compacto: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      gap: 8,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    messageCompacto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 18, flex: 1 },
   });
 
-export function AlertCard({ alerta, style }: AlertCardProps) {
+export function AlertCard({ alerta, style, compacto }: AlertCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  if (compacto) {
+    return (
+      <View style={[styles.compacto, style]} testID="alert-compacto">
+        <Text style={styles.messageCompacto} testID="alert-message">
+          {alerta.dsMensagem}
+        </Text>
+        <Text style={styles.time}>{formatTime(alerta.dtCriacao)}</Text>
+      </View>
+    );
+  }
   const alertStyle = getAlertStyle(alerta.dsTipoAlerta);
   const toneColors = getToneIconColor(alertStyle.tone, colors);
 
