@@ -120,7 +120,7 @@ export default function LoginScreen() {
               (`colors.textOnPrimary`) ficaria quase branco aqui e violaria
               contraste (ruling D-3). Aposenta o `KCIcon name="paw"` usado
               antes. */}
-          <KuraMark size={56} color={colors.primary} />
+          <KuraMark size={56} variante="sobreNeutro" />
           <Text style={styles.brand}>{STRINGS.app.name}</Text>
           <Text style={styles.brandSub}>Acesso veterinário</Text>
         </View>

@@ -169,6 +169,16 @@ describe('NavDrawer — marca canônica em knockout (CQ-12)', () => {
     });
   });
 
+  it('no claro a marca tem o MESMO tratamento do icon.png (knockout: corpo 18%, haste 60%, contorno 80%)', () => {
+    const { getAllByTestId } = wrap(0);
+    const mark = getAllByTestId('Svg').find((svg) => svg.props['aria-label'] === 'Kura mark')!;
+    const [corpo, haste, contorno] = within(mark).getAllByTestId('Path');
+    expect(corpo!.props.fill).toBe(lightColors.textOnPrimary);
+    expect(corpo!.props.fillOpacity).toBe(0.18);
+    expect(haste!.props.opacity).toBe(0.6);
+    expect(contorno!.props.opacity).toBe(0.8);
+  });
+
   it('preserva a proporção 5:6 do KuraMark no header (width 32 → height 38.4)', () => {
     const { getAllByTestId } = wrap(0);
     const svgs = getAllByTestId('Svg');

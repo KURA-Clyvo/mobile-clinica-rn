@@ -145,7 +145,7 @@ export default function RegisterScreen() {
                 `login.tsx` (56px, acima do mínimo 48 do brand book;
                 `colors.primary` porque a superfície é clara, knockout
                 ficaria quase invisível aqui — ruling D-3). */}
-            <KuraMark size={56} color={colors.primary} />
+            <KuraMark size={56} variante="sobreNeutro" />
           </View>
 
           <View style={styles.header}>

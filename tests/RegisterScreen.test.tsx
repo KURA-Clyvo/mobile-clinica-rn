@@ -262,4 +262,12 @@ describe('RegisterScreen — marca canônica na tela de entrada (CQ-12 fix wave)
       expect(circle.props.fill).toBe(lightColors.primary);
     });
   });
+
+  it('o corpo do símbolo é SÓLIDO ocean-pale (C2), não ocean a 18% (cinza sobre a areia)', () => {
+    const { getAllByTestId } = wrap(<RegisterScreen />);
+    const mark = getAllByTestId('Svg').find((svg) => svg.props['aria-label'] === 'Kura mark');
+    const corpo = within(mark!).getAllByTestId('Path')[0]!;
+    expect(corpo.props.fill).toBe(lightColors.primaryPale);
+    expect(corpo.props.fillOpacity).toBe(1);
+  });
 });

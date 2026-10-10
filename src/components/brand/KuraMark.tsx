@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '@theme/index';
+import { resolverSimbolo, type VarianteSimbolo } from './simboloCores';
 
 export interface KuraMarkProps {
   /**
@@ -18,6 +19,19 @@ export interface KuraMarkProps {
    * `colors.textOnPrimary` explicitamente.
    */
   color?: string;
+  /**
+   * Cores por contexto (BR-CLI-T04), de `simboloCores.json` — a mesma fonte do
+   * `gerar-assets.mjs`. `sobreNeutro`: corpo `primaryPale` SÓLIDO (decisão C2: a 18% o ocean
+   * sobre a areia compõe um cinza que não lê como azul). `sobreOcean`: knockout sobre fundo
+   * ocean (mesmo tratamento do `icon.png`). Quando passada, `color` é ignorado. Sem `variante`,
+   * o desenho é o de sempre (corpo a 18%, haste a 50%, tudo em `color`).
+   */
+  variante?: VarianteSimbolo;
+  /**
+   * Cores por pata, na ordem [central, esquerda, direita] — usadas pela abertura
+   * para acender as patas em âmbar uma a uma. Default: as patas da variante (ou `color`).
+   */
+  patas?: [string, string, string];
 }
 
 const VIEWBOX_WIDTH = 40;
@@ -35,10 +49,14 @@ const DEFAULT_SIZE = 32;
  * 48px em UI, sem sombra/glow/bisel, sem rotação, círculos sempre
  * preenchidos.
  */
-export function KuraMark({ size = DEFAULT_SIZE, color }: KuraMarkProps) {
+export function KuraMark({ size = DEFAULT_SIZE, color, variante, patas }: KuraMarkProps) {
   const { colors } = useTheme();
-  const c = color ?? colors.primary;
   const height = size * (VIEWBOX_HEIGHT / VIEWBOX_WIDTH);
+  const c = color ?? colors.primary;
+  const v = variante ? resolverSimbolo(variante, colors) : undefined;
+  const base = v?.patas ?? c;
+  const [pataCentral, pataEsq, pataDir] = patas ?? [base, base, base];
+  const lateraisOpac = v ? v.lateraisOpac : patas ? 1 : 0.85;
 
   return (
     <Svg
@@ -51,28 +69,28 @@ export function KuraMark({ size = DEFAULT_SIZE, color }: KuraMarkProps) {
       {/* corpo */}
       <Path
         d="M20 44 C8 44 4 34 4 24 C4 10 12 4 20 4 C28 4 36 10 36 24 C36 34 32 44 20 44Z"
-        fill={c}
-        fillOpacity={0.18}
+        fill={v ? v.corpo : c}
+        fillOpacity={v ? v.corpoOpac : 0.18}
       />
       {/* haste */}
       <Path
         d="M20 44 L20 16"
-        stroke={c}
+        stroke={v ? v.haste : c}
         strokeWidth="1.2"
-        opacity="0.5"
+        opacity={v ? v.hasteOpac : 0.5}
         strokeLinecap="round"
       />
       {/* 3 "patas/cabeças" */}
-      <Circle cx="20" cy="8" r="3.5" fill={c} />
-      <Circle cx="13" cy="12" r="2.8" fill={c} opacity="0.85" />
-      <Circle cx="27" cy="12" r="2.8" fill={c} opacity="0.85" />
+      <Circle cx="20" cy="8" r="3.5" fill={pataCentral} />
+      <Circle cx="13" cy="12" r="2.8" fill={pataEsq} opacity={lateraisOpac} />
+      <Circle cx="27" cy="12" r="2.8" fill={pataDir} opacity={lateraisOpac} />
       {/* contorno do corpo */}
       <Path
         d="M20 44 C8 44 4 34 4 24 C4 10 12 4 20 4 C28 4 36 10 36 24 C36 34 32 44 20 44Z"
-        stroke={c}
+        stroke={v ? v.contorno : c}
         strokeWidth="1.5"
         fill="none"
-        opacity="0.7"
+        opacity={v ? v.contornoOpac : 0.7}
       />
     </Svg>
   );
