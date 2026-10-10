@@ -416,6 +416,7 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
   return (
     <View style={styles.modoToggleRow}>
       <TouchableOpacity
+        accessibilityRole="tab"
         testID="btn-modo-semana"
         accessibilityLabel="Ver agenda da semana"
         style={[styles.modoBtn, modo === 'semana' && styles.modoBtnActive]}
@@ -426,6 +427,7 @@ function ModoAgendaToggle({ modo, onChange }: ModoAgendaToggleProps) {
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
+        accessibilityRole="tab"
         testID="btn-modo-hoje"
         accessibilityLabel="Ver agenda de hoje"
         style={[styles.modoBtn, modo === 'hoje' && styles.modoBtnActive]}
@@ -455,6 +457,7 @@ function RespostaTutorSelo({ appointment: a }: { appointment: AgendamentoRespons
       </KCChip>
       {mostrarRemarcar && (
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.hojeActionBtnSecondary}
           // Só `idPet`/`idTutor`: são os únicos dados do agendamento que o
           // formulário da REC-14 consome (veterinário/tipo/data ficam à escolha
@@ -570,6 +573,7 @@ function AgendaHojeCard({
           <View style={styles.hojeActionsRow}>
             {mostrarChegou && (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.hojeActionBtnPrimary}
                 onPress={() => onChegou(a)}
                 disabled={pendente}
@@ -581,6 +585,7 @@ function AgendaHojeCard({
             )}
             {mostrarFaltou && (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.hojeActionBtnSecondary}
                 onPress={() => onFaltou(a)}
                 disabled={pendente}
@@ -591,6 +596,7 @@ function AgendaHojeCard({
               </TouchableOpacity>
             )}
             <TouchableOpacity
+              accessibilityRole="button"
               style={[styles.hojeActionBtnSecondary, !temPet && { opacity: 0.4 }]}
               onPress={() => temPet && onAbrirProntuario(a)}
               disabled={!temPet}
@@ -655,6 +661,7 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
             <View style={styles.actionsRow}>
               {temTeleconsulta && (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={styles.teleBtn}
                   onPress={() => router.push(ROUTES.app.teleorientacao(a.pet.id, a.id))}
                   testID="btn-iniciar-teleconsulta"
@@ -666,6 +673,7 @@ function AgendaAppointmentCard({ appointment: a, onAbrirStatusMenu }: AgendaAppo
               )}
               {temAcoesStatus && (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={styles.statusBtn}
                   onPress={() => onAbrirStatusMenu(a)}
                   testID={`btn-status-menu-${a.id}`}
@@ -904,6 +912,7 @@ export default function AgendaScreen() {
         <>
           <View style={styles.weekNav}>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={goToPrevWeek}
               testID="btn-prev-week"
               style={styles.navBtn}
@@ -915,6 +924,7 @@ export default function AgendaScreen() {
               {formatWeekRange(semanaStart, semanaEnd)}
             </Text>
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={goToNextWeek}
               testID="btn-next-week"
               style={styles.navBtn}
@@ -935,6 +945,7 @@ export default function AgendaScreen() {
               const today = isToday(day);
               return (
                 <TouchableOpacity
+                  accessibilityRole="tab"
                   key={i}
                   onPress={() => setSelectedDay(day)}
                   testID={`day-tab-${i}`}

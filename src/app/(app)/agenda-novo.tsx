@@ -351,6 +351,7 @@ export default function NovoAgendamentoScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => router.back()}
             testID="btn-voltar-agenda-novo-form"
             accessibilityLabel="Voltar"
@@ -400,6 +401,7 @@ export default function NovoAgendamentoScreen() {
                   scrollEnabled={false}
                   renderItem={({ item }) => (
                     <TouchableOpacity
+                      accessibilityRole="button"
                       style={styles.itemRow}
                       onPress={() => handleSelecionarTutor(item)}
                       testID={`tutor-opcao-${item.id}`}

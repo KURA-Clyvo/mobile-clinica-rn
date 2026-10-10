@@ -208,6 +208,7 @@ export default function FinanceiroScreen() {
     >
       <View style={styles.headerRow}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.backButton}
           onPress={() => router.back()}
           testID="btn-voltar-financeiro"

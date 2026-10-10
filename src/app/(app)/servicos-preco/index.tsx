@@ -219,6 +219,7 @@ export default function ServicosPrecoScreen() {
     >
       <View style={styles.headerRow}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.backButton}
           onPress={() => router.back()}
           testID="btn-voltar-servicos"

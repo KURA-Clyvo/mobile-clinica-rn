@@ -143,6 +143,14 @@ export const STRINGS = {
     online: 'Luna online',
     offline: 'Luna offline',
   },
+  // BR-CLI-T05: saída (Voltar) e títulos do cabeçalho das telas de ação/detalhe.
+  saida: {
+    voltar: 'Voltar',
+    ficha: 'Paciente',
+    consulta: 'Consulta',
+    receituario: 'Receituário',
+    teleorientacao: 'Teleorientação',
+  },
   configuracoes: {
     titulo: 'Configurações',
     perfil: 'Perfil',

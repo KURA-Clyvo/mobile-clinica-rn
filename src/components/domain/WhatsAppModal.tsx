@@ -145,6 +145,7 @@ export function WhatsAppModal({
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Enviar via WhatsApp</Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={onClose}
                 testID="btn-fechar-whatsapp"
                 style={{ padding: 4 }}

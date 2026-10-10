@@ -226,6 +226,7 @@ export default function SettingsScreen() {
                 sendo ESTE nó — `npx jest touchTargetRegistry` reconfirmado
                 sem rebind, ver relatório da task). */}
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.usuarios)}
               testID="btn-convidar"
@@ -289,6 +290,7 @@ export default function SettingsScreen() {
               Tabela de preços
             </Text>
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.servicosPreco)}
               testID="btn-tabela-precos"
@@ -310,6 +312,7 @@ export default function SettingsScreen() {
               Painel de gestão
             </Text>
             <TouchableOpacity
+              accessibilityRole="link"
               style={styles.inviteRow}
               onPress={() => router.push(ROUTES.app.financeiro)}
               testID="btn-painel-financeiro"

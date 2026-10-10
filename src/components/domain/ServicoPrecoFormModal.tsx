@@ -154,6 +154,7 @@ export function ServicoPrecoFormModal({ visible, onClose, servico }: ServicoPrec
                 {isEdicao ? 'Editar serviço' : 'Novo serviço'}
               </Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={onClose}
                 testID="btn-fechar-form-servico"
                 style={{ padding: 4 }}

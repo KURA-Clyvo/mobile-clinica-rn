@@ -1,5 +1,5 @@
 import React from 'react';
-import { Redirect, usePathname } from 'expo-router';
+import { Redirect, usePathname, useRouter, type Href } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore, type OnboardingStepId } from '@store/onboardingStore';
@@ -45,6 +45,48 @@ function useTrackOnboardingStepVisits() {
 // em `breakpoints` (src/theme/tokens.ts) — nunca duplicar o número aqui.
 export function resolveDrawerType(isAtLeast: (key: BreakpointKey) => boolean): 'permanent' | 'front' {
   return isAtLeast('lg') ? 'permanent' : 'front';
+}
+
+// BR-CLI-T05 (C3, fecha o E27): telas de AÇÃO/DETALHE do paciente ganham cabeçalho com "Voltar" 44px.
+// Antes herdavam `headerShown: false` e só saíam pelo botão físico/gesto — no web, sem saída nenhuma.
+// `router.back()` quando existe histórico; sem histórico (acesso direto por URL) vai para a lista
+// certa: a ficha volta para Pacientes, as demais voltam para a ficha do pet da própria rota.
+export function destinoSemHistorico(rota: 'ficha' | 'idPet', params?: { idPet?: string }): Href {
+  if (rota === 'idPet') {
+    const id = Number(params?.idPet);
+    return Number.isFinite(id) && id > 0 ? ROUTES.app.pacienteDetalhe(id) : ROUTES.app.dashboard;
+  }
+  return ROUTES.app.pacientes;
+}
+
+interface TelaComVoltar {
+  nome: string;
+  titulo: string;
+  destino: 'ficha' | 'idPet';
+}
+
+const TELAS_COM_VOLTAR: TelaComVoltar[] = [
+  { nome: 'pacientes/[id]', titulo: STRINGS.saida.ficha, destino: 'ficha' },
+  { nome: 'consulta/[idPet]', titulo: STRINGS.saida.consulta, destino: 'idPet' },
+  { nome: 'receituario/[idPet]', titulo: STRINGS.saida.receituario, destino: 'idPet' },
+  { nome: 'teleorientacao/[idPet]', titulo: STRINGS.saida.teleorientacao, destino: 'idPet' },
+];
+
+function HeaderComVoltar({
+  titulo,
+  destino,
+  params,
+}: {
+  titulo: string;
+  destino: 'ficha' | 'idPet';
+  params?: { idPet?: string };
+}) {
+  const router = useRouter();
+  const voltar = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace(destinoSemHistorico(destino, params));
+  };
+  return <AppHeader title={titulo} onMenuPress={() => undefined} onBackPress={voltar} />;
 }
 
 export default function AppLayout() {
@@ -148,6 +190,22 @@ export default function AppLayout() {
           ),
         }}
       />
+      {TELAS_COM_VOLTAR.map((t) => (
+        <Drawer.Screen
+          key={t.nome}
+          name={t.nome}
+          options={{
+            headerShown: true,
+            header: ({ route }) => (
+              <HeaderComVoltar
+                titulo={t.titulo}
+                destino={t.destino}
+                params={route?.params as { idPet?: string } | undefined}
+              />
+            ),
+          }}
+        />
+      ))}
     </Drawer>
   );
 }

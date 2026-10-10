@@ -237,6 +237,7 @@ export function PetForm({
       <View>
         <Text style={styles.sectionLabel}>Data de nascimento</Text>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.dateRow}
           onPress={() => setShowPicker(true)}
           testID="date-picker-trigger-pet"

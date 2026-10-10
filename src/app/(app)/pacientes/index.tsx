@@ -167,6 +167,7 @@ export default function PacientesScreen() {
           />
           {rawSearch.length > 0 && (
             <TouchableOpacity
+              accessibilityRole="button"
               onPress={() => {
                 setRawSearch('');
                 setFiltro('');

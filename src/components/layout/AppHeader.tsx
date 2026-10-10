@@ -8,6 +8,8 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { ROUTES } from '@constants/routes';
 import { useWebInteractionState } from '@hooks/useWebInteractionState';
 import { getWebInteractionStyle } from '@theme/webInteraction';
+import { touchTarget, fontSize, fonts, spacing } from '@theme/tokens';
+import { STRINGS } from '@constants/strings';
 
 export interface AppHeaderProps {
   title: string;
@@ -19,6 +21,13 @@ export interface AppHeaderProps {
    * inalterado para qualquer consumidor que não passe a prop).
    */
   showMenuButton?: boolean;
+  /**
+   * BR-CLI-T05 (C3, fecha o E27): quando presente, a tela é de AÇÃO/DETALHE (ficha do pet, consulta,
+   * receituário, teleorientação) e a saída é um "Voltar" (ícone + rótulo, 44px) no lugar do
+   * hambúrguer e da busca. Quem decide para onde volta é o chamador (`router.back()` com fallback
+   * para a lista certa quando não há histórico — acesso direto por URL no web).
+   */
+  onBackPress?: () => void;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -34,10 +43,24 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.bg,
     },
     iconBtn: {
-      width: 44,
-      height: 44,
+      width: touchTarget.min,
+      height: touchTarget.min,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    backBtn: {
+      minWidth: touchTarget.min,
+      minHeight: touchTarget.min,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing[1],
+      paddingHorizontal: spacing[2],
+    },
+    backLabel: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSize.base,
+      color: colors.text,
     },
     title: {
       flex: 1,
@@ -51,7 +74,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
-export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHeaderProps) {
+export function AppHeader({ title, onMenuPress, showMenuButton = true, onBackPress }: AppHeaderProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const router = useRouter();
@@ -60,6 +83,35 @@ export function AppHeader({ title, onMenuPress, showMenuButton = true }: AppHead
   // foco (e vice-versa), que é o oposto do que "foco visível" precisa provar.
   const menuInteraction = useWebInteractionState();
   const searchInteraction = useWebInteractionState();
+  const backInteraction = useWebInteractionState();
+
+  if (onBackPress) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.container}>
+          <TouchableOpacity
+            onPress={onBackPress}
+            onMouseEnter={backInteraction.onMouseEnter}
+            onMouseLeave={backInteraction.onMouseLeave}
+            onFocus={backInteraction.onFocus}
+            onBlur={backInteraction.onBlur}
+            style={[styles.backBtn, getWebInteractionStyle(backInteraction, colors.borderFocus)]}
+            testID="app-header-back"
+            accessibilityRole="button"
+            accessibilityLabel={STRINGS.saida.voltar}
+          >
+            <KCIcon name="back" size={22} color={colors.text} />
+            <Text style={styles.backLabel}>{STRINGS.saida.voltar}</Text>
+          </TouchableOpacity>
+          <Text style={styles.title} numberOfLines={1}>
+            {title}
+          </Text>
+          {/* Espaçador do mesmo tamanho do alvo de toque — mantém o título centrado em relação ao Voltar. */}
+          <View style={styles.iconBtn} testID="app-header-back-spacer" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

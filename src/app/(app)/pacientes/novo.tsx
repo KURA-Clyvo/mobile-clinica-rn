@@ -205,6 +205,7 @@ export default function NovoPacienteScreen() {
       <ScreenContainer keyboardShouldPersistTaps="handled">
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setTutorSelecionado(null)}
             testID="btn-voltar-selecao-tutor"
             accessibilityLabel="Voltar para a busca de tutor"
@@ -228,6 +229,7 @@ export default function NovoPacienteScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-novo-paciente"
             accessibilityLabel="Voltar"
@@ -282,6 +284,7 @@ export default function NovoPacienteScreen() {
             scrollEnabled={false}
             renderItem={({ item }) => (
               <TouchableOpacity
+                accessibilityRole="button"
                 style={styles.tutorItem}
                 onPress={() => setTutorSelecionado(item)}
                 testID={`tutor-item-${item.id}`}

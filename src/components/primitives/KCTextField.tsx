@@ -160,6 +160,7 @@ export function KCTextField({
         />
         {secureTextEntry && (
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => setIsSecure(v => !v)}
             style={styles.eyeButton}
             testID="password-toggle"

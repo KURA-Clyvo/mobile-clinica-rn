@@ -171,6 +171,7 @@ export default function LoginScreen() {
           </KCButton>
 
           <TouchableOpacity
+            accessibilityRole="link"
             onPress={() => router.push('/register')}
             style={styles.registerLink}
             testID="login-register-link"

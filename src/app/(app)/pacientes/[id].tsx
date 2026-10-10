@@ -548,6 +548,7 @@ export default function PacienteDetailScreen() {
       <View style={[styles.tabBar, { marginTop: 16 }]}>
         {(['timeline', 'vacinas', 'docs'] as TabKey[]).map((tab) => (
           <TouchableOpacity
+            accessibilityRole="tab"
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}

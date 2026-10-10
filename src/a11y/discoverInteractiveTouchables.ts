@@ -61,6 +61,17 @@ export interface TouchableConsumer {
    *  continua descrevendo o MESMO elemento físico depois de uma reordenação de JSX — ver
    *  `TouchTargetRegistryEntry.expectedTestId` em `tests/touchTargetRegistry.tsx`. */
   testID?: string;
+  /** BR-CLI-T05 — o elemento declara `accessibilityRole` (ou `role`) com valor. `Switch` do RN já
+   *  expõe role de switch por si; os demais precisam declarar. */
+  hasRole: boolean;
+  /** BR-CLI-T05 — maior dimensão numérica DECLARADA por eixo, resolvida de `style` (literal inline
+   *  ou `styles.chave` de `StyleSheet.create` do MESMO arquivo; `touchTarget.min` vale 44). `undefined`
+   *  = o eixo não declara geometria (cego: padding/conteúdo definem o tamanho — ver "Limitação"). */
+  declaredHeight?: number;
+  declaredWidth?: number;
+  /** BR-CLI-T05 — folga de `hitSlop` (soma dos dois lados) por eixo; 0 quando ausente. */
+  hitSlopVertical: number;
+  hitSlopHorizontal: number;
 }
 
 /** Tags JSX que, sozinhas, já são o alvo de toque — não precisam de resolução
@@ -183,6 +194,150 @@ function coletarAliasesCondicionais(sourceFile: ts.SourceFile): Set<string> {
   return aliases;
 }
 
+const TOUCH_MIN_LITERAL = 44; // espelho de `touchTarget.min` (tokens.ts); tests/tokens.test.ts fixa o valor.
+
+/** Valor numérico de uma expressão simples: literal, `touchTarget.min`, ou constante numérica do arquivo. */
+function numeroDe(expr: ts.Expression, constantes: Map<string, number>): number | undefined {
+  if (ts.isNumericLiteral(expr)) return Number(expr.text);
+  if (
+    ts.isPropertyAccessExpression(expr) &&
+    ts.isIdentifier(expr.expression) &&
+    expr.expression.text === 'touchTarget' &&
+    expr.name.text === 'min'
+  ) {
+    return TOUCH_MIN_LITERAL;
+  }
+  if (ts.isIdentifier(expr)) return constantes.get(expr.text);
+  if (ts.isParenthesizedExpression(expr)) return numeroDe(expr.expression, constantes);
+  return undefined;
+}
+
+function coletarConstantesNumericas(sourceFile: ts.SourceFile): Map<string, number> {
+  const mapa = new Map<string, number>();
+  function visitar(node: ts.Node) {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      ts.isNumericLiteral(node.initializer)
+    ) {
+      mapa.set(node.name.text, Number(node.initializer.text));
+    }
+    ts.forEachChild(node, visitar);
+  }
+  visitar(sourceFile);
+  return mapa;
+}
+
+/** `chave: { ... }` de qualquer objeto literal do arquivo (inclui `StyleSheet.create({...})`). */
+function coletarDefinicoesDeEstilo(sourceFile: ts.SourceFile): Map<string, ts.ObjectLiteralExpression[]> {
+  const mapa = new Map<string, ts.ObjectLiteralExpression[]>();
+  function visitar(node: ts.Node) {
+    if (
+      ts.isPropertyAssignment(node) &&
+      (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      const nome = node.name.text;
+      mapa.set(nome, [...(mapa.get(nome) ?? []), node.initializer]);
+    }
+    ts.forEachChild(node, visitar);
+  }
+  visitar(sourceFile);
+  return mapa;
+}
+
+function dimensoesDoObjeto(
+  obj: ts.ObjectLiteralExpression,
+  constantes: Map<string, number>,
+): { h?: number; w?: number } {
+  const r: { h?: number; w?: number } = {};
+  for (const prop of obj.properties) {
+    if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) continue;
+    const nome = prop.name.text;
+    const v = numeroDe(prop.initializer, constantes);
+    if (v === undefined) continue;
+    if (nome === 'height' || nome === 'minHeight') r.h = Math.max(r.h ?? 0, v);
+    if (nome === 'width' || nome === 'minWidth') r.w = Math.max(r.w ?? 0, v);
+  }
+  return r;
+}
+
+/** Percorre a expressão de `style` (array, ternário, `&&`, `styles.x`, objeto inline) juntando as
+ *  dimensões declaradas (maior valor por eixo — lenienté com alternativas condicionais). Chamadas
+ *  (ex.: `getWebInteractionStyle(...)`) não declaram geometria. */
+function dimensoesDoStyle(
+  expr: ts.Expression,
+  defs: Map<string, ts.ObjectLiteralExpression[]>,
+  constantes: Map<string, number>,
+): { h?: number; w?: number } {
+  const acc: { h?: number; w?: number } = {};
+  const mescla = (d: { h?: number; w?: number }) => {
+    if (d.h !== undefined) acc.h = Math.max(acc.h ?? 0, d.h);
+    if (d.w !== undefined) acc.w = Math.max(acc.w ?? 0, d.w);
+  };
+  function visitar(e: ts.Expression) {
+    if (ts.isObjectLiteralExpression(e)) mescla(dimensoesDoObjeto(e, constantes));
+    else if (ts.isArrayLiteralExpression(e)) e.elements.forEach((x) => visitar(x));
+    else if (ts.isConditionalExpression(e)) {
+      visitar(e.whenTrue);
+      visitar(e.whenFalse);
+    } else if (ts.isBinaryExpression(e)) {
+      visitar(e.right);
+    } else if (ts.isParenthesizedExpression(e)) visitar(e.expression);
+    else if (ts.isPropertyAccessExpression(e) && ts.isIdentifier(e.expression) && e.expression.text === 'styles') {
+      for (const o of defs.get(e.name.text) ?? []) mescla(dimensoesDoObjeto(o, constantes));
+    } else if (
+      ts.isElementAccessExpression(e) &&
+      ts.isIdentifier(e.expression) &&
+      e.expression.text === 'styles' &&
+      ts.isStringLiteral(e.argumentExpression)
+    ) {
+      for (const o of defs.get(e.argumentExpression.text) ?? []) mescla(dimensoesDoObjeto(o, constantes));
+    }
+  }
+  visitar(expr);
+  return acc;
+}
+
+function hitSlopDe(
+  expr: ts.Expression,
+  constantes: Map<string, number>,
+): { vertical: number; horizontal: number } {
+  if (ts.isNumericLiteral(expr)) {
+    const n = Number(expr.text);
+    return { vertical: 2 * n, horizontal: 2 * n };
+  }
+  if (!ts.isObjectLiteralExpression(expr)) return { vertical: 0, horizontal: 0 };
+  const lado: Record<string, number> = {};
+  for (const prop of expr.properties) {
+    if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) continue;
+    const v = numeroDe(prop.initializer, constantes);
+    if (v !== undefined) lado[prop.name.text] = v;
+  }
+  return {
+    vertical: (lado.top ?? 0) + (lado.bottom ?? 0),
+    horizontal: (lado.left ?? 0) + (lado.right ?? 0),
+  };
+}
+
+function atributoDe(
+  node: ts.JsxOpeningElement | ts.JsxSelfClosingElement,
+  nome: string,
+): ts.JsxAttribute | undefined {
+  for (const attr of node.attributes.properties) {
+    if (ts.isJsxAttribute(attr) && ts.isIdentifier(attr.name) && attr.name.text === nome) return attr;
+  }
+  return undefined;
+}
+
+function exprDoAtributo(attr: ts.JsxAttribute | undefined): ts.Expression | undefined {
+  if (!attr?.initializer) return undefined;
+  if (ts.isJsxExpression(attr.initializer)) return attr.initializer.expression ?? undefined;
+  if (ts.isStringLiteral(attr.initializer)) return attr.initializer;
+  return undefined;
+}
+
 function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): TouchableConsumer[] {
   const conteudo = fs.readFileSync(caminhoCompleto, 'utf-8');
   const sourceFile = ts.createSourceFile(
@@ -196,6 +351,8 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
   const aliasesCondicionais = coletarAliasesCondicionais(sourceFile);
   const contadoresPorComponente = new Map<string, number>();
   const encontrados: TouchableConsumer[] = [];
+  const constantes = coletarConstantesNumericas(sourceFile);
+  const defsEstilo = coletarDefinicoesDeEstilo(sourceFile);
 
   function tagNameDoElemento(node: ts.Node): string | undefined {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
@@ -253,12 +410,25 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
         ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)
           ? testIdDoElemento(node)
           : undefined;
+      const el = ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node) ? node : undefined;
+      const exprRole = el
+        ? exprDoAtributo(atributoDe(el, 'accessibilityRole') ?? atributoDe(el, 'role'))
+        : undefined;
+      const exprStyle = el ? exprDoAtributo(atributoDe(el, 'style')) : undefined;
+      const exprSlop = el ? exprDoAtributo(atributoDe(el, 'hitSlop')) : undefined;
+      const dims = exprStyle ? dimensoesDoStyle(exprStyle, defsEstilo, constantes) : {};
+      const slop = exprSlop ? hitSlopDe(exprSlop, constantes) : { vertical: 0, horizontal: 0 };
       encontrados.push({
         key: `${nomeArquivo}::${componente}#${n}`,
         file: nomeArquivo,
         component: componente,
         occurrence: n,
         testID,
+        hasRole: exprRole !== undefined,
+        declaredHeight: dims.h,
+        declaredWidth: dims.w,
+        hitSlopVertical: slop.vertical,
+        hitSlopHorizontal: slop.horizontal,
       });
     }
     ts.forEachChild(node, visitar);

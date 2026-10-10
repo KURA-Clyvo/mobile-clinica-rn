@@ -424,6 +424,7 @@ export default function ReceituarioScreen() {
                     scrollEnabled={false}
                     renderItem={({ item }) => (
                       <TouchableOpacity
+                        accessibilityRole="button"
                         style={styles.medItem}
                         onPress={() => handleSelectMed(item)}
                         testID={`med-item-${item.id}`}
@@ -480,6 +481,7 @@ export default function ReceituarioScreen() {
           <View>
             <Text style={styles.sectionLabel}>Data da prescrição *</Text>
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.dateRow}
               onPress={() => setShowPicker(true)}
               testID="date-picker-trigger"

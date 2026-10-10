@@ -375,6 +375,7 @@ export default function RegisterScreen() {
             </KCButton>
 
             <TouchableOpacity
+              accessibilityRole="link"
               onPress={() => router.replace('/login')}
               style={styles.loginLink}
               testID="register-go-login"

@@ -154,6 +154,7 @@ function UsuarioRow({
         {usuario.stAtiva && (
           <>
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.actionButton}
               onPress={onEditar}
               testID="btn-editar-usuario"
@@ -162,6 +163,7 @@ function UsuarioRow({
               <Text style={styles.actionText}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              accessibilityRole="button"
               style={styles.actionButton}
               onPress={onTrocarSenha}
               testID="btn-trocar-senha"
@@ -172,6 +174,7 @@ function UsuarioRow({
         )}
         {usuario.stAtiva ? (
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.actionButton}
             onPress={onDesativar}
             disabled={desativando}
@@ -181,6 +184,7 @@ function UsuarioRow({
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
+            accessibilityRole="button"
             style={styles.actionButton}
             onPress={onReativar}
             disabled={reativando}
@@ -285,6 +289,7 @@ export default function UsuariosClinicaScreen() {
     >
       <View style={styles.headerRow}>
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.backButton}
           onPress={() => router.back()}
           testID="btn-voltar-usuarios"

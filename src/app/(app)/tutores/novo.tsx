@@ -290,6 +290,7 @@ export default function NovoTutorScreen() {
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <TouchableOpacity
+            accessibilityRole="button"
             onPress={() => router.push(ROUTES.app.pacientes)}
             testID="btn-voltar-form-tutor"
             accessibilityLabel="Voltar"

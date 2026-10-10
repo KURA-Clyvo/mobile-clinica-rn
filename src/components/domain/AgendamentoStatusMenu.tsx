@@ -121,6 +121,7 @@ export function AgendamentoStatusMenu({
                 {nmPet}
               </Text>
               <TouchableOpacity
+                accessibilityRole="button"
                 onPress={onClose}
                 testID="btn-fechar-status-menu"
                 style={{ padding: 4 }}

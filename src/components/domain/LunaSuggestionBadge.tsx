@@ -61,6 +61,7 @@ export function LunaSuggestionBadge({
 
   return (
     <TouchableOpacity
+      accessibilityRole="button"
       onPress={handleSugest}
       style={{ alignSelf: 'flex-end', marginBottom: 4 }}
       testID={`luna-badge-${campo}`}
