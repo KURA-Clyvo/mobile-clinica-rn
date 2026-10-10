@@ -167,6 +167,8 @@ function mapAgendamentoItem(dto: AgendamentoItemApiDto): AgendamentoResponse {
     // dsObservacao: AgendamentoItemDto não traz observações — permanece
     // undefined (campo opcional).
     dsObservacao: undefined,
+    // BR-CLI-T06: servico da consulta (o dado ja vem no wire; so nao era repassado).
+    nmTipoConsulta: dto.dsTipoConsulta ?? '',
 
     // REC-09/REC-12 — campos da tela "Hoje" da recepção (A-3, A-6, A-7).
     // Fix wave G2 (m-1): o wire DTO agora é `T | null` (o que a rede

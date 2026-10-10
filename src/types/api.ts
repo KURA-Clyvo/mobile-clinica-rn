@@ -128,6 +128,9 @@ export interface AgendamentoResponse {
     nrCRMV: string;
   };
   dsObservacao?: string;
+  // BR-CLI-T06: servico/tipo da consulta (ex.: "Vacinacao"). O wire ja trazia `dsTipoConsulta`; o mapper
+  // passa a repassar. `''` quando o servidor nao manda.
+  nmTipoConsulta?: string;
   // REC-12 (fecha o E21 no app — REC-09 já expunha estes campos no DTO do
   // .NET, ninguém no app os consumia ainda). Ver pin de contrato em
   // agenda.service.ts::AgendamentoItemApiDto para a fonte exata.
