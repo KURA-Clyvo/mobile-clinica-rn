@@ -249,7 +249,7 @@ function LinhaSeguinte({ a, agora }: { a: AgendamentoResponse; agora: Date }) {
     <View style={styles.linha} testID={`seguinte-${a.id}`}>
       <Text style={styles.linhaHora}>{formatTime(a.dtInicio)}</Text>
       <View style={styles.linhaCentro}>
-        <Text style={styles.linhaPet} numberOfLines={1}>
+        <Text style={styles.linhaPet}>
           {a.pet.nmPet}
         </Text>
         <Text style={styles.linhaSub} numberOfLines={1}>
