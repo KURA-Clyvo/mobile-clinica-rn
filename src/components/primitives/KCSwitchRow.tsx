@@ -6,7 +6,15 @@
 // `testID` informado, então testes continuam disparando `valueChange` nele.
 // Regra do gate (`tests/touch-target-coverage.test.ts`): `<Switch>` só pode existir NESTE arquivo.
 import React from 'react';
-import { Pressable, Switch, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  Switch,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useTheme } from '@theme/index';
 import { touchTarget } from '@theme/tokens';
 
@@ -30,21 +38,43 @@ export function KCSwitchRow({
   style,
 }: KCSwitchRowProps) {
   const { colors } = useTheme();
+  // Web: tira o `<input>` do Switch do foco/árvore (ver cabeçalho). No-op fora do web.
+  const esconderSwitch = React.useCallback((no: unknown) => {
+    if (Platform.OS === 'web' && no && typeof (no as HTMLElement).setAttribute === 'function') {
+      (no as HTMLElement).setAttribute('inert', '');
+    }
+  }, []);
+  const aoTeclar = (e: { key?: string; preventDefault?: () => void }) => {
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault?.();
+      onValueChange(!value);
+    }
+  };
   return (
     <Pressable
       onPress={() => onValueChange(!value)}
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value }}
+      aria-checked={value}
+      {...({ onKeyDown: aoTeclar } as object)}
       testID={`${testID}-row`}
       style={[styles.row, style]}
     >
       <View style={styles.conteudo}>{children}</View>
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View
+        ref={esconderSwitch}
+        pointerEvents="none"
+        aria-hidden
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <Switch
           value={value}
           onValueChange={onValueChange}
-          trackColor={{ false: colors.border, true: colors.primary }}
+          // I-3 (G2): `border` dava 1.25 (claro) / 1.12 (escuro) contra o fundo — o estado "desligado" sumia.
+          // `borderControl` é o token de borda de controle do DS (>= 3 nos 2 temas; ver USOS em contrast.test.ts).
+          trackColor={{ false: colors.borderControl, true: colors.primary }}
           thumbColor={colors.bgElev}
           testID={testID}
         />
