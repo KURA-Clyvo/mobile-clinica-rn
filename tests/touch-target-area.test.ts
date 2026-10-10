@@ -8,13 +8,21 @@
 //   4. regressão nominal da F6 (auditoria da clínica): os alvos que mediram < 44 no DOM seguem declarando
 //      44 nos DOIS eixos.
 //
-// PONTOS CEGOS declarados (não fingimos cobrir):
+// PONTOS CEGOS declarados (não fingimos cobrir) — lista revisada na fix wave do BR-CLI-T05 (G2 M-1, iscas medidas):
 //   - eixo sem tamanho declarado (padding/conteúdo definem a área): o detector não vê — são as entradas
 //     'no-explicit-geometry' do `touchTargetRegistry.tsx` (15 na medição desta task), cada uma com razão;
 //   - `style` vindo de variável, spread, função ou de outro arquivo: tratado como "não declarado";
+//   - COMPONENTE CUSTOM que repassa `onPress` (ex.: `<KCButton style={{height:20}} onPress>`): só o `Touchable`
+//     de DENTRO do componente é varrido, então o `style` pequeno passado de fora é invisível (iscas D);
+//   - `%` e `maxHeight`/`maxWidth` (teto) não são tamanho declarado: `width:'10%'` e `flex:1,maxHeight:20` passam (B/B2);
+//   - COLISÃO de chave de estilo: `coletarDefinicoesDeEstilo` junta toda propriedade de mesmo nome no arquivo
+//     (`styles.btn` 20×20 + outro objeto com chave `btn` 44×44 ⇒ vale o maior) (G);
 //   - `hitSlop` só compensa no nativo (no web o RN-web ignora): a área do web depende do tamanho declarado;
 //   - tamanho DECLARADO não é tamanho RENDERIZADO (Yoga/Dynamic Type): o jest não computa layout. A medição
 //     de DOM da F6 é feita nos prints/sonda da task, não aqui.
+// CONSERTADOS na fix wave (com controle positivo abaixo): ternário no `style` (forma F — antes valia o MAIOR ramo,
+// agora vale o MENOR declarado) e `accessibilityRole={undefined}` / `"none"` / `"presentation"` (forma H — antes
+// contavam como role).
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -135,5 +143,36 @@ describe('touch-target-area — controle positivo do detector', () => {
   it('interativo sem role é flagrado', () => {
     escreve('a.tsx', `<Pressable style={styles.ok} testID="p" />`);
     expect(semRole(discoverInteractiveTouchables([tmp])).length).toBe(1);
+  });
+
+  it('ternário: um ramo 20×20 é flagrado mesmo com o outro ramo 44×44 (antes valia o maior)', () => {
+    escreve(
+      'a.tsx',
+      `<Pressable accessibilityRole="button" style={c ? { height: 20, width: 20 } : { height: 44, width: 44 }} testID="p" />`,
+    );
+    const cs = discoverInteractiveTouchables([tmp]);
+    expect(eixosAbaixoDoMinimo(cs[0]!).length).toBe(2);
+  });
+
+  it('ternário com os dois ramos >= 44 passa (controle negativo)', () => {
+    escreve(
+      'a.tsx',
+      `<Pressable accessibilityRole="button" style={c ? { height: 48, width: 48 } : { height: 44, width: 44 }} testID="p" />`,
+    );
+    expect(eixosAbaixoDoMinimo(discoverInteractiveTouchables([tmp])[0]!)).toEqual([]);
+  });
+
+  it.each([
+    ['{undefined}', 'accessibilityRole={undefined}'],
+    ['"none"', 'accessibilityRole="none"'],
+    ['"presentation"', 'role="presentation"'],
+  ])('role %s NÃO conta como role', (_n, attr) => {
+    escreve('a.tsx', `<Pressable ${attr} style={styles.ok} testID="p" />`);
+    expect(semRole(discoverInteractiveTouchables([tmp])).length).toBe(1);
+  });
+
+  it('role real continua contando (controle negativo)', () => {
+    escreve('a.tsx', `<Pressable accessibilityRole="button" style={styles.ok} testID="p" />`);
+    expect(semRole(discoverInteractiveTouchables([tmp])).length).toBe(0);
   });
 });

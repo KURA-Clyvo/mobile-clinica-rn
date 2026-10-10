@@ -280,8 +280,12 @@ function dimensoesDoStyle(
     if (ts.isObjectLiteralExpression(e)) mescla(dimensoesDoObjeto(e, constantes));
     else if (ts.isArrayLiteralExpression(e)) e.elements.forEach((x) => visitar(x));
     else if (ts.isConditionalExpression(e)) {
-      visitar(e.whenTrue);
-      visitar(e.whenFalse);
+      // G2 M-1 (forma F): ternário não pode pegar o MAIOR ramo (um ramo < 44 passaria). Cada ramo é medido à parte
+      // e vale o MENOR tamanho declarado por eixo (o eixo declarado em só um ramo vale esse ramo).
+      const t = dimensoesDoStyle(e.whenTrue, defs, constantes);
+      const f = dimensoesDoStyle(e.whenFalse, defs, constantes);
+      const menor = (a?: number, b?: number) => (a === undefined ? b : b === undefined ? a : Math.min(a, b));
+      mescla({ h: menor(t.h, f.h), w: menor(t.w, f.w) });
     } else if (ts.isBinaryExpression(e)) {
       visitar(e.right);
     } else if (ts.isParenthesizedExpression(e)) visitar(e.expression);
@@ -319,6 +323,16 @@ function hitSlopDe(
     vertical: (lado.top ?? 0) + (lado.bottom ?? 0),
     horizontal: (lado.left ?? 0) + (lado.right ?? 0),
   };
+}
+
+/** G2 M-1 (forma H): `accessibilityRole={undefined}` e `"none"`/`"presentation"` NÃO são role. */
+function roleDeFato(expr: ts.Expression | undefined): boolean {
+  if (expr === undefined) return false;
+  if (ts.isIdentifier(expr) && expr.text === 'undefined') return false;
+  if (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) {
+    return expr.text !== 'none' && expr.text !== 'presentation' && expr.text !== '';
+  }
+  return true;
 }
 
 function atributoDe(
@@ -424,7 +438,7 @@ function descobrirNoArquivo(caminhoCompleto: string, nomeArquivo: string): Touch
         component: componente,
         occurrence: n,
         testID,
-        hasRole: exprRole !== undefined,
+        hasRole: roleDeFato(exprRole),
         declaredHeight: dims.h,
         declaredWidth: dims.w,
         hitSlopVertical: slop.vertical,
