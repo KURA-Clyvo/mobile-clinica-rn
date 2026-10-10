@@ -209,7 +209,11 @@ export default function UsuariosClinicaScreen() {
   const [mostrarInativos, setMostrarInativos] = useState(false);
   const usuariosQuery = useUsuariosClinica(mostrarInativos);
   const { isLoading, refetch } = usuariosQuery;
-  const { data: veterinarios = [] } = useVeterinariosParaSelecao();
+  const {
+    data: veterinarios = [],
+    isError: veterinariosFalhou,
+    refetch: refazerVeterinarios,
+  } = useVeterinariosParaSelecao();
   const { mutate: desativar, isPending: desativandoMutation } = useDesativarUsuarioClinica();
   const { mutate: reativar, isPending: reativandoMutation } = useReativarUsuarioClinica();
 
@@ -360,6 +364,8 @@ export default function UsuariosClinicaScreen() {
         onClose={() => setFormVisible(false)}
         usuario={editando}
         veterinarios={veterinarios}
+        veterinariosErro={veterinariosFalhou}
+        onRetryVeterinarios={() => void refazerVeterinarios()}
       />
 
       <TrocarSenhaModal

@@ -10,6 +10,7 @@ import { lightColors } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { useCriarUsuarioClinica, useAtualizarUsuarioClinica } from '@hooks/useUsuariosClinica';
 import { perfilLabel } from '@utils/perfilUsuario';
 import type { TipoPerfilUsuario } from '@utils/perfilUsuario';
@@ -25,6 +26,9 @@ export interface UsuarioClinicaFormModalProps {
   onClose: () => void;
   usuario?: UsuarioClinicaResponse | null;
   veterinarios: VeterinarioResponse[];
+  /** A busca das fichas falhou: o modal NAO pode afirmar que nao ha fichas (BR-CLI-02). */
+  veterinariosErro?: boolean;
+  onRetryVeterinarios?: () => void;
 }
 
 // dsSenha só existe (e só é exigido) no schema de CRIAÇÃO — replicando a
@@ -111,6 +115,8 @@ export function UsuarioClinicaFormModal({
   onClose,
   usuario,
   veterinarios,
+  veterinariosErro = false,
+  onRetryVeterinarios,
 }: UsuarioClinicaFormModalProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
@@ -321,7 +327,15 @@ export function UsuarioClinicaFormModal({
                           </TouchableOpacity>
                         );
                       })}
-                      {veterinarios.length === 0 && (
+                      {veterinariosErro && (
+                        <ErrorState
+                          compacto
+                          titulo="Não foi possível carregar as fichas de veterinário"
+                          onRetry={() => onRetryVeterinarios?.()}
+                          testID="usuario-form-veterinarios-erro"
+                        />
+                      )}
+                      {!veterinariosErro && veterinarios.length === 0 && (
                         // Estado esperado, não erro: a mordida obrigatória
                         // desta task é justamente criar um usuário SEM
                         // ficha — ver brief FM-02.

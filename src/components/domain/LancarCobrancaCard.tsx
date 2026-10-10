@@ -6,6 +6,7 @@ import { useTheme } from '@theme/index';
 import { lightColors } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { useServicosPreco } from '@hooks/useServicosPreco';
@@ -151,7 +152,11 @@ export function LancarCobrancaCard({ idEventoClinico }: LancarCobrancaCardProps)
   // ativos". A race declarada em CobrancaService.cs:207-208 (gestor
   // desativa enquanto esta tela está aberta) continua possível — é
   // resolvida no onError abaixo, não aqui.
-  const { data: servicos } = useServicosPreco(false);
+  const {
+    data: servicos,
+    isError: servicosFalhou,
+    refetch: refazerServicos,
+  } = useServicosPreco(false);
   const { mutate: lancar, isPending } = useLancarCobranca();
 
   const [servicoSelecionadoId, setServicoSelecionadoId] = useState<number | null>(null);
@@ -244,6 +249,15 @@ export function LancarCobrancaCard({ idEventoClinico }: LancarCobrancaCardProps)
           <Text style={styles.subtitulo}>
             Toque um serviço para lançar pelo preço de tabela, ou informe um valor avulso abaixo.
           </Text>
+
+          {servicosFalhou && (
+            <ErrorState
+              compacto
+              titulo="Não foi possível carregar os serviços"
+              onRetry={() => void refazerServicos()}
+              testID="cobranca-servicos-erro"
+            />
+          )}
 
           {servicos && servicos.length > 0 && (
             <View style={styles.chipsRow} testID="lista-servicos-cobranca">
