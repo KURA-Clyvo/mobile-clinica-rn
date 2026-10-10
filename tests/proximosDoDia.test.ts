@@ -93,3 +93,50 @@ describe('proximosDoDia -- atraso, espera e marca "agora"', () => {
     expect(indiceMarcaAgora([ag(1, 'A', 12, 0, 'AGENDADO')], AGORA)).toBe(1);
   });
 });
+
+describe('proximosDoDia -- regra B-17 do destaque (G2 da BR-CLI-T06, I-3)', () => {
+  // Fixture da G2: 12:00, Rex AGENDADO 09:00 que nunca veio (sem check-in) + Nina que Chegou.
+  const FIXTURE_G2 = [
+    ag(1, 'Rex', 9, 0, 'AGENDADO'),
+    ag(2, 'Nina', 10, 0, 'CHEGOU', { dtCheckin: '2026-10-09T09:55:00' }),
+    ag(3, 'Zeca', 13, 0, 'AGENDADO'),
+    ag(4, 'Bia', 14, 0, 'CONFIRMADO'),
+  ];
+
+  it('atrasado sem check-in antes de um "Chegou": o destaque e quem esta esperando (Nina), nao o Rex', () => {
+    const dia = organizarDia(FIXTURE_G2, AGORA);
+    expect(dia.proximo?.pet.nmPet).toBe('Nina');
+    expect(minutosDeEspera(dia.proximo!, AGORA)).toBe(125);
+    // Rex fica na lista, acima da marca "agora", com os minutos de atraso (D2)
+    expect(dia.seguintes.map((a) => a.pet.nmPet)).toEqual(['Rex', 'Zeca', 'Bia']);
+    expect(minutosDeAtraso(dia.seguintes[0]!, AGORA)).toBe(180);
+    expect(dia.marcaAgora).toBe(1);
+  });
+
+  it('entre varios que Chegaram, o destaque e o de check-in mais antigo (nao o de horario mais cedo)', () => {
+    const dia = organizarDia(
+      [
+        ag(1, 'Cedo', 10, 0, 'CHEGOU', { dtCheckin: '2026-10-09T11:40:00' }),
+        ag(2, 'Tarde', 11, 0, 'CHEGOU', { dtCheckin: '2026-10-09T10:50:00' }),
+      ],
+      AGORA,
+    );
+    expect(dia.proximo?.pet.nmPet).toBe('Tarde');
+  });
+
+  it('ninguem espera: o destaque e o primeiro horario futuro; atrasados nunca (>= agora vale)', () => {
+    const dia = organizarDia(
+      [ag(1, 'Atrasado', 9, 0, 'AGENDADO'), ag(2, 'Agora', 12, 0, 'CONFIRMADO'), ag(3, 'Depois', 13, 0, 'AGENDADO')],
+      AGORA,
+    );
+    expect(dia.proximo?.pet.nmPet).toBe('Agora');
+    expect(dia.seguintes.map((a) => a.pet.nmPet)).toEqual(['Atrasado', 'Depois']);
+  });
+
+  it('so atrasados sem check-in: sem destaque, todos na lista com atraso', () => {
+    const dia = organizarDia([ag(1, 'A', 9, 0, 'AGENDADO'), ag(2, 'B', 10, 0, 'CONFIRMADO')], AGORA);
+    expect(dia.proximo).toBeNull();
+    expect(dia.seguintes.map((a) => a.pet.nmPet)).toEqual(['A', 'B']);
+    expect(dia.marcaAgora).toBe(2);
+  });
+});

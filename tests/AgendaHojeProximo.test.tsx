@@ -4,7 +4,7 @@ import { StyleSheet, ScrollView } from 'react-native';
 import { ThemeProvider } from '../src/theme';
 import AgendaScreen from '../src/app/(app)/agenda';
 import { lightColors } from '../src/theme/tokens';
-import { DIA_DO_PRINT } from './helpers_proximos';
+import { DIA_DO_PRINT, ag } from './helpers_proximos';
 
 // BR-CLI-T06 -- a tela Hoje (modo "hoje" de agenda.tsx): marca "agora", proximo realcado, servico no cartao,
 // param de rota `modo=hoje` e rolagem ate o proximo. Relogio congelado em 12:00 de 09/10/2026.
@@ -103,6 +103,22 @@ describe('Hoje -- marca "agora" e proximo realcado', () => {
     expect(st.shadowOpacity).toBe(0);
     expect(st.borderLeftWidth).toBeUndefined();
     expect(proximo.findAllByProps({ testID: 'etapa-2' }).length).toBeGreaterThan(0); // Thor = id 2
+  });
+
+  it('B-17 na Hoje: atrasado sem check-in antes de um "Chegou" nao e o realce; o realce e quem espera', () => {
+    mockSearchParams = { modo: 'hoje' };
+    (useAgendaHoje as jest.Mock).mockReturnValue(
+      ok([
+        ag(1, 'Rex', 9, 0, 'AGENDADO'),
+        ag(2, 'Nina', 10, 0, 'CHEGOU', { dtCheckin: '2026-10-09T10:00:00' }),
+        ag(3, 'Zeca', 13, 0, 'AGENDADO'),
+      ]),
+    );
+    const { getByTestId, queryAllByTestId } = wrap();
+    expect(queryAllByTestId('agenda-proximo')).toHaveLength(1);
+    const proximo = getByTestId('agenda-proximo');
+    expect(proximo.findAllByProps({ testID: 'etapa-2' }).length).toBeGreaterThan(0); // Nina = id 2
+    expect(proximo.findAllByProps({ testID: 'etapa-1' })).toHaveLength(0);
   });
 
   it('o cartao mostra o servico (D5) quando o mapper o repassa, e nao inventa quando vem vazio', () => {

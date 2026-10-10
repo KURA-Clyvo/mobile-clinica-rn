@@ -78,7 +78,7 @@ export function ProximosDoDia({ lista, agora, limite, largo, onAbrirProntuario, 
     const visiveis = dia.seguintes.slice(0, limite);
     const marca = dia.marcaAgora !== null && dia.marcaAgora <= visiveis.length ? dia.marcaAgora : null;
     const horaAgora = formatTime(agora);
-    const semAtivos = dia.proximo === null && dia.emAtendimento.length === 0;
+    const semAtivos = dia.proximo === null && dia.emAtendimento.length === 0 && dia.seguintes.length === 0;
 
     if (semAtivos) {
       return (
@@ -226,6 +226,7 @@ function LinhaSeguinte({ a, agora }: { a: AgendamentoResponse; agora: Date }) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const atraso = minutosDeAtraso(a, agora);
+  const espera = minutosDeEspera(a, agora);
   const sub = [a.tutor.nmTutor, a.nmTipoConsulta].filter(Boolean).join(', ');
   return (
     <View style={styles.linha} testID={`seguinte-${a.id}`}>
@@ -242,6 +243,11 @@ function LinhaSeguinte({ a, agora }: { a: AgendamentoResponse; agora: Date }) {
         <KCChip tone={etapaRecepcaoTone(a.dsEtapaRecepcao)} dot>
           {etapaRecepcaoLabel(a.dsEtapaRecepcao)}
         </KCChip>
+        {espera !== null && (
+          <Text style={styles.linhaAtraso} testID={`espera-${a.id}`}>
+            {STRINGS.dashboard.esperandoHa(espera)}
+          </Text>
+        )}
         {atraso !== null && (
           <Text style={styles.linhaAtraso} testID={`atraso-${a.id}`}>
             {STRINGS.dashboard.minDeAtraso(atraso)}

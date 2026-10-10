@@ -81,6 +81,44 @@ beforeEach(() => {
   mockAgenda.mockReturnValue(ok(DIA));
 });
 
+describe('Dashboard -- regra B-17 com a fixture da G2 (atrasado antes de um "Chegou")', () => {
+  it('Rex AGENDADO 09:00 sem check-in + Nina Chegou: o destaque e a Nina ("Esperando ha"), o Rex fica na lista com atraso', () => {
+    mockAgenda.mockReturnValue(
+      ok([
+        ag(1, 'Rex', 9, 0, 'AGENDADO'),
+        ag(2, 'Nina', 10, 0, 'CHEGOU', { dtCheckin: '2026-10-09T10:00:00' }),
+        ag(3, 'Zeca', 13, 0, 'AGENDADO'),
+      ]),
+    );
+    const { getByTestId, queryByTestId } = wrap();
+    expect(textoDe(getByTestId('proximo-pet'))).toBe('Nina');
+    expect(within(getByTestId('proximo-atendimento')).getByText('Esperando há 120 min')).toBeTruthy();
+    expect(queryByTestId('proximo-atraso')).toBeNull();
+    expect(textoDe(getByTestId('atraso-1'))).toBe('180 min de atraso');
+    expect(getByTestId('seguinte-3')).toBeTruthy();
+  });
+
+  it('um segundo "Chegou" na lista mostra "Esperando ha N min", como o destaque', () => {
+    mockAgenda.mockReturnValue(
+      ok([
+        ag(2, 'Nina', 10, 0, 'CHEGOU', { dtCheckin: '2026-10-09T10:00:00' }),
+        ag(4, 'Lia', 11, 0, 'CHEGOU', { dtCheckin: '2026-10-09T11:30:00' }),
+      ]),
+    );
+    const { getByTestId } = wrap();
+    expect(textoDe(getByTestId('proximo-pet'))).toBe('Nina');
+    expect(textoDe(getByTestId('espera-4'))).toBe('Esperando há 30 min');
+  });
+
+  it('so atrasados sem check-in: sem destaque, mas a lista aparece (nao e "nada mais por hoje")', () => {
+    mockAgenda.mockReturnValue(ok([ag(1, 'Rex', 9, 0, 'AGENDADO')]));
+    const { queryByTestId, getByTestId } = wrap();
+    expect(queryByTestId('proximo-atendimento')).toBeNull();
+    expect(queryByTestId('empty-fim-do-dia')).toBeNull();
+    expect(getByTestId('seguinte-1')).toBeTruthy();
+  });
+});
+
 describe('Dashboard -- "qual e o proximo" (fixture do print, agora = 12:00)', () => {
   it('so ativos de hoje; o primeiro NAO em atendimento e o proximo (Thor); encerrados nao aparecem', () => {
     const { getByTestId, queryByText, queryByTestId } = wrap();

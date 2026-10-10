@@ -58,7 +58,7 @@ export function indiceMarcaAgora(ordenada: readonly AgendamentoResponse[], agora
 export interface DiaOrganizado {
   /** Quem esta com o veterinario agora (faixa "Em atendimento"), por horario. */
   emAtendimento: AgendamentoResponse[];
-  /** Primeiro ativo, por horario, que NAO esta em atendimento (D1). */
+  /** Destaque (regra B-17, ver `escolherProximo`); `null` quando ninguem espera e nada vem pela frente. */
   proximo: AgendamentoResponse | null;
   /** Demais ativos que ainda vao acontecer, por horario (atrasados incluidos). */
   seguintes: AgendamentoResponse[];
@@ -69,12 +69,35 @@ export interface DiaOrganizado {
   total: number;
 }
 
+function instanteCheckin(a: AgendamentoResponse): number {
+  return a.dtCheckin ? new Date(a.dtCheckin).getTime() : tempo(a);
+}
+
+/**
+ * Regra B-17 do destaque, sobre quem NAO esta em atendimento (D1): (1) quem Chegou e espera -- o de
+ * check-in mais antigo; (2) senao o primeiro horario futuro (>= agora) ainda nao atendido;
+ * (3) AGENDADO/CONFIRMADO com horario passado e sem check-in NUNCA e destaque (fica na lista com
+ * "N min de atraso"). Unica fonte da regra para o dashboard e para a Hoje.
+ */
+function escolherProximo(
+  aguardando: readonly AgendamentoResponse[],
+  agora: Date,
+): AgendamentoResponse | null {
+  const chegaram = aguardando.filter((a) => a.dsEtapaRecepcao === 'CHEGOU');
+  if (chegaram.length > 0) {
+    return chegaram.reduce((m, a) => (instanteCheckin(a) < instanteCheckin(m) ? a : m));
+  }
+  const t = agora.getTime();
+  return aguardando.find((a) => tempo(a) >= t) ?? null;
+}
+
 export function organizarDia(lista: readonly AgendamentoResponse[], agora: Date): DiaOrganizado {
   const ordenada = ordenarPorHorario(lista);
   const ativos = ordenada.filter((a) => etapaAtiva(a.dsEtapaRecepcao));
   const emAtendimento = ativos.filter((a) => a.dsEtapaRecepcao === 'EM_ATENDIMENTO');
   const aguardando = ativos.filter((a) => a.dsEtapaRecepcao !== 'EM_ATENDIMENTO');
-  const [proximo = null, ...seguintes] = aguardando;
+  const proximo = escolherProximo(aguardando, agora);
+  const seguintes = aguardando.filter((a) => a !== proximo);
   return {
     emAtendimento,
     proximo,

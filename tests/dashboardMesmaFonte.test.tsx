@@ -114,14 +114,15 @@ describe('dashboard e Hoje compartilham a mesma query (BR-CLI-T06)', () => {
   it('invalidar ["agenda"] (o que Chegou/Faltou fazem) atualiza as DUAS telas', async () => {
     const { client, getByTestId, getAllByTestId } = montar();
     await waitFor(() => expect(getByTestId('proximo-pet')).toBeTruthy());
-    // Thor (o proximo) vira EM_ATENDIMENTO e a Nala passa a ser o proximo.
+    // Thor (o proximo) vira EM_ATENDIMENTO: ninguem mais espera e a Nala (11:50) esta atrasada sem check-in
+    // (B-17: nunca destaque), entao o proximo passa a ser a Simba (12:30, o primeiro horario futuro).
     mockGetAgenda.mockResolvedValue(
       DIA_DO_PRINT.map((a) => (a.pet.nmPet === 'Thor' ? ag(a.id, 'Thor', 11, 45, 'EM_ATENDIMENTO') : a)),
     );
     await act(async () => {
       await client.invalidateQueries({ queryKey: ['agenda'] });
     });
-    await waitFor(() => expect(getByTestId('proximo-pet').props.children).toBe('Nala'));
+    await waitFor(() => expect(getByTestId('proximo-pet').props.children).toBe('Simba'));
     // a Hoje (cartoes) tambem viu o dado novo: so uma etapa "Em atendimento" a menos no destaque
     expect(getAllByTestId('agenda-hoje-card').length).toBe(DIA_DO_PRINT.length);
     expect(chamadasDeHoje()).toHaveLength(2); // 1 inicial + 1 do invalidate, nunca 2 por tela
