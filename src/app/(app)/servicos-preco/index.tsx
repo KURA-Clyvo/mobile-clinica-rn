@@ -260,19 +260,19 @@ export default function ServicosPrecoScreen() {
         errorTitle="Não foi possível carregar a tabela de preços"
       >
         {(servicos) => (
-        <View style={styles.listGrid} testID="servicos-preco-lista">
-          {servicos.map((servico) => (
-            <ServicoPrecoRow
-              key={servico.id}
-              servico={servico}
-              onEditar={() => abrirEditar(servico)}
-              onDesativar={() => confirmarDesativar(servico)}
-              onReativar={() => handleReativar(servico)}
-              desativando={idEmAcao === servico.id && desativandoMutation}
-              reativando={idEmAcao === servico.id && reativandoMutation}
-            />
-          ))}
-        </View>
+          <View style={styles.listGrid} testID="servicos-preco-lista">
+            {servicos.map((servico) => (
+              <ServicoPrecoRow
+                key={servico.id}
+                servico={servico}
+                onEditar={() => abrirEditar(servico)}
+                onDesativar={() => confirmarDesativar(servico)}
+                onReativar={() => handleReativar(servico)}
+                desativando={idEmAcao === servico.id && desativandoMutation}
+                reativando={idEmAcao === servico.id && reativandoMutation}
+              />
+            ))}
+          </View>
         )}
       </QueryState>
 

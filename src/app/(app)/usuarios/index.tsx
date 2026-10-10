@@ -326,25 +326,25 @@ export default function UsuariosClinicaScreen() {
         errorTitle="Não foi possível carregar os usuários"
       >
         {(usuarios) => (
-        <View style={styles.listGrid} testID="usuarios-lista">
-          {usuarios.map((usuario) => (
-            <UsuarioRow
-              key={usuario.id}
-              usuario={usuario}
-              nomeFicha={
-                usuario.idVeterinario != null
-                  ? nomeFichaPorVeterinarioId.get(usuario.idVeterinario)
-                  : undefined
-              }
-              onEditar={() => abrirEditar(usuario)}
-              onTrocarSenha={() => abrirTrocarSenha(usuario)}
-              onDesativar={() => confirmarDesativar(usuario)}
-              onReativar={() => handleReativar(usuario)}
-              desativando={idEmAcao === usuario.id && desativandoMutation}
-              reativando={idEmAcao === usuario.id && reativandoMutation}
-            />
-          ))}
-        </View>
+          <View style={styles.listGrid} testID="usuarios-lista">
+            {usuarios.map((usuario) => (
+              <UsuarioRow
+                key={usuario.id}
+                usuario={usuario}
+                nomeFicha={
+                  usuario.idVeterinario != null
+                    ? nomeFichaPorVeterinarioId.get(usuario.idVeterinario)
+                    : undefined
+                }
+                onEditar={() => abrirEditar(usuario)}
+                onTrocarSenha={() => abrirTrocarSenha(usuario)}
+                onDesativar={() => confirmarDesativar(usuario)}
+                onReativar={() => handleReativar(usuario)}
+                desativando={idEmAcao === usuario.id && desativandoMutation}
+                reativando={idEmAcao === usuario.id && reativandoMutation}
+              />
+            ))}
+          </View>
         )}
       </QueryState>
 
