@@ -75,10 +75,7 @@ function HeaderComVoltar({
   params?: { idPet?: string };
 }) {
   const router = useRouter();
-  const voltar = () => {
-    if (router.canGoBack()) router.back();
-    else router.replace(destinoSemHistorico(destino, params));
-  };
+  const voltar = () => voltarOu(router, destinoSemHistorico(destino, params));
   return <AppHeader title={titulo} onMenuPress={() => undefined} onBackPress={voltar} />;
 }
 

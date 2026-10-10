@@ -11,6 +11,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import AppLayout from '../src/app/(app)/_layout';
+import Financeiro from '../src/app/(app)/financeiro/index';
+import ServicosPreco from '../src/app/(app)/servicos-preco/index';
+import Usuarios from '../src/app/(app)/usuarios/index';
+import AgendaNovo from '../src/app/(app)/agenda-novo';
 
 jest.mock('react-native-drawer-layout', () => {
   const actual = jest.requireActual('react-native-drawer-layout');
@@ -92,6 +96,11 @@ const ROTAS = {
   '(app)/consulta/[idPet]': Tela('consulta'),
   '(app)/receituario/[idPet]': Tela('receituario'),
   '(app)/teleorientacao/[idPet]': Tela('teleorientacao'),
+  // I-4: telas REAIS (botao Voltar proprio, sem o AppHeader do layout).
+  '(app)/financeiro/index': Financeiro,
+  '(app)/servicos-preco/index': ServicosPreco,
+  '(app)/usuarios/index': Usuarios,
+  '(app)/agenda-novo': AgendaNovo,
 };
 
 // `Drawer` mantém as telas visitadas montadas (há 2 Voltar no DOM): o visível é o último.
@@ -101,7 +110,12 @@ const voltar = () => {
 };
 
 beforeEach(() => {
-  useAuthStore.setState({ token: 't', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+  useAuthStore.setState({
+    token: 't',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    tpPerfil: 'GESTOR',
+    _hasHydrated: true,
+  });
 });
 afterEach(() => qc.clear());
 
@@ -136,5 +150,25 @@ describe('Voltar com roteador real', () => {
     await waitFor(() => expect(r.getPathname()).toBe('/consulta/7'));
     voltar();
     await waitFor(() => expect(r.getPathname()).toBe('/agenda'));
+  });
+
+  // BR-CLI-T05 fix wave 2 (re-G2 I-4):  cru +  deixava o botao parado em URL direta/F5.
+  it.each([
+    ['/financeiro', 'btn-voltar-financeiro', '/settings'],
+    ['/servicos-preco', 'btn-voltar-servicos', '/settings'],
+    ['/usuarios', 'btn-voltar-usuarios', '/settings'],
+    ['/agenda-novo', 'btn-voltar-agenda-novo-form', '/agenda'],
+  ])('(d) URL direta %s + botao %s ⇒ tela-pai %s', async (url, testID, pai) => {
+    const r = renderRouter(ROTAS, { initialUrl: url });
+    fireEvent.press(await screen.findByTestId(testID));
+    await waitFor(() => expect(r.getPathname()).toBe(pai));
+  });
+
+  it('(e) com historico (dashboard → financeiro) o botao desfaz a navegacao: volta a Hoje, nao a Configuracoes', async () => {
+    const r = renderRouter(ROTAS, { initialUrl: '/dashboard' });
+    await screen.findByTestId('tela-dashboard');
+    act(() => router.push('/financeiro'));
+    fireEvent.press(await screen.findByTestId('btn-voltar-financeiro'));
+    await waitFor(() => expect(r.getPathname()).toBe('/dashboard'));
   });
 });
