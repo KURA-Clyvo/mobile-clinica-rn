@@ -23,6 +23,17 @@ import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';
 
+// BR-CLI-15: o FAB (2 botoes KCButton `md` empilhados) flutua sobre a lista. Com `paddingBottom: 80`
+// fixo e FAB de 106px + 24 de offset, o ULTIMO paciente ficava atras dos botoes (visivel em 1440).
+// O respiro da lista agora e DERIVADO da geometria do FAB -- mude a pilha, o respiro acompanha.
+const FAB_BOTAO_ALTURA = 48; // KCButton size="md" (SIZE_SPEC.md.height)
+const FAB_BOTOES = 2;
+const FAB_GAP = 10;
+const FAB_OFFSET_BAIXO = 24;
+const FAB_RESPIRO = 16;
+const FAB_ALTURA = FAB_BOTOES * FAB_BOTAO_ALTURA + (FAB_BOTOES - 1) * FAB_GAP;
+const LISTA_PADDING_BAIXO = FAB_OFFSET_BAIXO + FAB_ALTURA + FAB_RESPIRO;
+
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     searchWrapper: {
@@ -65,13 +76,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     fabContainer: {
       position: 'absolute',
-      bottom: 24,
+      bottom: FAB_OFFSET_BAIXO,
       right: 24,
-      gap: 10,
+      gap: FAB_GAP,
     },
     estadoPad: { paddingHorizontal: spacing[4] },
     listContent: {
-      paddingBottom: 80,
+      paddingBottom: LISTA_PADDING_BAIXO,
     },
   });
 
@@ -209,7 +220,7 @@ export default function PacientesScreen() {
         )}
       </QueryState>
 
-      <View style={styles.fabContainer}>
+      <View style={styles.fabContainer} testID="fab-pacientes">
         {/* REC-03: entrada real de cadastro de tutor — POST /api/v1/tutores
             existe e a UI (formulário + convite) foi construída nesta task.
             Distinta do botão "+ Novo" abaixo (cadastro de PACIENTE/pet, que

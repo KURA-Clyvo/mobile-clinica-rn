@@ -172,6 +172,17 @@ describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
   // já virtualiza sozinha (`getItemLayout`/`removeClippedSubviews`); se
   // `scroll={false}` sumir, o ScreenContainer volta ao modo scroll padrão e
   // passa a envolver a FlatList num ScrollView — nested VirtualizedLists.
+  // BR-CLI-15: o FAB (2 botoes de 48 + gap) nao pode cobrir o fim da lista -- o respiro inferior
+  // da FlatList tem de cobrir offset + altura do FAB.
+  it('o respiro inferior da lista cobre offset + altura do FAB (ultimo paciente nao fica atras dos botoes)', () => {
+    const { UNSAFE_getByType, getByTestId } = wrap(<PacientesScreen />);
+    const fab = StyleSheet.flatten(getByTestId('fab-pacientes').props.style) as { bottom: number; gap: number };
+    const lista = StyleSheet.flatten(UNSAFE_getByType(FlatList).props.contentContainerStyle) as { paddingBottom: number };
+    const alturaFab = 2 * 48 + fab.gap;
+    expect(lista.paddingBottom).toBeGreaterThanOrEqual(fab.bottom + alturaFab);
+    expect(lista.paddingBottom).toBeGreaterThan(80); // o valor antigo, que deixava o ultimo item coberto
+  });
+
   // BR-CLI-15: `ITEM_HEIGHT = 76` contra uma linha real de ~96px (e variavel com quebra de
   // linha/Dynamic Type) desalinhava o scroll; o `getItemLayout` foi removido.
   it('a FlatList nao declara getItemLayout (altura fixa nao confiavel)', () => {
