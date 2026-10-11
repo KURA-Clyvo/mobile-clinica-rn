@@ -25,40 +25,76 @@ export interface SegmentoTrecho {
   destaque: boolean;
 }
 
-// Um caractere -> um caractere: tira acento e caixa sem mudar o comprimento, para que os
-// índices do texto normalizado valham no original.
-function normalizar(texto: string): string {
-  return Array.from(texto)
-    .map((c) => {
-      const base = c.normalize('NFD').charAt(0).toLowerCase();
-      return base.length === 1 ? base : c;
-    })
-    .join('');
+// Mesma normalizacao do motor da Luna (lowercase + NFKD sem marcas combinantes) e mesma
+// tokenizacao ([a-z0-9]+, onde pontuacao, emoji e espaco NAO viram token e dao a fronteira
+// de palavra: "chuva" e UM token, nunca casa "uva"; "prato" nunca casa "rato").
+// Ancora: kura-luna-ai/luna/src/ai/triage_engine.py:22 (_TOKEN_RE), :31-34 (_normalize),
+// :37-43 (_tokenize), :46-51 (_find_positions: sequencia CONTIGUA de tokens) @ e011335,
+// conferido em 2026-10-11 com `sed -n '22p;31,51p' luna/src/ai/triage_engine.py`.
+const TOKEN_RE = /[a-z0-9]+/g;
+const MARCA = /\p{M}/u;
+
+function normalizarTexto(texto: string): string {
+  return texto.toLowerCase().normalize('NFKD').replace(/\p{M}/gu, '');
 }
 
-const LETRA = /[\p{L}\p{N}]/u;
+interface Token {
+  tok: string;
+  /** Offsets UTF-16 no texto ORIGINAL (nunca no meio de um surrogate). */
+  ini: number;
+  fim: number;
+}
+
+/** Tokeniza o texto original guardando, por token, onde ele esta no original. */
+function tokenizar(original: string): Token[] {
+  // Mapa por code point: cada code point gera 0..n caracteres normalizados.
+  let norm = '';
+  const origIni: number[] = []; // por caractere normalizado -> inicio (UTF-16) do code point de origem
+  const origFim: number[] = []; // idem, fim
+  let off = 0;
+  for (const cp of Array.from(original)) {
+    const n = normalizarTexto(cp);
+    for (let k = 0; k < n.length; k++) {
+      origIni.push(off);
+      origFim.push(off + cp.length);
+    }
+    norm += n;
+    off += cp.length;
+  }
+  const tokens: Token[] = [];
+  for (const m of norm.matchAll(TOKEN_RE)) {
+    const i = m.index ?? 0;
+    const ini = origIni[i]!;
+    let fim = origFim[i + m[0].length - 1]!;
+    // marcas combinantes soltas logo depois (NFD: "e" + U+0301) pertencem a palavra.
+    while (fim < original.length) {
+      const cp = String.fromCodePoint(original.codePointAt(fim)!);
+      if (!MARCA.test(cp)) break;
+      fim += cp.length;
+    }
+    tokens.push({ tok: m[0], ini, fim });
+  }
+  return tokens;
+}
 
 /**
- * Divide o trecho da mensagem em segmentos, marcando as ocorrências das palavras que
- * decidiram o nível. Insensível a caixa e a acento. Se nenhuma palavra aparece no trecho,
- * devolve um único segmento sem destaque (o card cai para o chip "disparou: ...").
+ * Divide o trecho da mensagem em segmentos, marcando as ocorrencias das palavras que
+ * decidiram o nivel. Casa como o motor: por sequencia contigua de TOKENS inteiros, sem
+ * caixa e sem acento, e sem expandir substring. `palavras` e o que a API devolve (a
+ * palavra casada, ex. "vomitou"). Se nada casa, devolve um segmento sem destaque (o card
+ * cai para o chip "disparou: ...").
  */
 export function destacarTrecho(trecho: string, palavras: string[]): SegmentoTrecho[] {
-  const alvo = normalizar(trecho);
+  const tokens = tokenizar(trecho);
   const faixas: Array<[number, number]> = [];
   for (const p of palavras) {
-    const n = normalizar(p.trim());
-    if (!n) continue;
-    let i = alvo.indexOf(n);
-    while (i !== -1) {
-      // O motor casa por trecho de palavra ("vomito" casa "vomitou"): realca a palavra INTEIRA
-      // da mensagem, senao o destaque corta "vomit|ou" no meio.
-      let ini = i;
-      let fim = i + n.length;
-      while (ini > 0 && LETRA.test(alvo.charAt(ini - 1))) ini--;
-      while (fim < alvo.length && LETRA.test(alvo.charAt(fim))) fim++;
-      faixas.push([ini, fim]);
-      i = alvo.indexOf(n, fim);
+    const alvo = tokenizar(p.trim()).map((t) => t.tok);
+    const n = alvo.length;
+    if (n === 0) continue;
+    for (let i = 0; i + n <= tokens.length; i++) {
+      if (alvo.every((t, k) => tokens[i + k]!.tok === t)) {
+        faixas.push([tokens[i]!.ini, tokens[i + n - 1]!.fim]);
+      }
     }
   }
   if (faixas.length === 0) return [{ texto: trecho, destaque: false }];
