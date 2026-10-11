@@ -15,6 +15,7 @@ const mockBack = jest.fn();
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
+  useRootNavigationState: () => ({ key: 'root' }),
   useRouter: () => ({ back: mockBack, canGoBack: () => true, push: mockPush, replace: mockReplace }),
 }));
 
