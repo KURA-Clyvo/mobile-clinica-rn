@@ -68,6 +68,13 @@ describe('TriagemCard (BR-CLI-T07)', () => {
     expect(getByTestId('fila-toque-7').props.accessibilityState).toEqual({ expanded: true });
   });
 
+  it('G2 M-4: ha texto visivel que diz que expande ("Ver mensagem inteira") e vira "Recolher"', () => {
+    const { getByTestId } = mostrar(ITEM);
+    expect(getByTestId('fila-expandir-7').props.children.join('')).toMatch(/^Ver mensagem inteira/);
+    fireEvent.press(getByTestId('fila-toque-7'));
+    expect(getByTestId('fila-expandir-7').props.children.join('')).toMatch(/^Recolher/);
+  });
+
   it('score/regras nulos nao viram "null" nem versao inventada', () => {
     const { queryByTestId, queryByText } = mostrar({ ...ITEM, score: null, regrasVersao: null });
     expect(queryByTestId('fila-score-7')).toBeNull();

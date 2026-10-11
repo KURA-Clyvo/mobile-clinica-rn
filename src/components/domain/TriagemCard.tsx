@@ -94,6 +94,10 @@ export function TriagemCard({ item, children }: TriagemCardProps) {
             </Text>
           )}
         </View>
+        {/* G2 M-4: sinal visivel de que o card expande (antes so o accessibilityLabel dizia). */}
+        <Text style={styles.expandir} testID={`fila-expandir-${id}`}>
+          {aberto ? STRINGS.LUNA.TRIAGEM_RECOLHER : STRINGS.LUNA.TRIAGEM_VER_MENSAGEM} {aberto ? '▴' : '▾'}
+        </Text>
         {aberto && (
           <View testID={`fila-detalhe-${id}`}>
             {item.sintomas.length > 0 && (
@@ -131,6 +135,12 @@ const makeStyles = (colors: typeof lightColors) =>
     metrica: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
     rotulo: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textMuteInk },
     dado: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: colors.textSoft },
+    expandir: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: fontSize.sm,
+      color: colors.primary,
+      marginTop: spacing[3],
+    },
     subiu: { fontFamily: fonts.bodyMedium, fontSize: fontSize.sm, color: colors.text, marginTop: spacing[3] },
     nota: { fontFamily: fonts.body, fontSize: fontSize.xs, color: colors.textSoft, marginTop: spacing[2] },
     acoes: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[3] },
