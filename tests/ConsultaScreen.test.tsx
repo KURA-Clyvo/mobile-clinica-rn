@@ -145,7 +145,7 @@ function criarConsultaComSucesso(getByTestId: ReturnType<typeof wrap>['getByTest
     },
   );
   fireEvent.changeText(getByTestId('field-motivo'), 'Consulta de rotina');
-  fireEvent.changeText(getByTestId('field-dsAnamnese'), 'Animal ativo');
+  fireEvent.changeText(getByTestId('field-soap-s'), 'Animal ativo');
   fireEvent.press(getByTestId('btn-salvar'));
 }
 
@@ -164,17 +164,20 @@ describe('ConsultaScreen', () => {
     });
   });
 
-  it('shows SOAP validation error when no SOAP field filled', async () => {
-    const { getByTestId, findByText } = wrap(<ConsultaScreen />);
+  // BR-CLI-T08 (C1 medido): a transcricao exige consulta salva, entao a ordem fica; o que sai
+  // e a exigencia de SOAP manual ANTES de gravar. Salvar so com o motivo tem de funcionar.
+  it('BR-CLI-T08: salva a consulta so com o motivo (sem exigir SOAP manual antes de gravar)', async () => {
+    const { getByTestId, queryByText } = wrap(<ConsultaScreen />);
     fireEvent.changeText(getByTestId('field-motivo'), 'Retorno pós-cirurgia');
     fireEvent.press(getByTestId('btn-salvar'));
-    expect(await findByText('Preencha ao menos um campo SOAP')).toBeTruthy();
+    await waitFor(() => expect(mockMutateCriarConsulta).toHaveBeenCalledTimes(1));
+    expect(queryByText('Preencha ao menos um campo SOAP')).toBeNull();
   });
 
   it('calls criarConsulta with correct payload on valid submit', async () => {
     const { getByTestId } = wrap(<ConsultaScreen />);
     fireEvent.changeText(getByTestId('field-motivo'), 'Consulta de rotina');
-    fireEvent.changeText(getByTestId('field-dsAnamnese'), 'Animal sem queixas');
+    fireEvent.changeText(getByTestId('field-soap-s'), 'Animal sem queixas');
     fireEvent.press(getByTestId('btn-salvar'));
     await waitFor(() => {
       expect(mockMutateCriarConsulta).toHaveBeenCalledWith(
@@ -248,11 +251,13 @@ describe('ConsultaScreen', () => {
         },
       );
       mockIsRecording = true;
+      fb.responder({ confirmar: true });
       const { getByTestId } = await chegarNoCardTranscricao();
 
       await act(async () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
+      await act(async () => {});
 
       expect(mockStop).toHaveBeenCalled();
       expect(mockMutateEnviarTranscricao).toHaveBeenCalledWith(
@@ -292,11 +297,15 @@ describe('ConsultaScreen', () => {
         },
       );
       mockIsRecording = true;
+      fb.responder({ confirmar: true });
       const { getByTestId, queryByTestId } = await chegarNoCardTranscricao();
 
       await act(async () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
+      await act(async () => {});
+      fb.confirmacoes.length = 0;
+      fb.responder({ confirmar: false });
 
       // O card já chegou preenchido com o rascunho — e por isso NENHUM badge
       // aparece: currentText === draftText nos 4 campos.
@@ -395,11 +404,15 @@ describe('ConsultaScreen', () => {
         },
       );
       mockIsRecording = true;
+      fb.responder({ confirmar: true });
       const { getByTestId } = await chegarNoCardTranscricao();
 
       await act(async () => {
         fireEvent.press(getByTestId('btn-gravar'));
       });
+      await act(async () => {});
+      fb.confirmacoes.length = 0;
+      fb.responder({ confirmar: false });
 
       // O vet edita o campo do card (diverge do rascunho) com texto próprio.
       fireEvent.changeText(getByTestId('field-soap-s'), 'Já digitado pelo vet');
@@ -779,5 +792,116 @@ describe('ConsultaScreen — início de atendimento ao montar (REC-13)', () => {
     // Não bloqueia -- o formulário continua usável depois do aviso.
     expect(getByTestId('btn-salvar')).toBeTruthy();
 
+  });
+});
+
+// ─── BR-CLI-T08: rascunho SOAP da Luna que parece rascunho (CFMV 1.465/2022) ────────────────
+// A prova do rascunho e em MOCK de transcricao (OPENAI_API_KEY vazia na fonte, A12).
+describe('ConsultaScreen — rascunho SOAP da Luna (BR-CLI-T08)', () => {
+  const SOAP = { s: 'Tutora relata apetite normal', o: 'Abdome sem dor', a: 'Gastroenterite em resolução', p: 'Manter dieta' };
+
+  async function comTranscricao(resposta: unknown = { idEventoClinico: 42, dsTranscricao: 'fala', soap: SOAP, stSoapConfirmado: false }) {
+    mockMutateEnviarTranscricao.mockImplementation(
+      (_v: unknown, opts: { onSuccess?: (r: unknown) => void }) => opts?.onSuccess?.(resposta),
+    );
+    mockIsRecording = true;
+    // O vet ja escreveu S antes de gravar (criarConsultaComSucesso): a Luna pergunta antes de trocar.
+    fb.responder({ confirmar: true });
+    const utils = wrap(<ConsultaScreen />);
+    criarConsultaComSucesso(utils.getByTestId);
+    await waitFor(() => expect(utils.getByTestId('card-transcricao')).toBeTruthy());
+    await act(async () => {
+      fireEvent.press(utils.getByTestId('btn-gravar'));
+    });
+    await act(async () => {});
+    fb.confirmacoes.length = 0; // so a confirmacao de substituir (S ja escrito) nao conta nos testes abaixo
+    return utils;
+  }
+
+  it('existe UM unico conjunto S/O/A/P (sem o segundo conjunto do card)', async () => {
+    const { UNSAFE_getAllByType, getAllByTestId } = await comTranscricao();
+    const { TextInput } = require('react-native');
+    // S/O/A/P aparecem UMA vez (antes: form + card, mesmos 4 testIDs duplicados)
+    expect(getAllByTestId(/^field-soap-/)).toHaveLength(4);
+    expect(UNSAFE_getAllByType(TextInput).filter((n: { props: { testID?: string } }) => /^field-soap-/.test(n.props.testID ?? ''))).toHaveLength(4);
+  });
+
+  it('cada campo gerado tem o selo "Rascunho da Luna — revise e confirme"', async () => {
+    const { getByTestId } = await comTranscricao();
+    for (const l of ['S', 'O', 'A', 'P']) {
+      expect(getByTestId(`selo-rascunho-${l}`)).toBeTruthy();
+    }
+    expect(getByTestId('selo-rascunho-S').findAll((n) => n.props.children === 'Rascunho da Luna — revise e confirme').length).toBeGreaterThan(0);
+    expect(getByTestId('banner-rascunho')).toBeTruthy();
+  });
+
+  it('editar o campo mantem o selo ate confirmar', async () => {
+    const { getByTestId } = await comTranscricao();
+    fireEvent.changeText(getByTestId('field-soap-s'), 'editado pelo vet');
+    expect(getByTestId('selo-rascunho-S')).toBeTruthy();
+  });
+
+  it('campo que a Luna deixou vazio nao ganha selo', async () => {
+    const { getByTestId, queryByTestId } = await comTranscricao({
+      idEventoClinico: 42, dsTranscricao: 'fala', soap: { s: 'so o S', o: null, a: '', p: null }, stSoapConfirmado: false,
+    });
+    expect(getByTestId('selo-rascunho-S')).toBeTruthy();
+    expect(queryByTestId('selo-rascunho-O')).toBeNull();
+    expect(queryByTestId('selo-rascunho-A')).toBeNull();
+    expect(queryByTestId('selo-rascunho-P')).toBeNull();
+  });
+
+  it('Confirmar remove o selo, da toast com o verbo e navega', async () => {
+    mockMutateConfirmarSoap.mockImplementation((_v: unknown, opts: { onSuccess?: () => void }) => opts?.onSuccess?.());
+    const { getByTestId, queryByTestId } = await comTranscricao();
+    fireEvent.press(getByTestId('btn-confirmar-soap'));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    for (const l of ['S', 'O', 'A', 'P']) expect(queryByTestId(`selo-rascunho-${l}`)).toBeNull();
+    expect(queryByTestId('banner-rascunho')).toBeNull();
+    expect(fb.toasts.map((t) => t.texto).join('|')).toMatch(/confirmad/i);
+  });
+
+  it('Confirmar com falha NAO remove o selo (nada entrou no prontuario)', async () => {
+    mockMutateConfirmarSoap.mockImplementation((_v: unknown, opts: { onError?: (e: unknown) => void }) => opts?.onError?.({ message: 'x' }));
+    const { getByTestId } = await comTranscricao();
+    fireEvent.press(getByTestId('btn-confirmar-soap'));
+    expect(getByTestId('selo-rascunho-S')).toBeTruthy();
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('Concluir sem confirmar, com rascunho pendente, pede confirmacao destrutiva; recusar mantem na tela', async () => {
+    const { getByTestId } = await comTranscricao();
+    fb.responder({ confirmar: false });
+    fireEvent.press(getByTestId('btn-concluir-sem-soap'));
+    await waitFor(() => expect(fb.confirmacoes).toHaveLength(1));
+    expect(fb.confirmacoes[0]).toMatchObject({ destrutivo: true });
+    expect(mockBack).not.toHaveBeenCalled();
+    expect(mockMutateConfirmarSoap).not.toHaveBeenCalled();
+  });
+
+  it('Concluir sem confirmar, aceitando a confirmacao, navega sem chamar confirmarSoap', async () => {
+    const { getByTestId } = await comTranscricao();
+    fb.responder({ confirmar: true });
+    fireEvent.press(getByTestId('btn-concluir-sem-soap'));
+    await waitFor(() => expect(mockBack).toHaveBeenCalled());
+    expect(mockMutateConfirmarSoap).not.toHaveBeenCalled();
+  });
+
+  it('Descartar rascunho devolve os campos ao que o vet tinha e tira os selos', async () => {
+    const { getByTestId, queryByTestId } = await comTranscricao();
+    fireEvent.press(getByTestId('btn-descartar-rascunho'));
+    expect(queryByTestId('selo-rascunho-S')).toBeNull();
+    expect(getByTestId('field-soap-s').props.value).toBe('Animal ativo');
+    expect(getByTestId('field-soap-o').props.value).toBe('');
+  });
+
+  it('{transcricao:null, soap:null} (A12): aviso de indisponivel, nenhum selo, campos intocados', async () => {
+    const { getByTestId, queryByTestId } = await comTranscricao({
+      idEventoClinico: 42, dsTranscricao: null, soap: null, stSoapConfirmado: false,
+    });
+    expect(getByTestId('msg-transcricao-indisponivel')).toBeTruthy();
+    expect(queryByTestId('banner-rascunho')).toBeNull();
+    for (const l of ['S', 'O', 'A', 'P']) expect(queryByTestId(`selo-rascunho-${l}`)).toBeNull();
+    expect(getByTestId('field-soap-s').props.value).toBe('Animal ativo');
   });
 });

@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { avisar } from '@components/feedback/confirmar';
+import { avisar, confirmar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,40 +37,37 @@ import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { LunaSuggestionBadge } from '@components/domain/LunaSuggestionBadge';
+import { SeloRascunho, BannerRascunho } from '@components/domain/RascunhoLuna';
 import { LancarCobrancaCard } from '@components/domain/LancarCobrancaCard';
 import { racaToPalette } from '@utils/mappers';
 import { formatDateFull } from '@utils/date';
 import { ROUTES } from '@constants/routes';
 
-const SOAP_DRAFT_LABELS: Record<keyof SoapDraft, string> = {
-  s: 'Subjetivo',
-  o: 'Objetivo',
-  a: 'Avaliação',
-  p: 'Plano',
-};
+type Letra = 's' | 'o' | 'a' | 'p';
+const LETRAS: Letra[] = ['s', 'o', 'a', 'p'];
 
-const consultaSchema = z
-  .object({
-    dsMotivo: z.string().min(3, 'Informe o motivo da consulta'),
-    dsAnamnese: z.string().optional(),
-    dsExameFisico: z.string().optional(),
-    dsDiagnostico: z.string().optional(),
-    dsObservacao: z.string().optional(),
-  })
-  .refine(
-    (d) => d.dsAnamnese || d.dsExameFisico || d.dsDiagnostico || d.dsObservacao,
-    { message: 'Preencha ao menos um campo SOAP', path: ['dsAnamnese'] },
-  );
+// BR-CLI-T08 (C1 medido no G0): a transcrição exige a consulta salva, então a ordem continua
+// "salvar, depois gravar". O que saiu foi a exigência de SOAP manual antes de salvar — o vet
+// salva só com o motivo e deixa a Luna rascunhar S/O/A/P. Os 4 campos são opcionais no
+// backend (`ConsultaCreateDto`, `string?`).
+const consultaSchema = z.object({
+  dsMotivo: z.string().min(3, 'Informe o motivo da consulta'),
+  dsAnamnese: z.string().optional(),
+  dsExameFisico: z.string().optional(),
+  dsDiagnostico: z.string().optional(),
+  dsObservacao: z.string().optional(),
+});
 
 type ConsultaForm = z.infer<typeof consultaSchema>;
 
 type SoapField = 'dsAnamnese' | 'dsExameFisico' | 'dsDiagnostico' | 'dsObservacao';
 
-const SOAP_LABELS: Record<SoapField, { letra: 'S' | 'O' | 'A' | 'P'; label: string }> = {
-  dsAnamnese:   { letra: 'S', label: 'Subjetivo' },
-  dsExameFisico: { letra: 'O', label: 'Objetivo' },
-  dsDiagnostico: { letra: 'A', label: 'Avaliação' },
-  dsObservacao:  { letra: 'P', label: 'Plano' },
+// Um único conjunto S/O/A/P na tela (BR-CLI-03): letra do SOAP ↔ campo do formulário.
+const SOAP_CAMPOS: Record<Letra, { campo: SoapField; label: string }> = {
+  s: { campo: 'dsAnamnese', label: 'S, subjetivo' },
+  o: { campo: 'dsExameFisico', label: 'O, objetivo' },
+  a: { campo: 'dsDiagnostico', label: 'A, avaliação' },
+  p: { campo: 'dsObservacao', label: 'P, plano' },
 };
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -148,6 +145,11 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 13,
       color: colors.textMuteInk,
       fontStyle: 'italic',
+    },
+    rascunhoCampo: {
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: colors.amber,
     },
     transcricaoIndisponivel: {
       fontFamily: 'Lexend_400Regular',
@@ -270,14 +272,12 @@ export default function ConsultaScreen() {
   const [idEventoClinico, setIdEventoClinico] = useState<number | null>(null);
   const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);
   const [transcricaoIndisponivel, setTranscricaoIndisponivel] = useState(false);
-  const [soapDraft, setSoapDraft] = useState<SoapDraft>({ s: '', o: '', a: '', p: '' });
-  // LU-10 (ruling do Felipe, 15/09) — rascunho da Luna separado do texto
-  // editável do card. `soapDraft` é o que o vet edita e o que "Confirmar
-  // SOAP" envia; `rascunhoLuna` é o valor ORIGINAL da transcrição, imutável
-  // até a próxima transcrição — é contra ele que o badge compara para saber
-  // se ainda há algo a restaurar (ver LunaSuggestionBadge: `currentText ===
-  // draftText` esconde o badge).
+  // BR-CLI-T08: os 4 campos do formulário SÃO o único S/O/A/P. `pendentes` = letras cujo texto
+  // veio da Luna e o vet ainda não confirmou (selo). `rascunhoLuna` guarda o original da
+  // transcrição (LU-10: o badge restaura contra ele). `antesDoRascunho` permite descartar.
+  const [pendentes, setPendentes] = useState<Letra[]>([]);
   const [rascunhoLuna, setRascunhoLuna] = useState<SoapDraft>({ s: '', o: '', a: '', p: '' });
+  const [antesDoRascunho, setAntesDoRascunho] = useState<Partial<Record<Letra, string>>>({});
 
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!);
   const recorderState = useAudioRecorderState(audioRecorder);
@@ -285,6 +285,9 @@ export default function ConsultaScreen() {
   const {
     control,
     handleSubmit,
+    setValue,
+    getValues,
+    watch,
     formState: { errors },
   } = useForm<ConsultaForm>({
     resolver: zodResolver(consultaSchema),
@@ -322,6 +325,35 @@ export default function ConsultaScreen() {
     );
   };
 
+  // Preenche os campos com o rascunho. Se o vet já escreveu num campo, pergunta antes de
+  // trocar (não perde texto dele em silêncio); recusar preenche só os campos vazios.
+  const aplicarRascunho = async (draft: SoapDraft, geradas: Letra[]) => {
+    const ocupadas = geradas.filter((l) => (getValues(SOAP_CAMPOS[l].campo) ?? '').trim().length > 0);
+    let substituir = true;
+    if (ocupadas.length > 0) {
+      substituir = await confirmar({
+        titulo: 'Substituir o que você escreveu?',
+        mensagem: 'A Luna rascunhou campos que você já preencheu. O rascunho entra no lugar do seu texto.',
+        verbo: 'Substituir',
+        rotuloCancelar: 'Só nos campos vazios',
+      });
+    }
+    const aplicadas = substituir ? geradas : geradas.filter((l) => !ocupadas.includes(l));
+    const antes: Partial<Record<Letra, string>> = {};
+    aplicadas.forEach((l) => {
+      antes[l] = getValues(SOAP_CAMPOS[l].campo) ?? '';
+      setValue(SOAP_CAMPOS[l].campo, draft[l] ?? '');
+    });
+    setRascunhoLuna(draft);
+    setAntesDoRascunho(antes);
+    setPendentes(aplicadas);
+  };
+
+  const descartarRascunho = () => {
+    pendentes.forEach((l) => setValue(SOAP_CAMPOS[l].campo, antesDoRascunho[l] ?? ''));
+    setPendentes([]);
+  };
+
   const handleGravarPress = async () => {
     if (recorderState.isRecording) {
       await audioRecorder.stop();
@@ -332,29 +364,21 @@ export default function ConsultaScreen() {
           { idEventoClinico, audioUri: uri, mimeType: 'audio/m4a' },
           {
             onSuccess: (result) => {
-              const semSugestao =
-                result.dsTranscricao === null &&
-                !result.soap.s &&
-                !result.soap.o &&
-                !result.soap.a &&
-                !result.soap.p;
-              if (semSugestao) {
+              // `soap` pode vir `null` (A12: sem OPENAI_API_KEY o backend devolve 200 com
+              // transcricao/soap nulos). Nulo NÃO é rascunho vazio: aviso honesto, sem selo.
+              const draft: SoapDraft = {
+                s: result.soap?.s ?? '',
+                o: result.soap?.o ?? '',
+                a: result.soap?.a ?? '',
+                p: result.soap?.p ?? '',
+              };
+              const geradas = LETRAS.filter((l) => (draft[l] ?? '').trim().length > 0);
+              if (geradas.length === 0) {
                 setTranscricaoIndisponivel(true);
                 return;
               }
               setDsTranscricao(result.dsTranscricao);
-              const draft: SoapDraft = {
-                s: result.soap.s ?? '',
-                o: result.soap.o ?? '',
-                a: result.soap.a ?? '',
-                p: result.soap.p ?? '',
-              };
-              // LU-10: `rascunhoLuna` guarda o valor ORIGINAL da transcrição
-              // (nunca tocado pelo badge); `soapDraft` continua preenchido
-              // igual a hoje — o card nasce refletindo a Luna, e o badge só
-              // aparece depois que o vet edita e diverge dele.
-              setRascunhoLuna(draft);
-              setSoapDraft(draft);
+              void aplicarRascunho(draft, geradas);
             },
             // Falha de transcrição: campos seguem editáveis manualmente, sem crash.
             onError: () => setTranscricaoIndisponivel(true),
@@ -378,11 +402,19 @@ export default function ConsultaScreen() {
 
   const handleConfirmarSoap = () => {
     if (!idEventoClinico) return;
+    const dto: SoapDraft = {
+      s: getValues('dsAnamnese') ?? '',
+      o: getValues('dsExameFisico') ?? '',
+      a: getValues('dsDiagnostico') ?? '',
+      p: getValues('dsObservacao') ?? '',
+    };
     confirmarSoap(
-      { idEventoClinico, dto: soapDraft },
+      { idEventoClinico, dto },
       {
         onSuccess: () => {
-          toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado' });
+          // O selo só some quando o servidor confirmou: falha deixa o rascunho como rascunho.
+          setPendentes([]);
+          toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado no prontuário' });
           voltarOu(router, fichaDoPet(idPet));
         },
         onError: (err: unknown) => {
@@ -391,6 +423,21 @@ export default function ConsultaScreen() {
         },
       },
     );
+  };
+
+  // "Concluir sem confirmar" com rascunho da Luna pendente joga o rascunho fora: pede confirmação.
+  const handleConcluirSemConfirmar = async () => {
+    if (pendentes.length > 0) {
+      const ok = await confirmar({
+        titulo: 'Sair sem confirmar o rascunho?',
+        mensagem: 'O rascunho da Luna não será salvo no prontuário.',
+        verbo: 'Sair sem confirmar',
+        destrutivo: true,
+        rotuloCancelar: 'Continuar revisando',
+      });
+      if (!ok) return;
+    }
+    voltarOu(router, fichaDoPet(idPet));
   };
 
   // FM-01, fix wave pos-G2 — a revisao mediu que SEM esta guarda a tela
@@ -472,42 +519,11 @@ export default function ConsultaScreen() {
             )}
           />
 
-          {/* Campos SOAP */}
-          {(Object.keys(SOAP_LABELS) as SoapField[]).map((fieldKey) => {
-            // LU-10 (ruling do Felipe, 15/09): o badge SAIU destes campos —
-            // nenhum caminho salva o formulário principal depois de a
-            // consulta ser criada (só "Confirmar SOAP", que envia o card,
-            // ver handleConfirmarSoap acima). O badge mora agora no card
-            // SOAP, mais abaixo.
-            const { label } = SOAP_LABELS[fieldKey];
-            return (
-              <View key={fieldKey}>
-                <Text style={styles.fieldLabel}>{label}</Text>
-                <Controller
-                  control={control}
-                  name={fieldKey}
-                  render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      style={styles.textarea}
-                      multiline
-                      value={value}
-                      onChangeText={onChange}
-                      textAlignVertical="top"
-                      testID={`field-${fieldKey}`}
-                    />
-                  )}
-                />
-                {errors[fieldKey] && (
-                  <Text style={styles.errorText}>{errors[fieldKey]?.message}</Text>
-                )}
-              </View>
-            );
-          })}
-
-          {/* Transcrição por áudio (TASK-13/TASK-14) — só após a consulta ser criada */}
+          {/* Gravação (TASK-13/14) — só após a consulta ser criada. Não tem mais um 2º S/O/A/P:
+              o rascunho entra nos campos abaixo (BR-CLI-03). */}
           {idEventoClinico !== null && (
             <View style={styles.transcricaoCard} testID="card-transcricao">
-              <Text style={styles.transcricaoTitulo}>Transcrição por áudio (opcional)</Text>
+              <Text style={styles.transcricaoTitulo}>Gravação transcrita (opcional)</Text>
 
               <KCButton
                 variant="secondary"
@@ -537,41 +553,49 @@ export default function ConsultaScreen() {
                   Transcrição indisponível no momento — preencha os campos abaixo manualmente.
                 </Text>
               )}
-
-              {(Object.keys(SOAP_DRAFT_LABELS) as (keyof SoapDraft)[]).map((letra) => (
-                <View key={letra}>
-                  <View style={styles.labelRow}>
-                    <Text style={styles.fieldLabel}>{SOAP_DRAFT_LABELS[letra]}</Text>
-                    {/* LU-10 (ruling do Felipe, 15/09): o badge mora AQUI —
-                        é o card que "Confirmar SOAP" de fato envia
-                        (handleConfirmarSoap acima). `campo` usa a MESMA
-                        letra (maiúscula) do mapeamento de `SoapDraft`, sem
-                        tabela de tradução própria — elimina por construção
-                        a permutação O↔A que uma tabela hardcoded poderia
-                        introduzir (achado IMPORTANTE da G2, Frente 2). */}
-                    <LunaSuggestionBadge
-                      campo={letra.toUpperCase() as 'S' | 'O' | 'A' | 'P'}
-                      draftText={rascunhoLuna[letra]}
-                      currentText={soapDraft[letra] ?? ''}
-                      onSugest={(texto) =>
-                        setSoapDraft((prev) => ({ ...prev, [letra]: texto }))
-                      }
-                    />
-                  </View>
-                  <TextInput
-                    style={styles.textarea}
-                    multiline
-                    value={soapDraft[letra] ?? ''}
-                    onChangeText={(texto) =>
-                      setSoapDraft((prev) => ({ ...prev, [letra]: texto }))
-                    }
-                    textAlignVertical="top"
-                    testID={`field-soap-${letra}`}
-                  />
-                </View>
-              ))}
             </View>
           )}
+
+          {pendentes.length > 0 && (
+            <BannerRascunho testID="banner-rascunho" />
+          )}
+
+          {/* Único S/O/A/P */}
+          {LETRAS.map((letra) => {
+            const { campo, label } = SOAP_CAMPOS[letra];
+            const L = letra.toUpperCase() as 'S' | 'O' | 'A' | 'P';
+            const rascunho = pendentes.includes(letra);
+            return (
+              <View key={letra}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.fieldLabel}>{label}</Text>
+                  {/* LU-10: restaura o rascunho ORIGINAL da Luna quando o vet divergiu dele. */}
+                  <LunaSuggestionBadge
+                    campo={L}
+                    draftText={rascunhoLuna[letra]}
+                    currentText={watch(campo) ?? ''}
+                    onSugest={(texto) => setValue(campo, texto)}
+                  />
+                </View>
+                {rascunho && <SeloRascunho testID={`selo-rascunho-${L}`} />}
+                <Controller
+                  control={control}
+                  name={campo}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      style={[styles.textarea, rascunho && styles.rascunhoCampo]}
+                      multiline
+                      value={value}
+                      onChangeText={onChange}
+                      textAlignVertical="top"
+                      testID={`field-soap-${letra}`}
+                    />
+                  )}
+                />
+                {errors[campo] && <Text style={styles.errorText}>{errors[campo]?.message}</Text>}
+              </View>
+            );
+          })}
 
           {/* FM-06 (ciclo FIN) — cabe no mesmo gesto de fechar o
               atendimento, mesma fase da transcrição acima (idEventoClinico
@@ -598,10 +622,20 @@ export default function ConsultaScreen() {
           </KCButton>
         ) : (
           <>
+            {pendentes.length > 0 && (
+              <KCButton
+                variant="ghost"
+                size="lg"
+                onPress={descartarRascunho}
+                testID="btn-descartar-rascunho"
+              >
+                Descartar rascunho
+              </KCButton>
+            )}
             <KCButton
               variant="ghost"
               size="lg"
-              onPress={() => voltarOu(router, fichaDoPet(idPet))}
+              onPress={() => void handleConcluirSemConfirmar()}
               testID="btn-concluir-sem-soap"
             >
               Concluir sem confirmar SOAP
@@ -614,7 +648,7 @@ export default function ConsultaScreen() {
               onPress={handleConfirmarSoap}
               testID="btn-confirmar-soap"
             >
-              Confirmar SOAP
+              {pendentes.length > 0 ? 'Confirmar e salvar no prontuário' : 'Confirmar SOAP'}
             </KCButton>
           </>
         )}

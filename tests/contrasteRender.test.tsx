@@ -15,6 +15,7 @@ import LunaScreen from '../src/app/(app)/luna';
 import { KCChip } from '../src/components/primitives/KCChip';
 import type { ChipTone } from '../src/components/primitives/KCChip';
 import { TriagemCard } from '../src/components/domain/TriagemCard';
+import { SeloRascunho, BannerRascunho } from '../src/components/domain/RascunhoLuna';
 import { LunaDiagnostico } from '../src/components/domain/LunaDiagnostico';
 import type { TriagemListaItem } from '../src/types/api';
 import { URGENCIA_VISUAL } from '../src/utils/triagem';
@@ -175,6 +176,17 @@ describe.each(TEMAS)('gate de render -- texto resolvido >= 4.5 (%s)', (_nome, es
     fireEvent.press(getByTestId('fila-toque-9'));
     const r = medirTextos(UNSAFE_root, cores.bg);
     expect(r.total).toBeGreaterThan(5);
+    expect(r.violacoes).toEqual([]);
+  });
+
+  // BR-CLI-T08: selo (infoBg) e faixa (amberPale) do rascunho da Luna, cor RESOLVIDA.
+  it.each([
+    ['selo', <SeloRascunho key="s" />],
+    ['faixa', <BannerRascunho key="b" />],
+  ] as const)('rascunho da Luna: %s', (_n, ui) => {
+    const { UNSAFE_root } = comTema(esquema, ui);
+    const r = medirTextos(UNSAFE_root, cores.bg);
+    expect(r.total).toBeGreaterThan(0);
     expect(r.violacoes).toEqual([]);
   });
 
