@@ -349,6 +349,13 @@ const USOS: Uso[] = [
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'primary', fundo: 'surface' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'sage', fundo: 'surface' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'amberInk', fundo: 'surface' },
+  // BR-CLI-T07: card de triagem (fundo do KCCard = surface).
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /trecho: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'surface' },
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /destaque: \{ backgroundColor: colors\.amberPale, color: colors\.text,/, texto: 'text', fundo: 'amberPale' },
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /dado: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'surface' },
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /nota: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'surface' },
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /tempo: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'surface' },
+  { arq: 'components/domain/TriagemCard.tsx', ancora: /rotulo: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'surface' },
 ];
 
 describe('contraste dos pares de uso real (arquivo -> fg/bg)', () => {

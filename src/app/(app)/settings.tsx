@@ -16,6 +16,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { perfilLabel } from '@utils/perfilUsuario';
 import { useIsGestor } from '@hooks/useIsGestor';
+import { LunaDiagnostico } from '@components/domain/LunaDiagnostico';
 import { ROUTES } from '@constants/routes';
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -322,6 +323,9 @@ export default function SettingsScreen() {
           </KCCard>
         </View>
       )}
+
+      {/* C6 (BR-CLI-T07): telemetria da Luna, so gestor, depois do ultimo tocavel (ver nota do registry de alvo). */}
+      {isGestor && <LunaDiagnostico />}
 
       {/* SOBRE */}
       <View style={styles.section}>

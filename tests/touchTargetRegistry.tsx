@@ -112,6 +112,7 @@ import { ServicoPrecoFormModal } from '../src/components/domain/ServicoPrecoForm
 // `src/components/{primitives,domain}` (KCEmptyState, OnboardingChecklist) +
 // 1 em `src/app/(app)/settings.tsx` (SettingsScreen#4, "Rever primeiros
 // passos") entram na descoberta por AST — cada um precisa de entrada abaixo.
+import { TriagemCard } from '../src/components/domain/TriagemCard';
 import { OnboardingChecklist } from '../src/components/domain/OnboardingChecklist';
 import { KCEmptyState } from '../src/components/primitives/KCEmptyState';
 import { useOnboardingStore } from '../src/store/onboardingStore';
@@ -420,6 +421,10 @@ const mockUseResumoFinanceiroReturn = jest.fn(() => ({
   isError: false,
   refetch: jest.fn(),
   isGestor: true,
+}));
+// BR-CLI-T07 (C6): SettingsScreen (gestor) monta o diagnostico da Luna, que le o health por query.
+jest.mock('@hooks/useLuna', () => ({
+  useLunaHealth: () => ({ data: { status: 'ok', oracle: true, kura_api: true, httpStatus: 200 }, isError: false }),
 }));
 jest.mock('@hooks/useFinanceiro', () => ({
   useResumoFinanceiro: () => mockUseResumoFinanceiroReturn(),
@@ -852,6 +857,34 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
       const estilo = flat(getByTestId('nav-drawer-logout').props.style);
       const eixos: EixoProvado[] = [expectAltura44(estilo), expectLargura44(estilo)];
       return { categoriaMedida: 'meets-min', eixos };
+    },
+  },
+
+  'TriagemCard.tsx::TriagemCard#1': {
+    category: 'meets-min-one-axis',
+    reason:
+      'BR-CLI-T07: a area tocavel do card (expande a mensagem) declara `minHeight: touchTarget.min` ' +
+      '(44); a largura e a do card inteiro (linha cheia, definida pelo contêiner), entao so o eixo ' +
+      'ALTURA e provado.',
+    verify: () => {
+      const { getByTestId } = wrap(
+        <TriagemCard
+          item={{
+            idTriagem: 1,
+            dtTriagem: new Date(),
+            urgencia: 'ALTA',
+            sintomas: ['convulsão'],
+            score: 13,
+            regrasVersao: '1.4',
+            encaminhadoVet: true,
+            tutor: null,
+            pets: [],
+            trechoMensagem: 'convulsão',
+          }}
+        />,
+      );
+      const eixos: EixoProvado[] = [expectAltura44(flat(getByTestId('fila-toque-1').props.style))];
+      return { categoriaMedida: 'meets-min-one-axis', eixos };
     },
   },
 

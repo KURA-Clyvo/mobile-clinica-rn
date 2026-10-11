@@ -10,19 +10,20 @@ import { useAlertas } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
+import { TriagemCard } from '@components/domain/TriagemCard';
+import { URGENCIA_VISUAL } from '@utils/triagem';
+import type { Urgencia } from '@utils/triagem';
 import { KCButton } from '@components/primitives/KCButton';
-import { KCIcon } from '@components/primitives/KCIcon';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AlertCard } from '@components/domain/AlertCard';
 import { WhatsAppModal } from '@components/domain/WhatsAppModal';
 import { getTutorById, telefoneDisponivel } from '@services/tutores.service';
-import { calcularIntervaloPeriodo, formatRelativeTime } from '@utils/date';
+import { calcularIntervaloPeriodo } from '@utils/date';
 import { ROUTES } from '@constants/routes';
 import { STRINGS } from '@constants/strings';
-import type { LunaHealthResult } from '@services/luna.service';
-import type { KCIconName } from '@components/primitives/KCIcon';
+import { isLunaHealthUp, isServicoUp } from '@utils/lunaHealth';
 import type { TriagemListaItem } from '../../types/api';
 
 type Periodo = 7 | 30 | 90;
@@ -37,88 +38,19 @@ const PERIODOS: { value: Periodo; label: string }[] = [
   { value: 90, label: STRINGS.LUNA.PERIODO_90 },
 ];
 
-// CQ-09/D-5 (ruling já decidida, não reaberta aqui): os 3 cards antigos (twilio/oracle/
-// visaoComputacional) não tinham produtor nenhum — nem twilio nem visaoComputacional
-// existem em endpoint algum da Luna. Trocados pelos 2 campos reais que GET /ready
-// devolve.
-const SERVICO_META: Record<'oracle' | 'kura_api', { label: string; icon: KCIconName }> = {
-  oracle: { label: 'Oracle DB', icon: 'more' },
-  kura_api: { label: 'API Kura', icon: 'share' },
-};
-
 const URG_LEVELS: UrgLevel[] = ['BAIXO', 'MEDIO', 'ALTO'];
 
-// getLunaHealth() nunca rejeita: quando a Luna está fora do ar ela resolve com
-// {status: 'indisponivel'} em vez de lançar. Este type guard estreita a união antes de
-// acessar oracle/kura_api — sem ele o acesso direto é um crash real em runtime.
-// CQ-09: o guard antigo testava 'sgStatus', uma chave que nunca existiu em nenhum
-// endpoint real da Luna — resultado medido: sempre falso em modo real, a tela sempre
-// mostrava "Offline" com a Luna perfeitamente no ar.
-// CQ-09 fix wave (G2 Important-1): testar 'oracle' tinha o MESMO modo de falha — é
-// outra chave do corpo do upstream, cujo shape não foi reverificado contra a Luna
-// real (ver limite declarado em LunaReadyResponse). Se a Luna renomear/omitir
-// `oracle`, o guard voltaria a falhar e a tela voltaria a mostrar "Offline" com a
-// Luna no ar. 'httpStatus' não depende do corpo do upstream — é anexado só no
-// caminho de sucesso de getLunaHealth() (luna.service.ts: `{...data, httpStatus:
-// status}`), nunca no caminho de erro (`{status:'indisponivel'}`), então é um
-// discriminante estável mesmo que o shape real do corpo mude.
-function isLunaHealthUp(
-  health: LunaHealthResult | undefined,
-): health is Exclude<LunaHealthResult, { status: 'indisponivel' }> {
-  return health != null && 'httpStatus' in health;
-}
-
-// CQ-09: o tipo exato de oracle/kura_api (enum? boolean? string livre?) não foi
-// reverificado contra a Luna real nesta sessão — tratado como string opaca, comparada
-// de forma defensiva e case-insensitive contra algo como 'ok'/'up'. Ver
-// LunaReadyResponse (src/types/api.ts) para o limite declarado.
-// CQ-09 fix wave (G2 Important-1): aceita undefined/null além de string — desde que
-// isLunaHealthUp() não dependa mais de uma chave específica do corpo (ver acima), uma
-// chave individual como `oracle` pode estar ausente sem que isso seja um crash; nesse
-// caso trata como "não confirmado up", não lança.
-function isServicoUp(valor: boolean | string | undefined | null): boolean {
-  if (valor == null) return false;
-  // A Luna real devolve booleano (ver LunaReadyResponse); string fica por compatibilidade.
-  if (typeof valor === 'boolean') return valor;
-  const v = valor.toLowerCase();
-  return v === 'ok' || v === 'up';
-}
+// BR-CLI-T07 (M-2 da T01): o relatorio fala BAIXO/MEDIO/ALTO, a fila BAIXA/MEDIA/ALTA; os
+// dois leem a MESMA tabela (utils/triagem.ts) -- Alta = clayInk, Media = amber, Baixa = textMute (luminancia claro .13/.28/.19; escuro .31/.41/.21),
+// de luminosidades diferentes. Vocabulario unico: Alta/Média/Baixa (BR-CLI-13).
+const URG_RELATORIO: Record<UrgLevel, Urgencia> = { BAIXO: 'BAIXA', MEDIO: 'MEDIA', ALTO: 'ALTA' };
 
 function urgColor(level: UrgLevel, colors: typeof lightColors): string {
-  switch (level) {
-    case 'BAIXO': return colors.success;
-    case 'MEDIO': return colors.warning;
-    case 'ALTO':  return colors.amber;
-  }
+  return colors[URGENCIA_VISUAL[URG_RELATORIO[level]].grafico];
 }
 
 function urgLabel(level: UrgLevel): string {
-  switch (level) {
-    case 'BAIXO': return 'Baixo';
-    case 'MEDIO': return 'Médio';
-    case 'ALTO':  return 'Alto';
-  }
-}
-
-// LU-09 — Fila da Luna: tokens canônicos do app da clínica (KCChip `tone`), não hex
-// inventado. ALTA usa `clay`, MEDIA usa `amber` (brief da task); BAIXA usa `mute`
-// (neutro — a fila não tem token dedicado para o nível mais baixo).
-type UrgenciaFio = 'ALTA' | 'MEDIA' | 'BAIXA';
-
-function filaUrgenciaTone(urgencia: UrgenciaFio): 'clay' | 'amber' | 'mute' {
-  switch (urgencia) {
-    case 'ALTA': return 'clay';
-    case 'MEDIA': return 'amber';
-    case 'BAIXA': return 'mute';
-  }
-}
-
-function filaUrgenciaLabel(urgencia: UrgenciaFio): string {
-  switch (urgencia) {
-    case 'ALTA': return 'Alta';
-    case 'MEDIA': return 'Média';
-    case 'BAIXA': return 'Baixa';
-  }
+  return URGENCIA_VISUAL[URG_RELATORIO[level]].label;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -145,24 +77,6 @@ const makeStyles = (colors: typeof lightColors) =>
     statusText: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 12,
-    },
-    subServicesRow: {
-      flexDirection: 'row',
-      gap: 8,
-      paddingHorizontal: 16,
-      marginTop: 8,
-    },
-    subCard: { flex: 1, padding: 10 },
-    subLabel: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
-      color: colors.textMuteInk,
-      marginTop: 4,
-    },
-    subStatus: {
-      fontFamily: 'Lexend_500Medium',
-      fontSize: 11,
-      marginTop: 2,
     },
     // CQ-07: sem flexWrap, o título e os 3 chips de período disputavam a
     // mesma linha e se comprimiam em telas estreitas (Bloco 0 §2, B0.5).
@@ -223,10 +137,16 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 14,
       color: colors.text,
     },
+    // G2 M-2: com o trilho em `border` a barra da Media (amber) ficava a 2.49:1 do trilho no
+    // claro (< 3, WCAG 1.4.11). O trilho agora tem o mesmo fundo do cartao (`surface`, onde
+    // todas as barras medem >= 3:1) e o contorno `borderControl` mostra o comprimento total.
     progressBg: {
-      height: 4,
-      backgroundColor: colors.border,
-      borderRadius: 2,
+      height: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderControl,
+      borderRadius: 3,
+      overflow: 'hidden',
       marginTop: 2,
       marginBottom: 4,
     },
@@ -249,48 +169,6 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 15,
       color: colors.text,
       marginBottom: 10,
-    },
-    filaCard: { marginBottom: 10 },
-    filaCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    filaTempo: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
-      color: colors.textMuteInk,
-    },
-    filaPet: {
-      fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
-      color: colors.text,
-      marginTop: 8,
-    },
-    filaChipsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 6,
-      marginTop: 6,
-    },
-    filaTrecho: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.textSoft,
-      marginTop: 8,
-    },
-    filaErro: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.danger,
-      textAlign: 'center',
-      paddingVertical: 16,
-    },
-    filaActionsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-      marginTop: 12,
     },
   });
 
@@ -332,11 +210,7 @@ export default function LunaScreen() {
     dataFim,
   });
   const { data: relatorio } = relatorioQuery;
-  const {
-    data: fila,
-    isLoading: loadingFila,
-    isError: filaComErro,
-  } = useTriagens({ dataInicio, dataFim, pageSize: 20 });
+  const filaQuery = useTriagens({ dataInicio, dataFim, pageSize: 20 });
   const alertasQuery = useAlertas();
 
   const onRefresh = async () => {
@@ -416,6 +290,14 @@ export default function LunaScreen() {
       ? colors.warning
       : colors.success;
 
+  // G2 I-3: `warning` como TEXTO dava 3.11:1 no claro. O ponto fica com a cor cheia
+  // (grafismo, >= 3:1); o texto usa a tinta (`amberInk`).
+  const statusTextColor = !healthUp
+    ? colors.danger
+    : degradado
+      ? colors.amberInk
+      : colors.success;
+
   const statusLabel = !healthUp
     ? STRINGS.LUNA.STATUS_OFFLINE
     : degradado
@@ -449,7 +331,7 @@ export default function LunaScreen() {
                 testID="status-dot"
               />
               <Text
-                style={[styles.statusText, { color: statusColor }]}
+                style={[styles.statusText, { color: statusTextColor }]}
                 testID="status-text"
               >
                 {statusLabel}
@@ -459,84 +341,37 @@ export default function LunaScreen() {
         </KCCard>
       </View>
 
-      {/* SUB-SERVIÇOS */}
-      {healthUp && (
-        <View style={styles.subServicesRow} testID="sub-services">
-          {(Object.keys(SERVICO_META) as (keyof typeof SERVICO_META)[]).map((key) => {
-            const isUp = isServicoUp(health[key]);
-            const meta = SERVICO_META[key];
-            const svcColor = isUp ? colors.success : colors.danger;
-            return (
-              <KCCard key={key} style={styles.subCard}>
-                <KCIcon name={meta.icon} size={20} color={svcColor} />
-                <Text style={styles.subLabel}>{meta.label}</Text>
-                <Text style={[styles.subStatus, { color: svcColor }]} testID={`svc-${key}`}>
-                  {isUp ? 'UP' : 'DOWN'}
-                </Text>
-              </KCCard>
-            );
-          })}
-        </View>
-      )}
+      {/* C6 (BR-CLI-T07): a telemetria Oracle/API Kura saiu daqui; vive em Configuracoes (gestor). */}
 
       {/* FILA DA LUNA (LU-09) */}
       <View style={styles.section}>
         <Text style={styles.filaTitle}>{STRINGS.LUNA.FILA_TITLE}</Text>
       </View>
-      {loadingFila ? (
-        <KCCard style={styles.reportCard}>
-          <Skeleton variant="line" count={2} testID="skeleton-fila" />
-        </KCCard>
-      ) : filaComErro ? (
-        // Erro de rede != estado vazio — nunca mostrar "nenhuma mensagem" quando a
-        // chamada falhou de verdade (critério de aceite literal do backlog).
-        <Text style={styles.filaErro} testID="fila-erro">
-          {STRINGS.LUNA.FILA_ERRO}
-        </Text>
-      ) : !fila || fila.items.length === 0 ? (
-        <KCEmptyState
-          icon="luna"
-          title={STRINGS.LUNA.EMPTY_FILA}
-          description={STRINGS.LUNA.EMPTY_FILA_DESC}
-          testID="empty-fila"
-          style={{ paddingHorizontal: 16 }}
-        />
-      ) : (
+      {/* G2 M-6: QueryState — erro COM dado em cache mantem a fila + faixa "dados salvos";
+          erro SEM dado mostra ErrorState com "Tentar de novo"; erro nunca vira "vazio". */}
+      <QueryState
+        query={filaQuery}
+        isEmpty={(f) => f.items.length === 0}
+        skeleton={
+          <KCCard style={styles.reportCard}>
+            <Skeleton variant="line" count={2} testID="skeleton-fila" />
+          </KCCard>
+        }
+        empty={
+          <KCEmptyState
+            icon="luna"
+            title={STRINGS.LUNA.EMPTY_FILA}
+            description={STRINGS.LUNA.EMPTY_FILA_DESC}
+            testID="empty-fila"
+            style={{ paddingHorizontal: 16 }}
+          />
+        }
+        errorTitle={STRINGS.LUNA.FILA_ERRO}
+      >
+        {(fila) => (
         <View style={styles.section} testID="fila-luna-lista">
           {fila.items.map((item) => (
-            <KCCard
-              key={item.idTriagem}
-              style={styles.filaCard}
-              testID={`fila-card-${item.idTriagem}`}
-            >
-              <View style={styles.filaCardHeader}>
-                <KCChip tone={filaUrgenciaTone(item.urgencia)} testID={`fila-urg-${item.idTriagem}`}>
-                  {filaUrgenciaLabel(item.urgencia)}
-                </KCChip>
-                <Text style={styles.filaTempo} testID={`fila-tempo-${item.idTriagem}`}>
-                  {formatRelativeTime(item.dtTriagem)}
-                </Text>
-              </View>
-              {item.pets[0] && (
-                <Text style={styles.filaPet} testID={`fila-pet-${item.idTriagem}`}>
-                  {item.pets[0].nome}
-                </Text>
-              )}
-              {item.sintomas.length > 0 && (
-                <View style={styles.filaChipsRow}>
-                  {item.sintomas.map((sintoma) => (
-                    <KCChip key={sintoma} tone="mute">
-                      {sintoma}
-                    </KCChip>
-                  ))}
-                </View>
-              )}
-              {item.trechoMensagem && (
-                <Text style={styles.filaTrecho} numberOfLines={2} testID={`fila-trecho-${item.idTriagem}`}>
-                  {item.trechoMensagem}
-                </Text>
-              )}
-              <View style={styles.filaActionsRow}>
+            <TriagemCard key={item.idTriagem} item={item}>
                 {item.tutor && (
                   <KCButton
                     variant="secondary"
@@ -582,11 +417,11 @@ export default function LunaScreen() {
                     {STRINGS.LUNA.CADASTRAR_TUTOR}
                   </KCButton>
                 )}
-              </View>
-            </KCCard>
+            </TriagemCard>
           ))}
         </View>
-      )}
+        )}
+      </QueryState>
 
       {whatsappAlvo && (
         <WhatsAppModal
@@ -642,8 +477,9 @@ export default function LunaScreen() {
                     </View>
                     <Text style={styles.urgCountText}>{count}</Text>
                   </View>
-                  <View style={styles.progressBg}>
+                  <View style={styles.progressBg} testID={`urg-trilho-${level}`}>
                     <View
+                      testID={`urg-barra-${level}`}
                       style={{
                         height: 4,
                         width: `${pct}%`,

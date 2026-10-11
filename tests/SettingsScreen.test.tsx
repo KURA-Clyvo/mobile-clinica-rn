@@ -19,6 +19,11 @@ jest.mock('react-native-safe-area-context', () => ({
   },
 }));
 
+// BR-CLI-T07 (C6): o diagnostico da Luna (gestor) le o health por query; aqui nao ha QueryClient.
+jest.mock('@hooks/useLuna', () => ({
+  useLunaHealth: () => ({ data: { status: 'ok', oracle: true, kura_api: false, httpStatus: 503 }, isError: false }),
+}));
+
 jest.mock('@store/authStore', () => ({
   useAuthStore: jest.fn(),
 }));
@@ -314,5 +319,22 @@ describe('SettingsScreen — a seção "Financeiro" é só do GESTOR (FM-05)', (
     expect(botao).toBeTruthy();
     fireEvent.press(botao);
     expect(mockPush).toHaveBeenCalledWith('/financeiro');
+  });
+});
+
+// BR-CLI-T07 / C6: a telemetria Oracle/API Kura saiu da tela Luna e mora aqui, so para GESTOR.
+describe('SettingsScreen -- diagnostico da Luna (C6)', () => {
+  it('GESTOR ve Oracle DB / API Kura com UP/DOWN', () => {
+    comSessao({ tpPerfil: 'GESTOR', usuario: MOCK_VET });
+    const { getByTestId, getByText } = wrap(<SettingsScreen />);
+    expect(getByText('Diagnóstico da Luna')).toBeTruthy();
+    expect(getByTestId('svc-oracle').props.children).toBe('UP');
+    expect(getByTestId('svc-kura_api').props.children).toBe('DOWN');
+  });
+
+  it('VETERINARIO nao ve o diagnostico', () => {
+    comSessao({ tpPerfil: 'VETERINARIO', usuario: MOCK_VET });
+    const { queryByTestId } = wrap(<SettingsScreen />);
+    expect(queryByTestId('luna-diagnostico')).toBeNull();
   });
 });
