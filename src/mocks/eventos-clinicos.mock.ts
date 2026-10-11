@@ -59,7 +59,12 @@ export async function enviarTranscricao(
 export async function confirmarSoap(
   config: InternalAxiosRequestConfig,
 ): Promise<EventoClinicoSoapResponse> {
-  const body = JSON.parse((config.data as string) ?? '{}') as SoapDraft;
+  // O interceptor de mock entrega `config.data` como OBJETO (não string JSON) — mesma classe do
+  // `register()` (TASK-64). `JSON.parse(objeto)` lançava "[object Object] is not valid JSON" e
+  // o "Confirmar" do SOAP quebrava em modo mock (achado nos prints da BR-CLI-T08).
+  const body = (
+    typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})
+  ) as SoapDraft;
   return {
     idEventoClinico: _eventoId,
     dsTranscricao: null,
