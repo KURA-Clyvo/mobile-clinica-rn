@@ -9,6 +9,19 @@ import { minutosEsperando } from '@utils/etapaRecepcao';
 // `agora` e o relogio do DISPOSITIVO (mesma aproximacao ja aceita por `podeMarcarFalta`/
 // `minutosEsperando`; o servidor usa IRelogioClinica). Aparelho fora do fuso de SP erra "agora".
 
+/**
+ * BR-CLI-15: "Esperando ha N min" so assume o estilo de URGENCIA (clayInk) ACIMA deste limiar, em
+ * minutos. Antes, qualquer espera (1 min que fosse) aparecia em vermelho -- urgencia que sempre
+ * acende nao informa. 20 min e escolha do implementador (tolerancia tipica de sala de espera de
+ * clinica veterinaria; o Felipe pode revisar): mude SO esta constante. Estritamente `>`: 20 min
+ * exatos ainda nao e urgente.
+ */
+export const LIMIAR_ESPERA_URGENTE_MIN = 20;
+
+export function esperaUrgente(minutos: number | null): boolean {
+  return minutos !== null && minutos > LIMIAR_ESPERA_URGENTE_MIN;
+}
+
 /** Etapas em que o atendimento ainda vai acontecer ou esta acontecendo. */
 export const ETAPAS_ATIVAS = ['AGENDADO', 'CONFIRMADO', 'CHEGOU', 'EM_ATENDIMENTO'] as const;
 const ETAPAS_COM_ATRASO = ['AGENDADO', 'CONFIRMADO'];

@@ -537,6 +537,10 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
       fireEvent.press(getByTestId('btn-modo-hoje'));
       expect(getByTestId('espera-31').props.children.join('')).toBe('Esperando há 10 min');
       expect(getByTestId('espera-32').props.children.join('')).toBe('Esperando há 60 min');
+      // BR-CLI-15: so a espera ACIMA do limiar (60) usa o estilo de urgencia (clayInk); 10 min nao.
+      const cor = (id: string) => StyleSheet.flatten(getByTestId(id).props.style).color;
+      expect(cor('espera-32')).toBe(lightColors.clayInk);
+      expect(cor('espera-31')).not.toBe(lightColors.clayInk);
     } finally {
       jest.useRealTimers();
     }

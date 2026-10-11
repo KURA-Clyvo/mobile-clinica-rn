@@ -47,7 +47,7 @@ import {
   podeMarcarFalta,
 } from '@utils/etapaRecepcao';
 import { seloRespostaTutor, podeOferecerRemarcar } from '@utils/respostaConfirmacao';
-import { indiceMarcaAgora, organizarDia } from '@utils/proximosDoDia';
+import { esperaUrgente, indiceMarcaAgora, organizarDia } from '@utils/proximosDoDia';
 import { agora as relogio } from '@utils/agora';
 import { STRINGS } from '@constants/strings';
 import type { AgendamentoResponse } from '../../types/api';
@@ -304,8 +304,11 @@ const makeStyles = (colors: typeof lightColors) =>
     hojeEsperaText: {
       fontFamily: 'Lexend_500Medium',
       fontSize: fontSize.sm,
-      color: colors.clayInk,
+      color: colors.textSoft,
     },
+    // BR-CLI-15: urgencia so acima de LIMIAR_ESPERA_URGENTE_MIN (utils/proximosDoDia.ts). Vem DEPOIS
+    // do override do destaque no array de estilos, entao vence quando as duas coisas valem.
+    hojeEsperaUrgente: { color: colors.clayInk },
     hojeBadgeRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -610,7 +613,14 @@ function AgendaHojeCard({
           </View>
           <RespostaTutorSelo appointment={a} />
           {espera !== null && (
-            <Text style={[styles.hojeEsperaText, destaque && styles.hojeEsperaTextDestaque]} testID={`espera-${a.id}`}>
+            <Text
+              style={[
+                styles.hojeEsperaText,
+                destaque && styles.hojeEsperaTextDestaque,
+                esperaUrgente(espera) && styles.hojeEsperaUrgente,
+              ]}
+              testID={`espera-${a.id}`}
+            >
               Esperando há {espera} min
             </Text>
           )}

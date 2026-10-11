@@ -23,8 +23,6 @@ import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';
 
-const ITEM_HEIGHT = 76;
-
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     searchWrapper: {
@@ -104,15 +102,11 @@ export default function PacientesScreen() {
       ? STRINGS.PACIENTES.COUNT_SINGULAR
       : STRINGS.PACIENTES.COUNT_PLURAL(pets.length);
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<PetResponse> | null | undefined, index: number) => ({
-      length: ITEM_HEIGHT,
-      offset: ITEM_HEIGHT * index,
-      index,
-    }),
-    [],
-  );
-
+  // BR-CLI-T09 (BR-CLI-15): o `getItemLayout` com `ITEM_HEIGHT = 76` foi REMOVIDO. A linha real
+  // (PetListItem: paddingVertical 12x2 + nome/chip + 3 legendas de 13px) mede ~96px e, pior, NAO
+  // e constante -- raca/tutor longos quebram linha em 390px e o Dynamic Type cresce a fonte --, entao
+  // qualquer altura fixa desalinha o scroll/`scrollToIndex`. Sem `getItemLayout` a FlatList mede
+  // sozinha; a lista de pacientes e paginada por clinica (dezenas), o custo e desprezivel.
   const renderSeparator = useCallback(
     () => <View style={styles.separator} />,
     [styles.separator],
@@ -142,7 +136,7 @@ export default function PacientesScreen() {
 
   return (
     // CQ-15: scroll={false} — a lista é uma FlatList, que já virtualiza e
-    // gerencia seu próprio scroll (`getItemLayout`, `removeClippedSubviews`);
+    // gerencia seu próprio scroll (`removeClippedSubviews`);
     // aninhar isso num ScrollView (o modo scroll=true padrão) dispararia o
     // aviso "VirtualizedLists should never be nested inside plain
     // ScrollViews" e derrotaria a virtualização. paddingHorizontal={0}
@@ -199,7 +193,6 @@ export default function PacientesScreen() {
               keyExtractor={(item) => String(item.id)}
               renderItem={renderItem}
               ItemSeparatorComponent={renderSeparator}
-              getItemLayout={getItemLayout}
               removeClippedSubviews
               maxToRenderPerBatch={12}
               initialNumToRender={15}

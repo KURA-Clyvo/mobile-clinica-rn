@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { FlatList, ScrollView, StyleSheet } from 'react-native';
 import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import PacientesScreen from '../src/app/(app)/pacientes/index';
@@ -172,6 +172,13 @@ describe('PatientsListScreen — ScreenContainer adoption (CQ-15)', () => {
   // já virtualiza sozinha (`getItemLayout`/`removeClippedSubviews`); se
   // `scroll={false}` sumir, o ScreenContainer volta ao modo scroll padrão e
   // passa a envolver a FlatList num ScrollView — nested VirtualizedLists.
+  // BR-CLI-15: `ITEM_HEIGHT = 76` contra uma linha real de ~96px (e variavel com quebra de
+  // linha/Dynamic Type) desalinhava o scroll; o `getItemLayout` foi removido.
+  it('a FlatList nao declara getItemLayout (altura fixa nao confiavel)', () => {
+    const { UNSAFE_getByType } = wrap(<PacientesScreen />);
+    expect(UNSAFE_getByType(FlatList).props.getItemLayout).toBeUndefined();
+  });
+
   it('does not nest the virtualized FlatList inside a ScrollView (scroll={false})', () => {
     const { UNSAFE_queryAllByType } = wrap(<PacientesScreen />);
     // FlatList é construída sobre VirtualizedList, que já renderiza o

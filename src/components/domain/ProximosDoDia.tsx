@@ -10,7 +10,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { formatTime } from '@utils/date';
 import { etapaRecepcaoLabel, etapaRecepcaoTone } from '@utils/etapaRecepcao';
-import { minutosDeAtraso, minutosDeEspera, organizarDia } from '@utils/proximosDoDia';
+import { esperaUrgente, minutosDeAtraso, minutosDeEspera, organizarDia } from '@utils/proximosDoDia';
 import type { AgendamentoResponse } from '../../types/api';
 
 // BR-CLI-T06 -- bloco "qual e o proximo?" do dashboard. Le a MESMA agenda do dia da tela Hoje
@@ -197,7 +197,10 @@ function Destaque({
           {etapaRecepcaoLabel(etapa)}
         </KCChip>
         {espera !== null && (
-          <Text style={styles.destaqueTextoSuave} testID="proximo-espera">
+          <Text
+            style={[styles.destaqueTextoSuave, esperaUrgente(espera) && styles.esperaUrgente]}
+            testID="proximo-espera"
+          >
             {STRINGS.dashboard.esperandoHa(espera)}
           </Text>
         )}
@@ -244,7 +247,10 @@ function LinhaSeguinte({ a, agora }: { a: AgendamentoResponse; agora: Date }) {
           {etapaRecepcaoLabel(a.dsEtapaRecepcao)}
         </KCChip>
         {espera !== null && (
-          <Text style={styles.linhaAtraso} testID={`espera-${a.id}`}>
+          <Text
+            style={[styles.linhaAtraso, esperaUrgente(espera) && styles.esperaUrgente]}
+            testID={`espera-${a.id}`}
+          >
             {STRINGS.dashboard.esperandoHa(espera)}
           </Text>
         )}
@@ -280,6 +286,8 @@ const makeStyles = (colors: typeof lightColors) =>
       marginBottom: spacing[5],
     },
     destaqueTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
+    // BR-CLI-15: espera acima do limiar (utils/proximosDoDia.ts). clayInk: 4.66:1 sobre primaryPale, 5.24:1 sobre bg.
+    esperaUrgente: { color: colors.clayInk, fontFamily: fonts.bodyMedium },
     destaqueHora: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: colors.text },
     destaquePetLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
     destaquePet: {
