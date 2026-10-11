@@ -295,6 +295,14 @@ export default function LunaScreen() {
       ? colors.warning
       : colors.success;
 
+  // G2 I-3: `warning` como TEXTO dava 3.11:1 no claro. O ponto fica com a cor cheia
+  // (grafismo, >= 3:1); o texto usa a tinta (`amberInk`).
+  const statusTextColor = !healthUp
+    ? colors.danger
+    : degradado
+      ? colors.amberInk
+      : colors.success;
+
   const statusLabel = !healthUp
     ? STRINGS.LUNA.STATUS_OFFLINE
     : degradado
@@ -328,7 +336,7 @@ export default function LunaScreen() {
                 testID="status-dot"
               />
               <Text
-                style={[styles.statusText, { color: statusColor }]}
+                style={[styles.statusText, { color: statusTextColor }]}
                 testID="status-text"
               >
                 {statusLabel}
