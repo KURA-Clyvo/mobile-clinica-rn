@@ -7,7 +7,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -43,10 +43,10 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    headerTitle: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
+    headerTitle: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
     subtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       paddingHorizontal: 16,
       paddingTop: 4,

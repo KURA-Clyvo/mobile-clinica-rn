@@ -19,7 +19,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import {
   useCriarPrescricao,
@@ -73,25 +73,25 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomColor: colors.border,
     },
     petInfo: { flex: 1, marginLeft: 10 },
-    petName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    petName: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    petDate: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     form: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginBottom: 4,
     },
     searchContainer: {
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       backgroundColor: colors.surface,
       overflow: 'hidden',
     },
     searchInput: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       padding: 12,
       minHeight: touchTarget.min,
@@ -102,22 +102,22 @@ const makeStyles = (colors: typeof lightColors) =>
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    medName: { fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
-    medSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    medName: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    medSub: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     dateRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       backgroundColor: colors.surface,
       padding: 12,
     },
-    dateText: { fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
+    dateText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
     errorText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.danger,
       marginTop: 4,
     },
@@ -146,13 +146,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     successTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 17,
+      fontSize: fontSize.md,
       color: colors.text,
       textAlign: 'center',
     },
     successSummary: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       textAlign: 'center',
     },

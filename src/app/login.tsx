@@ -12,7 +12,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
@@ -50,13 +50,13 @@ const makeStyles = (colors: typeof lightColors) =>
     brandBlock: { alignItems: 'center', marginTop: 40, marginBottom: 48 },
     brand: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 36,
+      fontSize: fontSize.page,
       color: colors.primary,
       marginTop: 12,
     },
     brandSub: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.textSoft,
       marginTop: 4,
     },
@@ -66,7 +66,7 @@ const makeStyles = (colors: typeof lightColors) =>
     registerLink: { alignItems: 'center', justifyContent: 'center', minHeight: touchTarget.min, minWidth: touchTarget.min, marginTop: 16 },
     registerLinkText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.primary,
     },
   });

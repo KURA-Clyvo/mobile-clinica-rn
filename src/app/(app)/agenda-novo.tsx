@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { voltarOu } from '@utils/navegacao';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -29,13 +29,13 @@ const makeStyles = (colors: typeof lightColors) =>
     backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 24 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
-    sectionLabel: { fontFamily: 'Lexend_500Medium', fontSize: 13, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk },
+    title: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text },
+    sectionLabel: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.sm, color: colors.text },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     box: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: radius.md,
       padding: 12,
       gap: 8,
     },
@@ -45,7 +45,7 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 14,
+      borderRadius: radius.lg,
       paddingHorizontal: 10,
       // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
       paddingVertical: 0,
@@ -54,7 +54,7 @@ const makeStyles = (colors: typeof lightColors) =>
     searchInput: {
       flex: 1,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       paddingVertical: 10,
       minHeight: touchTarget.min,
@@ -62,18 +62,18 @@ const makeStyles = (colors: typeof lightColors) =>
     itemRow: {
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: 10,
+      borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
     itemRowSelected: { borderColor: colors.primary, backgroundColor: colors.bgSunk },
-    itemTitle: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    itemSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    itemTitle: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    itemSub: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     lockedBox: {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.bgSunk,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
     },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -83,18 +83,18 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'space-between',
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
     },
-    dateText: { fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
-    errorText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.danger },
+    dateText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    errorText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.danger },
     input: {
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
       minHeight: 72,
       textAlignVertical: 'top',

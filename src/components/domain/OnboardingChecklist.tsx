@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { fontSize, lightColors } from '@theme/tokens';
+import { fontSize, lightColors, radius } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -69,12 +69,12 @@ const makeStyles = (colors: typeof lightColors) =>
     headerTextBlock: { flex: 1 },
     title: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     subtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginTop: 2,
     },
@@ -103,13 +103,13 @@ const makeStyles = (colors: typeof lightColors) =>
     stepIconWrap: {
       width: 30,
       height: 30,
-      borderRadius: 15,
+      borderRadius: radius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
     stepLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
       flex: 1,
     },

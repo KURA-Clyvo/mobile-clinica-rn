@@ -145,7 +145,10 @@ export const radius = {
   full: 9999,
 } as const;
 
+// Escala do DS (ds-tokens-2026-10-09.json, grupos Display/Text/Mono). Os 5 degraus
+// acrescentados (micro, title, wordmark, page, metric) existem no DS e faltavam no app.
 export const fontSize = {
+  micro: 10,
   xs: 11,
   sm: 13,
   base: 15,
@@ -154,6 +157,10 @@ export const fontSize = {
   xl: 26,
   '2xl': 34,
   '3xl': 44,
+  title: 22,
+  wordmark: 24,
+  page: 36,
+  metric: 48,
 } as const;
 
 export const fonts = {

@@ -4,7 +4,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, spacing } from '@theme/tokens';
+import { lightColors, spacing, fontSize, radius } from '@theme/tokens';
 import { useLunaHealth, useRelatorioTriagens, useTriagens } from '@hooks/useLuna';
 import { useAlertas } from '@hooks/useDashboard';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -63,20 +63,20 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     lunaTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     lunaSubtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginTop: 2,
     },
     statusIndicator: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    dot: { width: 10, height: 10, borderRadius: 5 },
+    dot: { width: 10, height: 10, borderRadius: radius.sm },
     statusText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 12,
+      fontSize: fontSize.sm,
     },
     // CQ-07: sem flexWrap, o título e os 3 chips de período disputavam a
     // mesma linha e se comprimiam em telas estreitas (Bloco 0 §2, B0.5).
@@ -95,7 +95,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     reportTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       // Permite ao título ceder espaço para o grupo de chips em vez de
       // empurrá-lo pra fora da tela — parceiro do flexWrap acima.
@@ -111,7 +111,7 @@ const makeStyles = (colors: typeof lightColors) =>
     reportCard: { marginHorizontal: 16 },
     totalText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     separator: {
@@ -126,15 +126,15 @@ const makeStyles = (colors: typeof lightColors) =>
       paddingVertical: 6,
     },
     urgLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    urgDot: { width: 8, height: 8, borderRadius: 4 },
+    urgDot: { width: 8, height: 8, borderRadius: radius.sm },
     urgLabelText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     urgCountText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     // G2 M-2: com o trilho em `border` a barra da Media (amber) ficava a 2.49:1 do trilho no
@@ -145,28 +145,28 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 3,
+      borderRadius: radius.sm,
       overflow: 'hidden',
       marginTop: 2,
       marginBottom: 4,
     },
     encText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       marginTop: 8,
     },
     alertasSection: { paddingHorizontal: 16, marginTop: 16, marginBottom: 24 },
     alertasTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       marginBottom: 10,
     },
     // LU-09 — Fila da Luna
     filaTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       marginBottom: 10,
     },
@@ -484,7 +484,7 @@ export default function LunaScreen() {
                         height: 4,
                         width: `${pct}%`,
                         backgroundColor: col,
-                        borderRadius: 2,
+                        borderRadius: radius.sm,
                       }}
                     />
                   </View>

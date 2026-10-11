@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { useAtualizarStatusAgendamento } from '@hooks/useAgenda';
@@ -52,13 +52,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     headerTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 10, paddingBottom: 8 },
     emptyText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
   });

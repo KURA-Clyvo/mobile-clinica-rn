@@ -143,7 +143,7 @@ const USOS: Uso[] = [
     texto: 'danger',
     fundo: 'surface',
   },
-  { arq: TELE, ancora: /fontSize: 12,\s*color: colors\.textSoft,\s*flex: 1/, texto: 'textSoft', fundo: 'infoBg' },
+  { arq: TELE, ancora: /fontSize: fontSize.sm,\s*color: colors\.textSoft,\s*flex: 1/, texto: 'textSoft', fundo: 'infoBg' },
   { arq: TELE, ancora: /color: colors\.textSoft,\s*marginTop: 8/, texto: 'textSoft', fundo: 'infoBg' },
   {
     arq: 'components/domain/LancarCobrancaCard.tsx',

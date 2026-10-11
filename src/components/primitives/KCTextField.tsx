@@ -10,7 +10,7 @@ import {
   KeyboardTypeOptions,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 
 export interface KCTextFieldProps {
   label: string;
@@ -34,7 +34,7 @@ const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     wrapper: {},
     label: {
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       marginBottom: 4,
       fontFamily: 'Lexend_400Regular',
@@ -43,7 +43,7 @@ const makeStyles = (colors: typeof lightColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1.5,
-      borderRadius: 10,
+      borderRadius: radius.md,
       // BR-CLI-T05 (achado da fix wave): o padding vertical mora no TextInput, não no
       // contêiner — com ele aqui o <input> media ~19px no web e clicar no padding não
       // focava o campo. A caixa visual continua ~46px; a área clicável passa a ser ela.
@@ -65,7 +65,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     input: {
       flex: 1,
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       fontFamily: 'Lexend_400Regular',
       paddingHorizontal: 0,
@@ -85,12 +85,12 @@ const makeStyles = (colors: typeof lightColors) =>
       marginTop: 3,
     },
     errorText: {
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.danger,
       fontFamily: 'Lexend_400Regular',
     },
     helperText: {
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
       fontFamily: 'Lexend_400Regular',
     },
@@ -103,7 +103,7 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
     },
     eyeText: {
-      fontSize: 16,
+      fontSize: fontSize.md,
       color: colors.textMuteInk,
     },
   });

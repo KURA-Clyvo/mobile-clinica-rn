@@ -12,7 +12,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { useToast } from '@components/feedback/Toast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -48,34 +48,34 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     headerTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16, paddingBottom: 8 },
     recipientRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    recipientName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    recipientPet: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    recipientName: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    recipientPet: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginBottom: 4,
     },
     messageInput: {
       minHeight: 120,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       textAlignVertical: 'top',
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
     },
     charCount: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       alignSelf: 'flex-end',
       marginTop: 2,

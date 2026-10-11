@@ -11,7 +11,7 @@ import {
 import { avisar } from '@components/feedback/confirmar';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { useAgendaSemana, useAgendaHoje, useCheckinAgendamento, useAtualizarStatusAgendamento } from '@hooks/useAgenda';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
@@ -71,7 +71,7 @@ const makeStyles = (colors: typeof lightColors) =>
     navBtn: { padding: 4, minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center' },
     weekRange: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     dayTabsScroll: {
@@ -88,7 +88,7 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: radius.md,
       minWidth: 44,
       // CQ-08 fix wave 3 (achado I-1 da G2 rodada 2): `minWidth:44` sozinho
       // só provava o eixo largura — WCAG 2.5.5 exige 44×44, os DOIS eixos.
@@ -100,14 +100,14 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     dayLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
     },
     dayLabelSelected: { color: colors.textOnPrimary },
     dayLabelToday: { color: colors.primary },
     dayNumber: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 16,
+      fontSize: fontSize.md,
       color: colors.text,
       marginTop: 2,
     },
@@ -116,7 +116,7 @@ const makeStyles = (colors: typeof lightColors) =>
     todayDot: {
       width: 4,
       height: 4,
-      borderRadius: 2,
+      borderRadius: radius.sm,
       backgroundColor: colors.primary,
       marginTop: 3,
     },
@@ -135,12 +135,12 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     timeText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     durationText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 10,
+      fontSize: fontSize.micro,
       color: colors.textMuteInk,
       marginTop: 2,
     },
@@ -158,18 +158,18 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     petName: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
       flex: 1,
     },
     petDetail: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
     },
     tutorText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
     // FM-04: teleBtn e statusBtn (novo) agora moram lado a lado dentro de
@@ -191,12 +191,12 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 4,
       paddingVertical: 4,
       paddingHorizontal: 8,
-      borderRadius: 8,
+      borderRadius: radius.md,
       backgroundColor: colors.primary,
     },
     teleBtnText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textOnPrimary,
     },
     // FM-04: botão "..." que abre o menu contextual de status (Ruling D-13 —
@@ -214,14 +214,14 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 4,
       paddingVertical: 4,
       paddingHorizontal: 8,
-      borderRadius: 8,
+      borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
     },
     statusBtnText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.text,
     },
 
@@ -240,7 +240,7 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 8,
-      borderRadius: 10,
+      borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
@@ -251,7 +251,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     modoBtnText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.text,
     },
     modoBtnTextActive: {
@@ -274,7 +274,7 @@ const makeStyles = (colors: typeof lightColors) =>
     hojeFotoWrap: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: radius.xl,
       overflow: 'hidden',
       backgroundColor: colors.bgSunk,
       alignItems: 'center',
@@ -291,19 +291,19 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     hojePetName: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
       flex: 1,
     },
     hojeMetaText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
     hojeEsperaTextDestaque: { color: colors.textSoft },
     hojeEsperaText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.clayInk,
     },
     hojeBadgeRow: {
@@ -326,7 +326,7 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: radius.md,
       backgroundColor: colors.primary,
     },
     hojeActionBtnSecondary: {
@@ -336,24 +336,24 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 8,
+      borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.surface,
     },
     hojeActionBtnTextPrimary: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textOnPrimary,
     },
     hojeActionBtnTextSecondary: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.text,
     },
     notaOrigem: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
       textAlign: 'center',
       paddingTop: 8,
@@ -370,14 +370,14 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     hojeErroTitulo: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       textAlign: 'center',
       marginTop: 12,
     },
     hojeErroDesc: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       textAlign: 'center',
       marginTop: 4,
@@ -390,12 +390,12 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 8,
+      borderRadius: radius.md,
       backgroundColor: colors.primary,
     },
     hojeErroBtnText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textOnPrimary,
     },
   });

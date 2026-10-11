@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import type { KCIconName } from '@components/primitives/KCIcon';
 
 export type MetricTone = 'ocean' | 'sage' | 'amber' | 'clay';
@@ -37,20 +37,20 @@ const makeStyles = (colors: typeof lightColors) =>
     iconCircle: {
       width: 40,
       height: 40,
-      borderRadius: 20,
+      borderRadius: radius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       marginBottom: 10,
     },
     value: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 32,
+      fontSize: fontSize['2xl'],
       color: colors.text,
       lineHeight: 36,
     },
     label: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
       marginTop: 2,
     },

@@ -13,7 +13,7 @@ import { voltarOu } from '@utils/navegacao';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { usePetDetail, useUploadFotoPet } from '@hooks/usePetDetail';
 import { usePetTimeline } from '@hooks/usePetTimeline';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -81,7 +81,7 @@ function TimelineItemRow({
   return (
     <View style={{ flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16 }}>
       <View style={{ width: 40, alignItems: 'center' }}>
-        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 36, height: 36, borderRadius: radius.xl, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
           <KCIcon name={iconName} size={18} color={color} />
         </View>
         {!isLast && (
@@ -90,13 +90,13 @@ function TimelineItemRow({
       </View>
       <View style={{ flex: 1, marginLeft: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>{label}</Text>
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
+          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text }}>{label}</Text>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
             {formatDateShort(evento.dtEvento)}
           </Text>
         </View>
         <Text
-          style={{ fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textSoft }}
+          style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textSoft }}
           numberOfLines={expanded ? undefined : 2}
         >
           {evento.dsObservacao}
@@ -106,14 +106,14 @@ function TimelineItemRow({
           style={{ minHeight: touchTarget.min, minWidth: touchTarget.min, justifyContent: 'center', alignSelf: 'flex-start' }}
           onPress={() => setExpanded((v) => !v)}
         >
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary, marginTop: 2 }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.primary, marginTop: 2 }}>
             {expanded ? 'Ver menos' : 'Ver mais'}
           </Text>
         </TouchableOpacity>
         {evento.nmVeterinario ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
             <KCIcon name="consult" size={12} color={colors.textMuteInk} />
-            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
+            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
               {evento.nmVeterinario}
             </Text>
           </View>
@@ -160,7 +160,7 @@ function StubTab({ label }: { label: string }) {
   const { colors } = useTheme();
   return (
     <View style={{ alignItems: 'center', paddingTop: 40 }}>
-      <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.textMuteInk }}>
+      <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.textMuteInk }}>
         {label}
       </Text>
     </View>
@@ -177,13 +177,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     petName: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 20,
+      fontSize: fontSize.lg,
       color: colors.textOnPrimary,
       marginTop: 12,
     },
     petSubtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.textOnPrimary,
       opacity: 0.8,
     },
@@ -217,7 +217,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     tabText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.textMuteInk,
     },
     tabTextActive: {
@@ -227,13 +227,13 @@ const makeStyles = (colors: typeof lightColors) =>
     skeletonCircle: {
       width: 96,
       height: 96,
-      borderRadius: 48,
+      borderRadius: radius.full,
       backgroundColor: colors.bgSunk,
       opacity: 0.4,
     },
     skeletonText: {
       height: 14,
-      borderRadius: 6,
+      borderRadius: radius.sm,
       backgroundColor: colors.bgSunk,
       opacity: 0.4,
     },
@@ -244,7 +244,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     errorText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
   });
@@ -510,12 +510,12 @@ export default function PacienteDetailScreen() {
       <KCCard style={{ marginHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <KCIcon name="patients" size={16} color={colors.textMuteInk} />
-          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>
+          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text }}>
             Tutores
           </Text>
         </View>
         {pet.tutores.length === 0 ? (
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
             {STRINGS.PACIENTES.NO_TUTOR}
           </Text>
         ) : (
@@ -532,10 +532,10 @@ export default function PacienteDetailScreen() {
               }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>
+                <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text }}>
                   {tutor.nmTutor}
                 </Text>
-                <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
+                <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
                   {VINCULO_LABEL[tutor.dsVinculo] ?? tutor.dsVinculo}
                 </Text>
               </View>

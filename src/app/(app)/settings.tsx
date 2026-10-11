@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { confirmar } from '@components/feedback/confirmar';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { queryClient } from '@services/queryClient';
@@ -23,26 +23,26 @@ const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     section: { marginHorizontal: 16, marginTop: 12 },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-    titleText: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
+    titleText: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
     separator: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
     fieldRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-    fieldLabel: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
-    fieldValue: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
+    fieldLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
+    fieldValue: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
     prefRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingVertical: 12,
     },
-    prefLabel: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
-    prefCaption: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 2 },
+    prefLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    prefCaption: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk, marginTop: 2 },
     // BR-CLI-T05: linha-link com alvo >= 44 de altura (era so paddingVertical: 6, ~30px).
     inviteRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, minHeight: touchTarget.min },
-    inviteText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.primary },
-    noteText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 4 },
+    inviteText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.primary },
+    noteText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk, marginTop: 4 },
     aboutRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
-    aboutLabel: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
-    aboutValue: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    aboutLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    aboutValue: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     footer: { paddingHorizontal: 16, paddingVertical: 24 },
     // CQ-13, item 4 — geometria EXPLÍCITA nos DOIS eixos (44×44), diferente
     // de `inviteRow` acima (sem geometria explícita, categoria
@@ -57,7 +57,7 @@ const makeStyles = (colors: typeof lightColors) =>
       minWidth: 44,
       paddingVertical: 6,
     },
-    reverText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.primary },
+    reverText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.primary },
   });
 
 export default function SettingsScreen() {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 
 export interface KCBadgeProps {
   count?: number;
@@ -15,18 +15,18 @@ const makeStyles = (colors: typeof lightColors) =>
     dot: {
       width: 8,
       height: 8,
-      borderRadius: 4,
+      borderRadius: radius.sm,
     },
     pill: {
       minWidth: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: radius.md,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 4,
     },
     pillText: {
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textOnPrimary,
       fontFamily: 'Lexend_500Medium',
       lineHeight: 14,

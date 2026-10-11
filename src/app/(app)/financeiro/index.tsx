@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { voltarOu } from '@utils/navegacao';
 import { ROUTES } from '@constants/routes';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { useRequireGestor } from '@hooks/useIsGestor';
 import { useResumoFinanceiro } from '@hooks/useFinanceiro';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
@@ -62,23 +62,23 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
       marginLeft: -10,
     },
-    headerTitle: { fontFamily: 'Cormorant_500Medium', fontSize: 24, color: colors.text },
+    headerTitle: { fontFamily: 'Cormorant_500Medium', fontSize: fontSize.wordmark, color: colors.text },
     periodoText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginBottom: 16,
     },
     sectionBlock: { marginBottom: 24 },
     sectionTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       marginBottom: 4,
     },
     sectionCaption: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginBottom: 12,
     },
@@ -87,12 +87,12 @@ const makeStyles = (colors: typeof lightColors) =>
     comparacaoCard: { gap: 4 },
     comparacaoPeriodos: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
     comparacaoValor: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 22,
+      fontSize: fontSize.title,
       color: colors.text,
       marginTop: 4,
     },
@@ -103,20 +103,20 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'flex-end',
       marginBottom: 8,
     },
-    mixNome: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text, flex: 1 },
-    mixReceita: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
+    mixNome: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text, flex: 1 },
+    mixReceita: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
     // Barra proporcional: `View` com `width` percentual sobre um "trilho" de fundo -- decisão
     // #1 do brief (ver comentário de escolha de layout logo acima do componente MixRow,
     // abaixo). Sem biblioteca de gráfico (proibido pelo brief).
     mixBarTrack: {
       height: 8,
-      borderRadius: 4,
+      borderRadius: radius.sm,
       backgroundColor: colors.bgSunk,
       overflow: 'hidden',
     },
     mixBarFill: {
       height: 8,
-      borderRadius: 4,
+      borderRadius: radius.sm,
       backgroundColor: colors.primary,
     },
     mixCaptionRow: {
@@ -126,7 +126,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     mixCaptionText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
     },
   });
