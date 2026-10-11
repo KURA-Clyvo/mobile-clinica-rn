@@ -5,7 +5,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { ThemeProvider } from '../src/theme';
 import { TriagemCard } from '../src/components/domain/TriagemCard';
-import { destacarTrecho } from '../src/utils/triagem';
+import { destacarTrecho, rotuloSintoma } from '../src/utils/triagem';
 import type { TriagemListaItem } from '../src/types/api';
 
 const ITEM: TriagemListaItem = {
@@ -98,5 +98,32 @@ describe('destacarTrecho', () => {
   });
   it('sem palavras devolve o texto inteiro sem destaque', () => {
     expect(destacarTrecho('abc', [])).toEqual([{ texto: 'abc', destaque: false }]);
+  });
+});
+
+describe('combinacao:{categoria} (G2 M-5)', () => {
+  const COMB: TriagemListaItem = {
+    ...ITEM,
+    sintomas: ['combinacao:ingestao_toxica'],
+    trechoMensagem: 'Ela comeu chocolate ontem a noite.',
+  };
+  it('rotuloSintoma: categorias conhecidas e desconhecida legiveis, palavra comum intacta', () => {
+    expect(rotuloSintoma('combinacao:ingestao_toxica')).toBe('combinação: ingestão de algo tóxico');
+    expect(rotuloSintoma('combinacao:picada_mordida')).toBe('combinação: picada ou mordida');
+    expect(rotuloSintoma('combinacao:queda_altura')).toBe('combinação: queda de altura');
+    expect(rotuloSintoma('combinacao:nova_categoria')).toBe('combinação: nova categoria');
+    expect(rotuloSintoma('vomitou')).toBe('vomitou');
+  });
+  it('nunca destaca a categoria no trecho', () => {
+    expect(destacarTrecho('ingestao toxica combinacao', ['combinacao:ingestao_toxica']).some((s) => s.destaque)).toBe(false);
+  });
+  it('o card mostra texto humano em "disparou" e em "O que subiu", sem o literal cru', () => {
+    const { getByTestId, queryByText, getByText } = mostrar(COMB);
+    expect(getByTestId('fila-disparou-7')).toBeTruthy();
+    expect(getByText(/combinação: ingestão de algo tóxico/)).toBeTruthy();
+    fireEvent.press(getByTestId('fila-toque-7'));
+    expect(getByText(/O que subiu este caso: combinação: ingestão de algo tóxico/)).toBeTruthy();
+    expect(queryByText(/combinacao:/)).toBeNull();
+    expect(queryByText(/ingestao_toxica/)).toBeNull();
   });
 });

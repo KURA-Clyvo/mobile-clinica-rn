@@ -6,7 +6,7 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { STRINGS } from '@constants/strings';
 import { formatRelativeTime } from '@utils/date';
-import { URGENCIA_VISUAL, destacarTrecho } from '@utils/triagem';
+import { URGENCIA_VISUAL, destacarTrecho, rotuloSintoma } from '@utils/triagem';
 import type { TriagemListaItem } from '../../types/api';
 
 // BR-CLI-T07 -- card de triagem AUDITAVEL (canvas ClinicaTriagem v13). Mostra por que o caso
@@ -75,7 +75,7 @@ export function TriagemCard({ item, children }: TriagemCardProps) {
         {item.sintomas.length > 0 && (!trecho || !achouNoTrecho) && (
           <View style={styles.chips}>
             <KCChip tone="mute" testID={`fila-disparou-${id}`}>
-              {STRINGS.LUNA.TRIAGEM_DISPAROU(item.sintomas.join(', '))}
+              {STRINGS.LUNA.TRIAGEM_DISPAROU(item.sintomas.map(rotuloSintoma).join(', '))}
             </KCChip>
           </View>
         )}
@@ -98,7 +98,7 @@ export function TriagemCard({ item, children }: TriagemCardProps) {
           <View testID={`fila-detalhe-${id}`}>
             {item.sintomas.length > 0 && (
               <Text style={styles.subiu}>
-                {STRINGS.LUNA.TRIAGEM_SUBIU}: {item.sintomas.join(', ')}
+                {STRINGS.LUNA.TRIAGEM_SUBIU}: {item.sintomas.map(rotuloSintoma).join(', ')}
               </Text>
             )}
             <Text style={styles.nota}>{STRINGS.LUNA.TRIAGEM_NOTA_SCORE}</Text>

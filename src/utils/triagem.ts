@@ -20,6 +20,28 @@ export const URGENCIA_VISUAL: Record<Urgencia, UrgenciaVisual> = {
   BAIXA: { label: 'Baixa', chipTone: 'mute', grafico: 'textMute' },
 };
 
+// M-5 (G2): o motor devolve `combinacao:{categoria}` quando um verbo e um objeto da MESMA
+// oracao disparam ALTA juntos (ex. "comeu" + "chocolate"). Isso nao e palavra da mensagem:
+// nao se destaca no trecho e, na tela, vira texto humano.
+// Ancora: kura-luna-ai/luna/src/ai/triage_engine.py:190 (`f"combinacao:{categoria}"`) e as
+// categorias de triage_rules.py:225-278 (`COMBINACOES_ALTA`) @ e011335, conferido em
+// 2026-10-11 com `grep -n 'combinacao' luna/src/ai/triage_engine.py`.
+const PREFIXO_COMBINACAO = 'combinacao:';
+const CATEGORIAS_COMBINACAO: Record<string, string> = {
+  ingestao_toxica: 'ingestão de algo tóxico',
+  picada_mordida: 'picada ou mordida',
+  queda_altura: 'queda de altura',
+};
+
+export const ehCombinacao = (sintoma: string) => sintoma.startsWith(PREFIXO_COMBINACAO);
+
+/** Texto para o vet: palavra casada como veio; combinacao vira "combinação: <categoria>". */
+export function rotuloSintoma(sintoma: string): string {
+  if (!ehCombinacao(sintoma)) return sintoma;
+  const cat = sintoma.slice(PREFIXO_COMBINACAO.length);
+  return `combinação: ${CATEGORIAS_COMBINACAO[cat] ?? cat.replace(/_/g, ' ')}`;
+}
+
 export interface SegmentoTrecho {
   texto: string;
   destaque: boolean;
@@ -88,6 +110,7 @@ export function destacarTrecho(trecho: string, palavras: string[]): SegmentoTrec
   const tokens = tokenizar(trecho);
   const faixas: Array<[number, number]> = [];
   for (const p of palavras) {
+    if (ehCombinacao(p)) continue;
     const alvo = tokenizar(p.trim()).map((t) => t.tok);
     const n = alvo.length;
     if (n === 0) continue;
