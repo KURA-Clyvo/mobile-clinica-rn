@@ -170,13 +170,6 @@ const makeStyles = (colors: typeof lightColors) =>
       color: colors.text,
       marginBottom: 10,
     },
-    filaErro: {
-      fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
-      color: colors.danger,
-      textAlign: 'center',
-      paddingVertical: 16,
-    },
   });
 
 export default function LunaScreen() {
@@ -217,11 +210,7 @@ export default function LunaScreen() {
     dataFim,
   });
   const { data: relatorio } = relatorioQuery;
-  const {
-    data: fila,
-    isLoading: loadingFila,
-    isError: filaComErro,
-  } = useTriagens({ dataInicio, dataFim, pageSize: 20 });
+  const filaQuery = useTriagens({ dataInicio, dataFim, pageSize: 20 });
   const alertasQuery = useAlertas();
 
   const onRefresh = async () => {
@@ -358,25 +347,28 @@ export default function LunaScreen() {
       <View style={styles.section}>
         <Text style={styles.filaTitle}>{STRINGS.LUNA.FILA_TITLE}</Text>
       </View>
-      {loadingFila ? (
-        <KCCard style={styles.reportCard}>
-          <Skeleton variant="line" count={2} testID="skeleton-fila" />
-        </KCCard>
-      ) : filaComErro ? (
-        // Erro de rede != estado vazio — nunca mostrar "nenhuma mensagem" quando a
-        // chamada falhou de verdade (critério de aceite literal do backlog).
-        <Text style={styles.filaErro} testID="fila-erro">
-          {STRINGS.LUNA.FILA_ERRO}
-        </Text>
-      ) : !fila || fila.items.length === 0 ? (
-        <KCEmptyState
-          icon="luna"
-          title={STRINGS.LUNA.EMPTY_FILA}
-          description={STRINGS.LUNA.EMPTY_FILA_DESC}
-          testID="empty-fila"
-          style={{ paddingHorizontal: 16 }}
-        />
-      ) : (
+      {/* G2 M-6: QueryState — erro COM dado em cache mantem a fila + faixa "dados salvos";
+          erro SEM dado mostra ErrorState com "Tentar de novo"; erro nunca vira "vazio". */}
+      <QueryState
+        query={filaQuery}
+        isEmpty={(f) => f.items.length === 0}
+        skeleton={
+          <KCCard style={styles.reportCard}>
+            <Skeleton variant="line" count={2} testID="skeleton-fila" />
+          </KCCard>
+        }
+        empty={
+          <KCEmptyState
+            icon="luna"
+            title={STRINGS.LUNA.EMPTY_FILA}
+            description={STRINGS.LUNA.EMPTY_FILA_DESC}
+            testID="empty-fila"
+            style={{ paddingHorizontal: 16 }}
+          />
+        }
+        errorTitle={STRINGS.LUNA.FILA_ERRO}
+      >
+        {(fila) => (
         <View style={styles.section} testID="fila-luna-lista">
           {fila.items.map((item) => (
             <TriagemCard key={item.idTriagem} item={item}>
@@ -428,7 +420,8 @@ export default function LunaScreen() {
             </TriagemCard>
           ))}
         </View>
-      )}
+        )}
+      </QueryState>
 
       {whatsappAlvo && (
         <WhatsAppModal

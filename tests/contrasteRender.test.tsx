@@ -95,7 +95,7 @@ const ehHost = (n: ReactTestInstance) => typeof n.type === 'string';
 function medirTextos(raiz: ReactTestInstance, fundoTela: string) {
   const violacoes: Violacao[] = [];
   let total = 0;
-  for (const t of raiz.findAll((n) => n.type === 'Text')) {
+  for (const t of raiz.findAll((n) => String(n.type) === 'Text')) {
     const diretos = React.Children.toArray(t.props.children as React.ReactNode).filter(
       (c) => typeof c === 'string' || typeof c === 'number',
     );
@@ -105,7 +105,7 @@ function medirTextos(raiz: ReactTestInstance, fundoTela: string) {
     for (let n: ReactTestInstance | null = t; n && (!cor || !fundo); n = n.parent) {
       if (!ehHost(n)) continue;
       const s = estilo(n);
-      if (!cor && n.type === 'Text' && typeof s?.color === 'string') cor = s.color;
+      if (!cor && String(n.type) === 'Text' && typeof s?.color === 'string') cor = s.color;
       // 'transparent' (botoes ghost/secondary) nao e fundo: segue para o ancestral.
       if (!fundo && typeof s?.backgroundColor === 'string' && HEX.test(s.backgroundColor)) {
         fundo = s.backgroundColor;

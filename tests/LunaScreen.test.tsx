@@ -319,12 +319,29 @@ describe('LunaScreen', () => {
     });
 
     // Critério de aceite literal (§6 LU-09): erro de rede != estado vazio.
-    it('a network error does NOT show the empty-state message ("nenhuma mensagem")', () => {
-      mockUseTriagens.mockReturnValue({ data: undefined, isLoading: false, isError: true });
-      const { getByTestId, queryByTestId, queryByText } = wrap(<LunaScreen />);
-      expect(getByTestId('fila-erro')).toBeTruthy();
+    // G2 M-6: erro SEM dado => ErrorState com "Tentar de novo" (QueryState), nunca "vazio".
+    it('a network error does NOT show the empty-state message ("nenhuma mensagem"), and offers retry', () => {
+      const refetch = jest.fn();
+      mockUseTriagens.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+      const { getByText, queryByTestId, queryByText, getAllByTestId } = wrap(<LunaScreen />);
+      expect(getByText('Não foi possível carregar as mensagens da Luna.')).toBeTruthy();
       expect(queryByTestId('empty-fila')).toBeNull();
       expect(queryByText('Nenhuma mensagem de tutor no período')).toBeNull();
+      const retries = getAllByTestId('error-state-retry');
+      expect(retries.length).toBeGreaterThan(0);
+    });
+
+    it('G2 M-6: erro COM fila em cache mantem os cards e mostra a faixa "dados salvos"', () => {
+      mockUseTriagens.mockReturnValue({
+        data: MOCK_FILA,
+        isLoading: false,
+        isError: true,
+        refetch: jest.fn(),
+      });
+      const { getByTestId, getAllByTestId, queryByTestId } = wrap(<LunaScreen />);
+      expect(getByTestId('fila-card-501')).toBeTruthy();
+      expect(getAllByTestId('query-state-salvos').length).toBeGreaterThan(0);
+      expect(queryByTestId('empty-fila')).toBeNull();
     });
 
     it('shows skeletons while loading, not the empty state', () => {
