@@ -51,7 +51,8 @@ export interface SoapDraft {
 export interface EventoClinicoSoapResponse {
   idEventoClinico: number;
   dsTranscricao: string | null;
-  soap: SoapDraft;
+  // `null` quando a Luna não transcreve (A12: sem OPENAI_API_KEY o backend devolve 200 com nulos).
+  soap: SoapDraft | null;
   stSoapConfirmado: boolean;
 }
 
