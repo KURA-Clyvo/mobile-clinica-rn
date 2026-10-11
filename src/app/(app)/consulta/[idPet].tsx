@@ -31,6 +31,8 @@ import {
 import { useIniciarAtendimento } from '@hooks/useAgenda';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
+import { STRINGS } from '@constants/strings';
+import { Kicker } from '@components/primitives/Kicker';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
@@ -525,6 +527,7 @@ export default function ConsultaScreen() {
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
+          <Kicker testID="consulta-kicker">{STRINGS.consulta.kicker}</Kicker>
           {petFalhou ? (
             // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
             <ErrorState

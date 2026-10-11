@@ -7,6 +7,7 @@ import { useTheme } from '@theme/index';
 import { lightColors, spacing, fontSize, radius } from '@theme/tokens';
 import { useLunaHealth, useRelatorioTriagens, useTriagens } from '@hooks/useLuna';
 import { useAlertas } from '@hooks/useDashboard';
+import { Kicker } from '@components/primitives/Kicker';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
@@ -318,6 +319,9 @@ export default function LunaScreen() {
       }
     >
       {/* STATUS */}
+      <View style={styles.section}>
+        <Kicker testID="luna-kicker">{STRINGS.LUNA.KICKER}</Kicker>
+      </View>
       <View style={styles.section}>
         <KCCard>
           <View style={styles.statusRow}>

@@ -139,6 +139,9 @@ export const STRINGS = {
     COUNT_PLURAL: (n: number) => `${n} pacientes`,
     NO_TUTOR: 'Sem tutor',
   },
+  consulta: {
+    kicker: 'Atendimento · consulta',
+  },
   acoes: {
     novaConsulta: 'Nova consulta',
     teleorientacao: 'Teleorientação',
@@ -229,6 +232,7 @@ export const STRINGS = {
     PASSWORD_MIN: 'A senha deve ter no mínimo 6 caracteres',
   },
   LUNA: {
+    KICKER: 'Triagem · fila da Luna',
     TITLE: 'Luna IA',
     STATUS_ONLINE: 'Online',
     STATUS_DEGRADADO: 'Degradado',

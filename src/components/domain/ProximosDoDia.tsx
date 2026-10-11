@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@theme/index';
+import { Kicker } from '@components/primitives/Kicker';
 import { fontSize, fonts, lightColors, radius, spacing } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -176,10 +177,9 @@ function Destaque({
   return (
     <View style={styles.destaque} testID="proximo-atendimento">
       <View style={styles.destaqueTopo}>
-        <View style={styles.kickerLinha}>
-          <View style={styles.kickerTraco} />
-          <Text style={styles.kicker}>{STRINGS.dashboard.proximoKicker}</Text>
-        </View>
+        <Kicker cor="textSoft" testID="proximo-kicker">
+          {STRINGS.dashboard.proximoKicker}
+        </Kicker>
         <Text style={styles.destaqueHora} testID="proximo-hora">
           {formatTime(a.dtInicio)}
         </Text>
@@ -280,9 +280,6 @@ const makeStyles = (colors: typeof lightColors) =>
       marginBottom: spacing[5],
     },
     destaqueTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-    kickerLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexShrink: 1 },
-    kickerTraco: { width: spacing[4], height: 1, backgroundColor: colors.textSoft },
-    kicker: { fontFamily: fonts.mono, fontSize: fontSize.xs, letterSpacing: 1.5, color: colors.textSoft },
     destaqueHora: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: colors.text },
     destaquePetLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
     destaquePet: {

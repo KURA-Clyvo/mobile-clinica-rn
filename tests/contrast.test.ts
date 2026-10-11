@@ -324,7 +324,9 @@ const USOS: Uso[] = [
   },
   // BR-CLI-T06: destaque do proximo (ocean-pale = primaryPale) e blocos do dia sobre `bg`. Texto secundario SOBRE o destaque
   // e `textSoft` (9.33/7.79), NUNCA `textMuteInk` (4.24 no claro: reprova) -- controle negativo registrado no G0.
-  { arq: PD, ancora: /kicker: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: 'components/primitives/Kicker.tsx', ancora: /cor = 'textMuteInk'/, texto: 'textMuteInk', fundo: 'bg' },
+  { arq: 'components/primitives/Kicker.tsx', ancora: /'amberInk'/, texto: 'amberInk', fundo: 'bg' },
+  { arq: PD, ancora: /<Kicker cor="textSoft"/, texto: 'textSoft', fundo: 'primaryPale' },
   { arq: PD, ancora: /destaqueHora: \{[^}]*color: colors\.text \}/, texto: 'text', fundo: 'primaryPale' },
   { arq: PD, ancora: /fontSize: fontSize\['2xl'\],\s*lineHeight: fontSize\['2xl'\] \* 1\.2,\s*color: colors\.text,/, texto: 'text', fundo: 'primaryPale' },
   { arq: PD, ancora: /destaqueTutor: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
