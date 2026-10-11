@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@theme/index';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { radius, fontSize } from '@theme/tokens';
 
 // BR-CLI-T08 — o que faz um texto da IA parecer rascunho (CFMV 1.465/2022: a IA não salva
 // prontuário sem o veterinário confirmar). Canvas `ClinicaSOAP`: selo por campo (`infoBg` +
@@ -39,13 +40,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: 8,
     paddingVertical: 4,
     marginBottom: 6,
   },
-  seloTexto: { fontFamily: 'Lexend_500Medium', fontSize: 12 },
-  banner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 12 },
-  bannerTexto: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: 14 },
+  seloTexto: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.sm },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radius.lg, padding: 12 },
+  bannerTexto: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: fontSize.base },
   negrito: { fontFamily: 'Lexend_500Medium' },
 });

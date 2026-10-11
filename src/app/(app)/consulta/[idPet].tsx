@@ -21,7 +21,7 @@ import {
   requestRecordingPermissionsAsync,
 } from 'expo-audio';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, radius, fontSize } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import {
   useCriarConsulta,
@@ -149,17 +149,20 @@ const makeStyles = (colors: typeof lightColors) =>
       fontStyle: 'italic',
     },
     rascunhoCampo: {
-      borderRadius: 12,
+      borderRadius: radius.md,
       borderWidth: 2,
       borderStyle: 'dashed',
-      borderColor: colors.amber,
+      // M-e: amberInk (nao amber): >= 3:1 contra o fundo nos 2 temas (tests/contrast.test.ts).
+      borderColor: colors.amberInk,
     },
     transcricaoIndisponivel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
   });
+
+const TEXTO_SEM_RASCUNHO = 'A Luna transcreveu, mas não montou o rascunho — preencha os campos abaixo.';
 
 export default function ConsultaScreen() {
   const toast = useToast();
@@ -275,6 +278,8 @@ export default function ConsultaScreen() {
   const [idEventoClinico, setIdEventoClinico] = useState<number | null>(null);
   const [dsTranscricao, setDsTranscricao] = useState<string | null>(null);
   const [transcricaoIndisponivel, setTranscricaoIndisponivel] = useState(false);
+  // M-d: a Luna transcreveu mas nao montou rascunho (diferente de "indisponivel").
+  const [semRascunho, setSemRascunho] = useState(false);
   // BR-CLI-T08: os 4 campos do formulário SÃO o único S/O/A/P. `pendentes` = letras cujo texto
   // veio da Luna e o vet ainda não confirmou (selo). `rascunhoLuna` guarda o original da
   // transcrição (LU-10: o badge restaura contra ele). `antesDoRascunho` permite descartar.
@@ -342,19 +347,42 @@ export default function ConsultaScreen() {
       });
     }
     const aplicadas = substituir ? geradas : geradas.filter((l) => !ocupadas.includes(l));
+    aplicarTextoLuna(aplicadas, draft);
+  };
+
+  // I-1 (G2): UNICO ponto de entrada de texto da Luna num campo (transcricao, "Usar rascunho da
+  // Luna", "So nos campos vazios"). Invariante: texto da Luna nunca fica num campo sem selo, entao
+  // aqui SOMA a `pendentes` (nunca substitui) e guarda o texto do vet so na 1a aplicacao da letra.
+  const aplicarTextoLuna = (letras: Letra[], draft: SoapDraft) => {
     const antes: Partial<Record<Letra, string>> = {};
-    aplicadas.forEach((l) => {
+    letras.forEach((l) => {
       antes[l] = getValues(SOAP_CAMPOS[l].campo) ?? '';
       setValue(SOAP_CAMPOS[l].campo, draft[l] ?? '');
     });
-    setRascunhoLuna(draft);
-    setAntesDoRascunho(antes);
-    setPendentes(aplicadas);
+    setRascunhoLuna((prev) => {
+      // Guarda o rascunho INTEIRO (inclusive letras que o vet recusou trocar): o badge precisa dele.
+      const prox = { ...prev };
+      LETRAS.forEach((l) => {
+        if ((draft[l] ?? '').trim().length > 0) prox[l] = draft[l] ?? '';
+      });
+      return prox;
+    });
+    setAntesDoRascunho((prev) => {
+      const prox = { ...prev };
+      letras.forEach((l) => {
+        if (!(l in prox)) prox[l] = antes[l];
+      });
+      return prox;
+    });
+    setPendentes((prev) => LETRAS.filter((l) => prev.includes(l) || letras.includes(l)));
   };
 
+  // Descartar devolve cada campo ao que o vet tinha e esquece o rascunho da Luna (o badge some).
   const descartarRascunho = () => {
     pendentes.forEach((l) => setValue(SOAP_CAMPOS[l].campo, antesDoRascunho[l] ?? ''));
     setPendentes([]);
+    setAntesDoRascunho({});
+    setRascunhoLuna({ s: '', o: '', a: '', p: '' });
   };
 
   const handleGravarPress = async () => {
@@ -363,6 +391,7 @@ export default function ConsultaScreen() {
       const uri = audioRecorder.uri;
       if (uri && idEventoClinico) {
         setTranscricaoIndisponivel(false);
+        setSemRascunho(false);
         enviarTranscricao(
           { idEventoClinico, audioUri: uri, mimeType: 'audio/m4a' },
           {
@@ -377,7 +406,13 @@ export default function ConsultaScreen() {
               };
               const geradas = LETRAS.filter((l) => (draft[l] ?? '').trim().length > 0);
               if (geradas.length === 0) {
-                setTranscricaoIndisponivel(true);
+                // Transcreveu mas nao montou o rascunho: mostra a transcricao, aviso honesto (M-d).
+                if (result.dsTranscricao) {
+                  setDsTranscricao(result.dsTranscricao);
+                  setSemRascunho(true);
+                } else {
+                  setTranscricaoIndisponivel(true);
+                }
                 return;
               }
               setDsTranscricao(result.dsTranscricao);
@@ -417,7 +452,8 @@ export default function ConsultaScreen() {
         onSuccess: () => {
           // O selo só some quando o servidor confirmou: falha deixa o rascunho como rascunho.
           setPendentes([]);
-          toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado no prontuário' });
+          // I-3: o SOAP vai para DS_SOAP_* e a ficha ainda nao o mostra; o toast so diz o que e verdade.
+          toast.show({ tipo: 'sucesso', texto: 'SOAP confirmado' });
           voltarOu(router, fichaDoPet(idPet));
         },
         onError: (err: unknown) => {
@@ -551,6 +587,12 @@ export default function ConsultaScreen() {
                 </Text>
               )}
 
+              {semRascunho && (
+                <Text style={styles.transcricaoIndisponivel} testID="msg-sem-rascunho">
+                  {TEXTO_SEM_RASCUNHO}
+                </Text>
+              )}
+
               {transcricaoIndisponivel && (
                 <Text style={styles.transcricaoIndisponivel} testID="msg-transcricao-indisponivel">
                   Transcrição indisponível no momento — preencha os campos abaixo manualmente.
@@ -577,7 +619,7 @@ export default function ConsultaScreen() {
                     campo={L}
                     draftText={rascunhoLuna[letra]}
                     currentText={watch(campo) ?? ''}
-                    onSugest={(texto) => setValue(campo, texto)}
+                    onSugest={(texto) => aplicarTextoLuna([letra], { ...rascunhoLuna, [letra]: texto })}
                   />
                 </View>
                 {rascunho && <SeloRascunho testID={`selo-rascunho-${L}`} />}
