@@ -29,7 +29,7 @@ import {
 import { login, registerClinica } from '../src/services/auth.service';
 import { listPets, getPetById, getPetTimeline, uploadFoto } from '../src/services/pets.service';
 import type { FotoVarianteGerada } from '../src/utils/fotoPet';
-import { criarConsulta, getMedicamentos } from '../src/services/eventos-clinicos.service';
+import { criarConsulta, getMedicamentos, confirmarSoap } from '../src/services/eventos-clinicos.service';
 import { enviarWhatsApp, getLunaHealth, getRelatorioTriagens, getTriagens } from '../src/services/luna.service';
 import { getTutorById } from '../src/services/tutores.service';
 import { criarOuObterSala, obterSala } from '../src/services/teleconsulta.service';
@@ -369,6 +369,11 @@ describe('Contrato de modo mock (EXPO_PUBLIC_USE_MOCKS=true) — G4b, TASK-65', 
       const medicamentos = await getMedicamentos();
       expect(Array.isArray(medicamentos.items)).toBe(true);
       expect(medicamentos.items.length).toBeGreaterThan(0);
+    });
+
+    it('confirmarSoap executa sem lançar pela cadeia real (corpo objeto no mock) — BR-CLI-T08 M-c', async () => {
+      const r = await confirmarSoap(42, { s: 'S', o: 'O', a: 'A', p: 'P' });
+      expect(r.stSoapConfirmado).toBe(true);
     });
 
     it('enviarWhatsApp / getLunaHealth executam sem lançar (nunca propagam exceção — try/catch próprio)', async () => {

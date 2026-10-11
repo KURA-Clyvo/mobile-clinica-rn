@@ -355,6 +355,9 @@ const USOS: Uso[] = [
   { arq: 'components/domain/TriagemCard.tsx', ancora: /dado: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'surface' },
   { arq: 'components/domain/TriagemCard.tsx', ancora: /nota: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'surface' },
   { arq: 'components/domain/TriagemCard.tsx', ancora: /tempo: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'surface' },
+  // BR-CLI-T08 (M-e): borda tracejada do campo com rascunho da Luna = componente NAO-texto, >= 3:1 sobre o fundo da tela.
+  { arq: 'app/(app)/consulta/[idPet].tsx', ancora: /rascunhoCampo: \{[^}]*borderColor: colors\.amberInk/, texto: 'amberInk', fundo: 'bg', limiar: 3 },
+  { arq: 'app/(app)/consulta/[idPet].tsx', ancora: /rascunhoCampo: \{[^}]*borderColor: colors\.amberInk/, texto: 'amberInk', fundo: 'surface', limiar: 3 },
   { arq: 'components/domain/TriagemCard.tsx', ancora: /rotulo: \{[^}]*color: colors\.textMuteInk/, texto: 'textMuteInk', fundo: 'surface' },
 ];
 
