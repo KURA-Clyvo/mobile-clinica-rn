@@ -17,6 +17,7 @@ import type { ChipTone } from '../src/components/primitives/KCChip';
 import { TriagemCard } from '../src/components/domain/TriagemCard';
 import { LunaDiagnostico } from '../src/components/domain/LunaDiagnostico';
 import type { TriagemListaItem } from '../src/types/api';
+import { URGENCIA_VISUAL } from '../src/utils/triagem';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -183,5 +184,36 @@ describe.each(TEMAS)('gate de render -- texto resolvido >= 4.5 (%s)', (_nome, es
     const r = medirTextos(UNSAFE_root, cores.bg);
     expect(r.total).toBeGreaterThan(1);
     expect(r.violacoes).toEqual([]);
+  });
+
+  // G2 M-2: a barra do relatorio contra o TRILHO REAL (fundo resolvido do pai), >= 3:1 (1.4.11).
+  it.each(['ALTO', 'MEDIO', 'BAIXO'])('barra do relatorio %s contra o trilho', (nivel) => {
+    (useLunaHealth as jest.Mock).mockReturnValue({ data: SAUDE.online });
+    const { getByTestId } = comTema(esquema, <LunaScreen />);
+    const trilho = getByTestId(`urg-trilho-${nivel}`);
+    const barra = getByTestId(`urg-barra-${nivel}`);
+    const fundoTrilho = estilo(trilho)?.backgroundColor as string;
+    const fundoBarra = estilo(barra)?.backgroundColor as string;
+    expect(fundoBarra).toMatch(HEX);
+    expect(fundoTrilho).toMatch(HEX);
+    expect(trunc(ratio(fundoBarra, fundoTrilho))).toBeGreaterThanOrEqual(3);
+  });
+
+  // G2 M-1: o chip que o vet ve primeiro na fila tem de distinguir os 3 niveis (fundo, borda e
+  // texto resolvidos). MUT-A: Baixa com tom 'amber' (igual a Media) tem de cair aqui.
+  it('chips de Alta, Media e Baixa tem aparencia resolvida distinta', () => {
+    const triplas = (['ALTA', 'MEDIA', 'BAIXA'] as const).map((n) => {
+      const { getByTestId, getByText, unmount } = comTema(
+        esquema,
+        <KCChip tone={URGENCIA_VISUAL[n].chipTone} testID="c">
+          x
+        </KCChip>,
+      );
+      const caixa = estilo(getByTestId('c'));
+      const texto = estilo(getByText('x'));
+      unmount();
+      return [caixa?.backgroundColor, caixa?.borderColor, texto?.color].join('|');
+    });
+    expect(new Set(triplas).size).toBe(3);
   });
 });

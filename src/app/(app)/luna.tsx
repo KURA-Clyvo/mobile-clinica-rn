@@ -137,10 +137,16 @@ const makeStyles = (colors: typeof lightColors) =>
       fontSize: 14,
       color: colors.text,
     },
+    // G2 M-2: com o trilho em `border` a barra da Media (amber) ficava a 2.49:1 do trilho no
+    // claro (< 3, WCAG 1.4.11). O trilho agora tem o mesmo fundo do cartao (`surface`, onde
+    // todas as barras medem >= 3:1) e o contorno `borderControl` mostra o comprimento total.
     progressBg: {
-      height: 4,
-      backgroundColor: colors.border,
-      borderRadius: 2,
+      height: 6,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.borderControl,
+      borderRadius: 3,
+      overflow: 'hidden',
       marginTop: 2,
       marginBottom: 4,
     },
@@ -478,8 +484,9 @@ export default function LunaScreen() {
                     </View>
                     <Text style={styles.urgCountText}>{count}</Text>
                   </View>
-                  <View style={styles.progressBg}>
+                  <View style={styles.progressBg} testID={`urg-trilho-${level}`}>
                     <View
+                      testID={`urg-barra-${level}`}
                       style={{
                         height: 4,
                         width: `${pct}%`,

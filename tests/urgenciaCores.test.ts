@@ -23,7 +23,13 @@ const trunc = (r: number) => Math.floor(r * 100) / 100;
 const TEMAS = { claro: lightColors, escuro: darkColors } as const;
 const NIVEIS: Urgencia[] = ['ALTA', 'MEDIA', 'BAIXA'];
 // Diferenca minima de luminosidade entre dois niveis (razao de contraste entre as cores).
-// 1.25 e o maior valor redondo abaixo do pior par real medido (claro 1.31, escuro 1.26).
+// M-3 (G2): 1.25 NAO e criterio normativo -- nao existe limiar WCAG para "distinguir duas
+// cores de status entre si" (1.4.1 exige so que a cor nao seja o unico canal; aqui o texto
+// "Alta/Media/Baixa" ja e o canal redundante). E uma BASELINE de regressao: o maior valor
+// redondo abaixo do pior par medido (claro 1.31, escuro 1.26 = Noite Alta/Media, que passa por
+// 0.01). Serve para pegar quem aproximar dois niveis (ex.: dar a Media o token da Alta, razao
+// 1.00), nao para atestar que 1.25 seja "suficiente" para um olho humano. Se um token do tema
+// mudar e esta razao cair, reavalie o par em vez de baixar o numero sem olhar.
 const DIF_MIN = 1.25;
 
 describe.each(Object.keys(TEMAS) as Array<keyof typeof TEMAS>)('cores de nivel (%s)', (tema) => {
@@ -68,5 +74,12 @@ describe('a tela usa a tabela unica', () => {
   });
   it('vocabulario unico: sem Alto/Medio/Baixo como rotulo de nivel', () => {
     expect(luna).not.toMatch(/'(Alto|Médio|Baixo)'/);
+  });
+});
+
+describe('chips dos 3 niveis sao distintos (G2 M-1; MUT-A: Baixa com tom amber tem de cair)', () => {
+  it('os 3 chipTone sao diferentes entre si', () => {
+    const tons = NIVEIS.map((n) => URGENCIA_VISUAL[n].chipTone);
+    expect(new Set(tons).size).toBe(3);
   });
 });
