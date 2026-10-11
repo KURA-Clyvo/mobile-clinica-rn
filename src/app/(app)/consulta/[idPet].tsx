@@ -85,6 +85,8 @@ const makeStyles = (colors: typeof lightColors) =>
     petName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
     petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
     form: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
+    // Após salvar o rodapé empilha até 3 botões (descartar, concluir, confirmar): sem folga o último campo fica atrás dele.
+    formComRodapeAlto: { paddingBottom: 280 },
     fieldLabel: {
       fontFamily: 'Lexend_500Medium',
       fontSize: 15,
@@ -504,7 +506,7 @@ export default function ConsultaScreen() {
       </View>
 
       <ScrollView keyboardShouldPersistTaps="handled">
-        <View style={styles.form}>
+        <View style={[styles.form, idEventoClinico !== null && styles.formComRodapeAlto]}>
           {/* Campo Motivo */}
           <Controller
             control={control}
