@@ -314,7 +314,7 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
     mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
   });
 
-  it('BR-CLI-T06: CONFIRMADO mostra o rotulo da Hoje ("Confirmado"), nunca "Em andamento"', () => {
+  it('BR-CLI-T06: CONFIRMADO mostra o rotulo da Hoje ("Confirmada"), nunca "Em andamento"', () => {
     mockUseRecentes.mockReturnValue({
       data: [ag(1, 'Thor', 12, 10, 'AGENDADO'), ag(2, 'Simba', 12, 30, 'CONFIRMADO')],
       isLoading: false,
@@ -322,7 +322,7 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
       refetch: REFETCH,
     });
     const { getByText, queryByText } = wrap(<DashboardScreen />);
-    expect(getByText('Confirmado')).toBeTruthy();
+    expect(getByText('Confirmada')).toBeTruthy();
     expect(queryByText('Em andamento')).toBeNull();
   });
 

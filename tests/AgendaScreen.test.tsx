@@ -504,7 +504,7 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
     const { getByTestId, queryByText } = wrap(<AgendaScreen />);
     fireEvent.press(getByTestId('btn-modo-hoje'));
     expect(getByTestId('etapa-30')).toBeTruthy();
-    expect(queryByText('Cancelado')).toBeTruthy();
+    expect(queryByText('Cancelada')).toBeTruthy();
     expect(queryByText('Chegou')).toBeNull();
   });
 

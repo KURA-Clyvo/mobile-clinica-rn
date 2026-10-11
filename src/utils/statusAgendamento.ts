@@ -1,4 +1,5 @@
 import type { ChipTone } from '@components/primitives/KCChip';
+import { STRINGS } from '@constants/strings';
 
 // FM-04 — fonte ÚNICA da tradução de status de agendamento. Extraída depois
 // de o maestro medir que a MESMA cadeia (tipo -> tradução -> tone -> label)
@@ -62,11 +63,5 @@ export function statusAgendamentoTone(sgStatus: StatusAgendamentoApp): ChipTone 
 }
 
 export function statusAgendamentoLabel(sgStatus: StatusAgendamentoApp): string {
-  switch (sgStatus) {
-    case 'AGENDADA':       return 'Agendada';
-    case 'CONFIRMADA':     return 'Confirmada';
-    case 'CONCLUIDA':      return 'Concluída';
-    case 'CANCELADA':      return 'Cancelada';
-    case 'NAO_COMPARECEU': return 'Não compareceu';
-  }
+  return STRINGS.rotulos.status[sgStatus];
 }

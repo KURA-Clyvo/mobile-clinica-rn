@@ -1,4 +1,5 @@
 import type { ChipTone } from '@components/primitives/KCChip';
+import { STRINGS } from '@constants/strings';
 
 // REC-12 (KURA_BACKLOG_RECEPCAO.md) — a etapa de recepção (A-3) é DERIVADA NO
 // SERVIDOR (AgendaService.CalcularEtapaRecepcao, backend-clinica-dotnet,
@@ -19,15 +20,7 @@ export type EtapaRecepcao =
   | 'NAO_COMPARECEU'
   | 'CANCELADO';
 
-const ETAPA_LABELS: Record<EtapaRecepcao, string> = {
-  AGENDADO: 'Agendado',
-  CONFIRMADO: 'Confirmado',
-  CHEGOU: 'Chegou',
-  EM_ATENDIMENTO: 'Em atendimento',
-  FINALIZADO: 'Finalizado',
-  NAO_COMPARECEU: 'Não compareceu',
-  CANCELADO: 'Cancelado',
-};
+const ETAPA_LABELS: Record<EtapaRecepcao, string> = STRINGS.rotulos.etapa;
 
 // Fallback (valor fora do domínio de 7) devolve o valor CRU em vez de
 // lançar/mascarar — mesma postura de `getTransicoesPermitidas` (agenda.
@@ -117,11 +110,9 @@ export function origemLabel(origem: string | null | undefined): string {
 export function origemUrgenciaLabel(nivelUrgencia: string | null | undefined): string | null {
   switch (nivelUrgencia) {
     case 'ALTA':
-      return 'Alta';
     case 'MEDIA':
-      return 'Média';
     case 'BAIXA':
-      return 'Baixa';
+      return STRINGS.rotulos.urgencia[nivelUrgencia];
     default:
       return null;
   }

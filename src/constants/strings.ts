@@ -139,6 +139,29 @@ export const STRINGS = {
     COUNT_PLURAL: (n: number) => `${n} pacientes`,
     NO_TUTOR: 'Sem tutor',
   },
+  // BR-CLI-T09 (BR-CLI-13): TABELA UNICA de rotulos de status/etapa de agendamento e de nivel de
+  // urgencia. Agendamento no FEMININO ("Agendada", "Concluida", "Cancelada"); urgencia "Alta/Media/
+  // Baixa". `statusAgendamento.ts`, `etapaRecepcao.ts` e `triagem.ts` leem DAQUI -- `tests/
+  // vocabulario-gate.test.ts` falha se um rotulo literal reaparecer nas telas ou nesses utils.
+  rotulos: {
+    status: {
+      AGENDADA: 'Agendada',
+      CONFIRMADA: 'Confirmada',
+      CONCLUIDA: 'Concluída',
+      CANCELADA: 'Cancelada',
+      NAO_COMPARECEU: 'Não compareceu',
+    },
+    etapa: {
+      AGENDADO: 'Agendada',
+      CONFIRMADO: 'Confirmada',
+      CHEGOU: 'Chegou',
+      EM_ATENDIMENTO: 'Em atendimento',
+      FINALIZADO: 'Concluída',
+      NAO_COMPARECEU: 'Não compareceu',
+      CANCELADO: 'Cancelada',
+    },
+    urgencia: { ALTA: 'Alta', MEDIA: 'Média', BAIXA: 'Baixa' },
+  },
   consulta: {
     kicker: 'Atendimento · consulta',
   },

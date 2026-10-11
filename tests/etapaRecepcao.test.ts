@@ -10,13 +10,13 @@ import {
 
 describe('etapaRecepcaoLabel/etapaRecepcaoTone (REC-12, A-3)', () => {
   it.each([
-    ['AGENDADO', 'Agendado', 'ocean'],
-    ['CONFIRMADO', 'Confirmado', 'amber'],
+    ['AGENDADO', 'Agendada', 'ocean'],
+    ['CONFIRMADO', 'Confirmada', 'amber'],
     ['CHEGOU', 'Chegou', 'sage'],
     ['EM_ATENDIMENTO', 'Em atendimento', 'sage'],
-    ['FINALIZADO', 'Finalizado', 'mute'],
+    ['FINALIZADO', 'Concluída', 'mute'],
     ['NAO_COMPARECEU', 'Não compareceu', 'clay'],
-    ['CANCELADO', 'Cancelado', 'mute'],
+    ['CANCELADO', 'Cancelada', 'mute'],
   ])('%s -> label %s, tone %s', (etapa, label, tone) => {
     expect(etapaRecepcaoLabel(etapa)).toBe(label);
     expect(etapaRecepcaoTone(etapa)).toBe(tone);
