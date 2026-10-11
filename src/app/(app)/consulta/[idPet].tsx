@@ -147,6 +147,7 @@ const makeStyles = (colors: typeof lightColors) =>
       fontStyle: 'italic',
     },
     rascunhoCampo: {
+      borderRadius: 12,
       borderWidth: 2,
       borderStyle: 'dashed',
       borderColor: colors.amber,
@@ -582,14 +583,16 @@ export default function ConsultaScreen() {
                   control={control}
                   name={campo}
                   render={({ field: { onChange, value } }) => (
-                    <TextInput
-                      style={[styles.textarea, rascunho && styles.rascunhoCampo]}
-                      multiline
-                      value={value}
-                      onChangeText={onChange}
-                      textAlignVertical="top"
-                      testID={`field-soap-${letra}`}
-                    />
+                    <View style={rascunho ? styles.rascunhoCampo : undefined}>
+                      <TextInput
+                        style={styles.textarea}
+                        multiline
+                        value={value}
+                        onChangeText={onChange}
+                        textAlignVertical="top"
+                        testID={`field-soap-${letra}`}
+                      />
+                    </View>
                   )}
                 />
                 {errors[campo] && <Text style={styles.errorText}>{errors[campo]?.message}</Text>}
