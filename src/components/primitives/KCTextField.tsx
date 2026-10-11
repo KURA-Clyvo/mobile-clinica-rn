@@ -9,6 +9,7 @@ import {
   ViewStyle,
   KeyboardTypeOptions,
 } from 'react-native';
+import { KCIcon } from './KCIcon';
 import { useTheme } from '@theme/index';
 import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 
@@ -102,10 +103,6 @@ const makeStyles = (colors: typeof lightColors) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    eyeText: {
-      fontSize: fontSize.md,
-      color: colors.textMuteInk,
-    },
   });
 
 export function KCTextField({
@@ -176,7 +173,7 @@ export function KCTextField({
             testID="password-toggle"
             accessibilityLabel={isSecure ? 'Mostrar senha' : 'Ocultar senha'}
           >
-            <Text style={styles.eyeText}>{isSecure ? '👁' : '🙈'}</Text>
+            <KCIcon name={isSecure ? 'eye' : 'eyeOff'} size={20} color={colors.textMuteInk} />
           </TouchableOpacity>
         )}
       </View>

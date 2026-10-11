@@ -16,6 +16,8 @@ export interface ErrorStateProps {
   titulo?: string;
   descricao?: string;
   onRetry: () => void;
+  /** Rotulo do botao; padrao "Tentar de novo". Telas de painel usam "Atualizar" (BR-CLI-15). */
+  rotulo?: string;
   /** Linha curta (texto + botão) para dado auxiliar de formulário, em vez do bloco centrado. */
   compacto?: boolean;
   testID?: string;
@@ -31,9 +33,10 @@ const makeStyles = (colors: typeof lightColors) =>
     linhaTexto: { ...typography.body, color: colors.text, flexShrink: 1 },
   });
 
-export function ErrorState({ titulo, descricao, onRetry, compacto, testID = 'error-state' }: ErrorStateProps) {
+export function ErrorState({ titulo, descricao, onRetry, rotulo, compacto, testID = 'error-state' }: ErrorStateProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+  const rotuloAcao = rotulo ?? ROTULO_TENTAR_DE_NOVO;
   if (compacto) {
     return (
       <View style={styles.linha} testID={testID} accessibilityRole="alert">
@@ -43,9 +46,9 @@ export function ErrorState({ titulo, descricao, onRetry, compacto, testID = 'err
           size="sm"
           onPress={onRetry}
           testID={`${testID}-retry`}
-          accessibilityLabel={ROTULO_TENTAR_DE_NOVO}
+          accessibilityLabel={rotuloAcao}
         >
-          {ROTULO_TENTAR_DE_NOVO}
+          {rotuloAcao}
         </KCButton>
       </View>
     );
@@ -60,9 +63,9 @@ export function ErrorState({ titulo, descricao, onRetry, compacto, testID = 'err
         onPress={onRetry}
         style={styles.acao}
         testID={`${testID}-retry`}
-        accessibilityLabel={ROTULO_TENTAR_DE_NOVO}
+        accessibilityLabel={rotuloAcao}
       >
-        {ROTULO_TENTAR_DE_NOVO}
+        {rotuloAcao}
       </KCButton>
     </View>
   );

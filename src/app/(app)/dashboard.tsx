@@ -18,6 +18,7 @@ import { ProximosDoDia } from '@components/domain/ProximosDoDia';
 import { KCButton } from '@components/primitives/KCButton';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, getGreeting, firstName } from '@utils/date';
 import { agora as relogio } from '@utils/agora';
@@ -388,10 +389,11 @@ export default function DashboardScreen() {
         // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
         // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
         // esse número.
-        <KCEmptyState
-          icon="alert"
-          title={STRINGS.dashboard.erroMetricas}
-          description={STRINGS.dashboard.erroMetricasDesc}
+        <ErrorState
+          titulo={STRINGS.dashboard.erroMetricas}
+          descricao={STRINGS.dashboard.erroMetricasDesc}
+          rotulo={STRINGS.dashboard.rotuloAtualizar}
+          onRetry={() => void refetchHoje()}
           testID="erro-metricas"
         />
       ) : (
@@ -500,10 +502,11 @@ export default function DashboardScreen() {
             // escreve "Zero para 'não medimos' seria mentira") — e o app
             // transformava ausência de resposta em afirmação sobre o negócio.
             // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
-            <KCEmptyState
-              icon="alert"
-              title={STRINGS.dashboard.erroFinanceiro}
-              description={STRINGS.dashboard.erroFinanceiroDesc}
+            <ErrorState
+              titulo={STRINGS.dashboard.erroFinanceiro}
+              descricao={STRINGS.dashboard.erroFinanceiroDesc}
+              rotulo={STRINGS.dashboard.rotuloAtualizar}
+              onRetry={() => void refetchFinanceiro()}
               testID="erro-financeiro"
             />
           ) : resumoFinanceiro.nrCobrancas === 0 ? (

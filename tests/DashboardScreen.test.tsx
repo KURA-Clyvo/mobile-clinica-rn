@@ -172,6 +172,19 @@ describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => 
     expect(queryAllByTestId('metric-value').length).toBe(0);
   });
 
+  it('BR-CLI-15: o erro tem BOTAO "Atualizar" (nao instrucao de puxar a tela) que refaz a consulta', () => {
+    const refetch = jest.fn();
+    mockUseDashboardHoje.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, getByText, queryByText } = wrap(<DashboardScreen />);
+    expect(queryByText(/puxe a tela/i)).toBeNull();
+    expect(getByText('Atualizar')).toBeTruthy();
+    fireEvent.press(getByTestId('erro-metricas-retry'));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it('CONTROLE: com dado real, os mesmos 4 KPI mostram os números (não o estado de erro)', () => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
     mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });

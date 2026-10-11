@@ -11,6 +11,7 @@ import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { Skeleton } from '@components/feedback/Skeleton';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { MetricCard } from '@components/domain/MetricCard';
 import { STRINGS } from '@constants/strings';
@@ -236,10 +237,11 @@ export default function FinanceiroScreen() {
         // 🔴 Mesma doutrina do dashboard (I-1 da G2 da FM-07) -- "não sei" NÃO é "não houve".
         // `resumo` é `undefined` tanto quando o período não teve cobrança quanto quando a
         // chamada FALHOU -- este ramo vem ANTES do vazio, e a ordem É o fix.
-        <KCEmptyState
-          icon="alert"
-          title={STRINGS.dashboard.erroFinanceiro}
-          description={STRINGS.dashboard.erroFinanceiroDesc}
+        <ErrorState
+          titulo={STRINGS.dashboard.erroFinanceiro}
+          descricao={STRINGS.dashboard.erroFinanceiroDesc}
+          rotulo={STRINGS.dashboard.rotuloAtualizar}
+          onRetry={() => void refetch()}
           testID="erro-financeiro-painel"
         />
       ) : resumo.nrCobrancas === 0 ? (

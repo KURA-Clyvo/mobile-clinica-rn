@@ -22,8 +22,9 @@ export const STRINGS = {
     // que `useDashboardHoje` já devolve -- uma falha de rede mostrava "0,0,0,0" (o mesmo
     // vazamento de "não sei" virar "não houve" que a doutrina de `erroFinanceiro` já corrige
     // três seções abaixo, no card financeiro). Mesmo padrão de nomenclatura.
+    rotuloAtualizar: 'Atualizar',
     erroMetricas: 'Não foi possível carregar os números de hoje',
-    erroMetricasDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    erroMetricasDesc: 'Verifique a conexão e toque em Atualizar para tentar de novo.',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
     // CQ-13: descrição instrutiva do estado vazio — o título continua
@@ -74,7 +75,7 @@ export const STRINGS = {
     // afirmação sobre o negócio. Errar para "não faturou" num painel de gestor
     // é pior que não mostrar nada.
     erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
-    erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    erroFinanceiroDesc: 'Verifique a conexão e toque em Atualizar para tentar de novo.',
     // FM-08 (ciclo FIN) — link do card financeiro do dashboard para o painel de gestão
     // (tela nova, `(app)/financeiro/index.tsx`).
     verPainelCompleto: 'Ver painel completo',
