@@ -28,6 +28,15 @@ const mostrar = (item: TriagemListaItem) =>
     </ThemeProvider>,
   );
 
+describe('TriagemCard apos reidratar o cache persistido (G4 BR-CLI-G4, achado 2)', () => {
+  it('item que passou por JSON (Date virou string ISO) renderiza o tempo relativo sem lancar', () => {
+    const reidratado = JSON.parse(JSON.stringify(ITEM)) as TriagemListaItem;
+    expect(typeof reidratado.dtTriagem).toBe('string');
+    const { getByText } = mostrar(reidratado);
+    expect(getByText(/há 12min/)).toBeTruthy();
+  });
+});
+
 describe('TriagemCard (BR-CLI-T07)', () => {
   it('mostra nivel, palavra destacada dentro da mensagem, score e versao das regras', () => {
     const { getByTestId, getAllByTestId, queryByText, getByText } = mostrar(ITEM);

@@ -437,7 +437,7 @@ export default function NovoAgendamentoScreen() {
             </View>
           ) : !idTutor ? (
             <Text style={styles.subtitulo}>{STRINGS.AGENDA_NOVO.SEM_TUTOR_SELECIONADO}</Text>
-          ) : petsFalhou ? (
+          ) : petsFalhou && petsDoTutor.length === 0 ? (
             // Erro != "o tutor não tem pet": não afirmar ausência quando a lista não carregou.
             <ErrorState
               compacto

@@ -1315,7 +1315,7 @@ export const TOUCH_TARGET_REGISTRY: Record<string, TouchTargetRegistryEntry> = {
     expectedTestId: 'btn-tentar-novo-hoje',
     verify: () => {
       mockUseAgendaHojeReturn.mockReturnValue({
-        data: [],
+        data: undefined as never,
         isLoading: false,
         isError: true,
         refetch: jest.fn(),

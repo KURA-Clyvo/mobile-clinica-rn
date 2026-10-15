@@ -72,10 +72,34 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
   });
 
   it('isca: isError lido e USADO passa; lido e ignorado reprova', () => {
-    const usado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError ? 1 : 2; }");
+    const usado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError && data == null ? 1 : 2; }");
     expect(rodar(usado).status).toBe(0);
     const ignorado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return data; }");
     expect(rodar(ignorado).status).toBe(1);
+  });
+
+  // G4 BR-CLI-G4 (achado 3): "isError antes de data" descarta o dado salvo quando o refetch falha.
+  it('isca: isError testado ANTES do dado (isError ? / isError || !data) => violação nominal', () => {
+    const ternario = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError ? 'erro' : data; }");
+    const r1 = rodar(ternario);
+    expect(r1.status).toBe(1);
+    expect(r1.r.violacoes[0]!.motivo).toMatch(/isError antes de data/);
+    const ou = montarIsca("export default function T(){ const { data: lista, isError } = useCoisas(); if (isError || !lista) return 'erro'; return lista; }");
+    expect(rodar(ou).status).toBe(1);
+    // reprodução do maestro: retorno antecipado `if (isError) {` passava verde
+    const cedo = montarIsca(
+      "export default function T(){ const { data, isError } = useCoisas();\n  if (isError) {\n    return 'erro';\n  }\n  return data; }",
+    );
+    const r3 = rodar(cedo);
+    expect(r3.status).toBe(1);
+    expect(r3.r.violacoes[0]!.motivo).toMatch(/retorno antecipado/);
+  });
+
+  it('controle: isError só quando NÃO há dado, ou ligado à faixa de dados salvos, passa', () => {
+    const guarda = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError && data == null ? 'erro' : data; }");
+    expect(rodar(guarda).status).toBe(0);
+    const faixa = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return <>{isError ? <FaixaDadosSalvos/> : null}{data}</>; }");
+    expect(rodar(faixa).status).toBe(0);
   });
 
   // I-1 (G2): cada forma que o detector antigo NÃO via ganha uma isca que DEVE reprovar (regra 13).
@@ -102,7 +126,7 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     ['2 chamadas, isError usado só na 1ª', { 'src/app/t.tsx': "export default function T(){ const { data: a, isError } = useCoisas(); const { data: b = [], isError: e2 } = useCoisas(); return isError ? 'x' : b; }" }],
     [
       '2 componentes no arquivo reaproveitando o nome isError',
-      { 'src/app/t.tsx': "function A(){ const { data, isError } = useCoisas(); return isError?1:data; }\nfunction B(){ const { data = [], isError } = useCoisas(); return data.length?data:'Nenhum'; }\nexport default function T(){return <><A/><B/></>;}" },
+      { 'src/app/t.tsx': "function A(){ const { data, isError } = useCoisas(); return isError&&data==null?1:data; }\nfunction B(){ const { data = [], isError } = useCoisas(); return data.length?data:'Nenhum'; }\nexport default function T(){return <><A/><B/></>;}" },
     ],
     ['export default function useX', { 'src/hooks/useCoisa.ts': "export default function useCoisas(){ return useQuery({ queryKey:['c'], queryFn: async()=>[] }); }", 'src/app/t.tsx': SEM_ERRO }],
     ['arrow const + export { useX }', { 'src/hooks/useCoisa.ts': "const useCoisas = () => useQuery({ queryKey:['c'], queryFn: async()=>[] });\nexport { useCoisas };", 'src/app/t.tsx': SEM_ERRO }],
@@ -118,9 +142,9 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
   });
 
   const PASSAM: [string, Record<string, string | null>][] = [
-    ['componente com isError usado', { 'src/components/Lista.tsx': "export function Lista(){ const { data = [], isError } = useCoisas(); return isError ? 'erro' : data; }" }],
+    ['componente com isError usado', { 'src/components/Lista.tsx': "export function Lista(){ const { data = [], isError } = useCoisas(); return isError && data.length === 0 ? 'erro' : data; }" }],
     ['hook local com consumidor em QueryState', { 'src/hooks/useCoisa.ts': null, 'src/app/t.tsx': "function useLocal(){ return useQuery({queryKey:['x'],queryFn:async()=>[]}); }\nexport default function T(){ const q = useLocal(); return <QueryState query={q} empty={null}>{() => null}</QueryState>; }" }],
-    ['2 componentes, cada um usa o próprio isError', { 'src/app/t.tsx': "function A(){ const { data, isError } = useCoisas(); return isError?1:data; }\nfunction B(){ const { data = [], isError } = useCoisas(); return isError?2:data; }\nexport default function T(){return <><A/><B/></>;}" }],
+    ['2 componentes, cada um usa o próprio isError', { 'src/app/t.tsx': "function A(){ const { data, isError } = useCoisas(); return isError&&data==null?1:data; }\nfunction B(){ const { data = [], isError } = useCoisas(); return isError&&data.length===0?2:data; }\nexport default function T(){return <><A/><B/></>;}" }],
     ['useQueries com isError lido', { 'src/app/t.tsx': 'export default function T(){ const rs = useQueries({ queries: [] }); return rs.some((r) => r.isError) ? 1 : 2; }' }],
     ['useInfiniteQuery direto em QueryState', { 'src/app/t.tsx': 'export default function T(){ const q = useInfiniteQuery({queryKey:[1]}); return <QueryState query={q} empty={null}>{() => null}</QueryState>; }' }],
   ];

@@ -178,6 +178,33 @@ const PETS: PetResponse[] = [
   },
 ];
 
+// G4 BR-CLI-G4 (achado 11): todo `idPet` que `agenda.mock.ts` devolve precisa existir aqui, senão
+// "Abrir prontuário" cai em "Não foi possível carregar o paciente" no plano B (Nina = 118).
+// Semana: idPet = 100 + índice da consulta; Hoje: 117-122. Nomes espelham `agenda.mock.ts`.
+const PETS_DA_AGENDA: ReadonlyArray<readonly [id: number, pet: string, idTutor: number, tutor: string]> = [
+  [100, 'Thor', 200, 'Carlos Mendes'], [101, 'Mel', 201, 'Patrícia Souza'], [102, 'Max', 202, 'Roberto Lima'],
+  [103, 'Simba', 203, 'Ana Paula Rodrigues'], [104, 'Nina', 204, 'Fernanda Costa'], [105, 'Bob', 205, 'Lucas Ferreira'],
+  [106, 'Bolinha', 206, 'João Ferreira'], [107, 'Luna', 207, 'Mariana Alves'], [108, 'Rex', 208, 'Pedro Henrique'],
+  [109, 'Mimi', 209, 'Sofia Martins'], [110, 'Toby', 210, 'Gabriela Lima'], [111, 'Nala', 211, 'Ricardo Moura'],
+  [112, 'Spike', 212, 'Isabela Santos'], [113, 'Coco', 213, 'Thiago Nascimento'], [114, 'Pingo', 214, 'Camila Ribeiro'],
+  [117, 'Bento', 217, 'Caio Ramos'], [118, 'Nina', 218, 'Diego Farias'], [119, 'Zeca', 219, 'Elaine Prado'],
+  [120, 'Uga', 220, 'Felipe Rocha'], [121, 'Fifi', 221, 'Gustavo Alencar'], [122, 'Duke', 222, 'Helena Vidal'],
+];
+// Fora de `PETS` de propósito: a listagem (`list`) segue com os 14 pets curados; estes só respondem
+// por id (`byId`/`buscarPetArmazenadoPorId`), que é o que "Abrir prontuário" usa.
+const PETS_REFERENCIADOS_PELA_AGENDA: PetResponse[] = PETS_DA_AGENDA.map(
+    ([id, nmPet, idTutor, nmTutor]): PetResponse => ({
+      id,
+      nmPet,
+      nmEspecie: 'Cão',
+      nmRaca: 'SRD',
+      dtNascimento: '2020-01-01T00:00:00.000Z',
+      sgSexo: 'M',
+      sgPorte: 'M',
+      tutores: [{ idTutor, nmTutor, dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
+    }),
+);
+
 const TIMELINES: Record<number, TimelineEventResponse[]> = {
   1: [
     { idEventoClinico: 1001, nmTipo: 'CONSULTA', dtEvento: daysAgo(2), dsObservacao: 'Consulta pós-operatória. Animal em boa evolução.', nmVeterinario: 'Dr. Felipe Ferrete' },
@@ -203,7 +230,8 @@ function parseBody<T>(config: InternalAxiosRequestConfig): T {
   return (typeof config.data === 'string' ? JSON.parse(config.data) : (config.data ?? {})) as T;
 }
 
-let _proximoIdPet = 100;
+// Começa em 1000: os ids 100-122 são dos pets que a agenda do mock referencia (ver PETS_DA_AGENDA).
+let _proximoIdPet = 1000;
 
 /**
  * REC-04 — POST /api/v1/pets (2º consumidor do shape de fio, regra v5):
@@ -306,7 +334,7 @@ export async function byId(config: InternalAxiosRequestConfig): Promise<PetRespo
   const url = config.url ?? '';
   const match = /\/pets\/(\d+)$/.exec(url);
   const id = match ? parseInt(match[1] ?? '0', 10) : 0;
-  const pet = PETS.find((p) => p.id === id);
+  const pet = buscarPetArmazenadoPorId(id);
   if (!pet) {
     const err: { status: number; code: string; message: string } = {
       status: 404,
@@ -361,5 +389,5 @@ export async function uploadFoto(config: InternalAxiosRequestConfig): Promise<Pe
 // existe — o chamador decide o que fazer (404, mesma semântica do
 // `AgendaService.CriarAsync` real recusando `IdPet` desconhecido).
 export function buscarPetArmazenadoPorId(id: number): PetResponse | undefined {
-  return PETS.find((p) => p.id === id);
+  return PETS.find((p) => p.id === id) ?? PETS_REFERENCIADOS_PELA_AGENDA.find((p) => p.id === id);
 }

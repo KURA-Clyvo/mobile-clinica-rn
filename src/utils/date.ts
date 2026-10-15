@@ -167,8 +167,12 @@ export function calcularIdade(dtNascimento: string): string {
 // LU-09: tempo relativo para os cards da Fila da Luna ("há 5min", "há 2h", "há 3d").
 // Nunca lança para instante futuro (relógio de servidor à frente do dispositivo) —
 // devolve "agora" em vez de "há -1min".
-export function formatRelativeTime(date: Date, now: Date = new Date()): string {
-  const diffMs = now.getTime() - date.getTime();
+// Aceita `Date | string`: o cache persistido (JSON) devolve `Date` como string ISO na reidratação
+// (G4 BR-CLI-G4, achado 2 -- `date.getTime is not a function` derrubava /luna).
+export function formatRelativeTime(date: Date | string, now: Date = new Date()): string {
+  const instante = typeof date === 'string' ? new Date(date) : date;
+  const diffMs = now.getTime() - instante.getTime();
+  if (Number.isNaN(diffMs)) return '';
   if (diffMs < 60_000) return 'agora';
   const diffMin = Math.floor(diffMs / 60_000);
   if (diffMin < 60) return `há ${diffMin}min`;

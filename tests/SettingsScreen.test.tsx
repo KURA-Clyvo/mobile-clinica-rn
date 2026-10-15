@@ -241,6 +241,12 @@ describe('SettingsScreen — identidade sem ficha de veterinário (FM-01)', () =
     expect(StyleSheet.flatten(no?.props.style).gap).toBe(spacing[3]);
   });
 
+  it('G4 BR-CLI-G4 (achado 7): o RÓTULO "E-mail" não encolhe (flexShrink 0) -- o aperto vai para o valor', () => {
+    comSessao({ email: 'um.endereco.bem.longo.de.email@clinica-veterinaria-exemplo.com.br', tpPerfil: 'GESTOR', usuario: null });
+    const { getByText } = wrap(<SettingsScreen />);
+    expect(StyleSheet.flatten(getByText('E-mail').props.style).flexShrink).toBe(0);
+  });
+
   it('o campo "Perfil" existe e mostra o papel', () => {
     comSessao({ tpPerfil: 'VETERINARIO' });
     const { getByTestId } = wrap(<SettingsScreen />);

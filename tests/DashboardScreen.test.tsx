@@ -186,6 +186,17 @@ describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => 
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it('G4 BR-CLI-G4 (achado 3): refetch falho COM dado salvo mostra os KPI + faixa, nao so o erro', () => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: true, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(getByTestId('metrics-grid')).toBeTruthy();
+    expect(getByTestId('query-state-salvos')).toBeTruthy();
+    expect(queryByTestId('erro-metricas')).toBeNull();
+  });
+
   it('CONTROLE: com dado real, os mesmos 4 KPI mostram os números (não o estado de erro)', () => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
     mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
@@ -966,6 +977,25 @@ describe('DashboardScreen - financeiro (FM-07)', () => {
     expect(getByTestId('erro-financeiro')).toBeTruthy();
     expect(queryByTestId('empty-financeiro')).toBeNull();
     expect(queryByTestId('financeiro-row')).toBeNull();
+  });
+
+  it('G4 BR-CLI-G4 (achado 3): GESTOR com resumo salvo e refetch falho mostra o card + faixa', () => {
+    logarComoGestor();
+    mockUseResumoFinanceiro.mockReturnValue({
+      data: resumoVazio('2026-09-01', '2026-09-30'),
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, queryByTestId } = wrap(<DashboardScreen />);
+    expect(queryByTestId('erro-financeiro')).toBeNull();
+    expect(getByTestId('empty-financeiro')).toBeTruthy();
+    expect(getByTestId('query-state-salvos')).toBeTruthy();
   });
 
   // Secao 2.4 do brief -- os DOIS estados que produzem receitaBruta:0, e por que so um deles
