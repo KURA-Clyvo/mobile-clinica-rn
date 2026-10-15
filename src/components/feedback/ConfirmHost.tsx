@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@theme/index';
 import { breakpoints, fonts, fontSize, lightColors, radius, spacing } from '@theme/tokens';
 import { typography } from '@theme/typography';
@@ -28,6 +28,11 @@ const makeStyles = (colors: typeof lightColors) =>
     acoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2], marginTop: spacing[3], flexWrap: 'wrap' },
     botao: { minWidth: 96 },
   });
+
+// 'alertdialog' só existe no web (prop `role`). No Android, `accessibilityRole="alertdialog"` é valor
+// inválido e derruba o app (G4 BR-CLI-G4, achado 1); no nativo o foco já é contido por
+// `accessibilityViewIsModal`.
+const papelDialogo = () => (Platform.OS === 'web' ? ({ role: 'alertdialog' } as const) : {});
 
 export function ConfirmHost() {
   const { colors } = useTheme();
@@ -92,7 +97,7 @@ export function ConfirmHost() {
         />
         <View
           style={[styles.caixa, centro ? styles.caixaCentro : styles.caixaSheet]}
-          accessibilityRole={'alertdialog' as never}
+          {...papelDialogo()}
           accessibilityViewIsModal
           testID="confirm-dialog"
         >

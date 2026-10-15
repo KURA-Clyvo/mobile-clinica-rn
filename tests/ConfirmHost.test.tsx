@@ -38,12 +38,24 @@ describe('ConfirmHost', () => {
     expect(getByText('Some da tabela.')).toBeTruthy();
     expect(getByText('Desativar')).toBeTruthy();
     expect(getByText('Cancelar')).toBeTruthy();
-    expect(getByTestId('confirm-dialog').props.accessibilityRole).toBe('alertdialog');
+    // nativo: nenhum accessibilityRole inválido (alertdialog derrubava o Android)
+    expect(getByTestId('confirm-dialog').props.accessibilityRole).toBeUndefined();
     await act(async () => {
       fireEvent.press(getByTestId('confirm-ok'));
     });
     await expect(r!).resolves.toBe(true);
     expect(queryByTestId('confirm-dialog')).toBeNull();
+  });
+
+  it('no web o diálogo anuncia role="alertdialog"', async () => {
+    const plataforma = jest.replaceProperty(Platform, 'OS', 'web');
+    const { getByTestId } = montar();
+    act(() => {
+      void confirmar({ titulo: 'Sair?', verbo: 'Sair' });
+    });
+    await waitFor(() => getByTestId('confirm-dialog'));
+    expect(getByTestId('confirm-dialog').props.role).toBe('alertdialog');
+    plataforma.restore();
   });
 
   it('Cancelar resolve false', async () => {
