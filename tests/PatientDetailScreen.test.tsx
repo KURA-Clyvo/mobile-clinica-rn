@@ -235,6 +235,14 @@ describe('PatientDetailScreen', () => {
     expect(queryByText(MOCK_PET.nmPet)).toBeNull();
   });
 
+  it('G4 BR-CLI-G4 (achado 3): refetch falho COM ficha salva mostra a ficha + faixa, nao so o erro', () => {
+    mockUsePetDetail.mockReturnValue({ data: MOCK_PET, isLoading: false, isError: true, refetch: jest.fn() });
+    const { getByTestId, queryByText } = wrap(<PatientDetailScreen />);
+    expect(getByTestId('pet-header')).toBeTruthy();
+    expect(getByTestId('query-state-salvos')).toBeTruthy();
+    expect(queryByText('Não foi possível carregar o paciente')).toBeNull();
+  });
+
   it('shows error state with back button on invalid id', () => {
     mockUsePetDetail.mockReturnValue({ data: undefined, isLoading: false, isError: true });
     const { getByText } = wrap(<PatientDetailScreen />);

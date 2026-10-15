@@ -528,7 +528,7 @@ export default function ConsultaScreen() {
         />
         <View style={styles.petInfo}>
           <Kicker testID="consulta-kicker">{STRINGS.consulta.kicker}</Kicker>
-          {petFalhou ? (
+          {petFalhou && pet == null ? (
             // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
             <ErrorState
               compacto

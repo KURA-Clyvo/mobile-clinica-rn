@@ -135,6 +135,29 @@ function lhsDaChamada(t, idx) {
   return m ? m[1].trim() : null;
 }
 
+/**
+ * BR-CLI-G4 (achado 3): "isError antes de data". Com dado em cache e refetch falho `isError` e `data`
+ * valem juntos; a tela que testa `isError` primeiro (`isError || !data`, ou `isError ? <Erro/>`)
+ * DESCARTA o dado salvo e mostra só o erro. O certo: `isError && data == null ? <Erro/>` e, com dado,
+ * o conteúdo + <FaixaDadosSalvos/>. Só vale quando o destructuring traz o `data` (sem ele não há o
+ * que descartar). Heurística textual (mesmos limites do restante deste script).
+ */
+function erroAntesDoDado(util, erro, dataMatch) {
+  if (!dataMatch) return null;
+  const dado = dataMatch[1] ?? 'data';
+  const e = esc(erro);
+  const d = esc(dado);
+  if (new RegExp(String.raw`(?<![\w.])${e}\s*\|\|\s*(?:!\s*${d}\b|${d}\s*(?:==|!=)=?\s*(?:null|undefined)|!\s*\(?\s*${d}\b)`).test(util)) {
+    return `${erro} || <ausência de ${dado}> descarta o dado salvo (isError antes de data)`;
+  }
+  // `erro ? <Algo/>` como 1º teste de um ternário, salvo quando o ramo é a faixa de dados salvos.
+  for (const m of util.matchAll(new RegExp(String.raw`(?<![\w.!&|])${e}\s*\?\s*(\(?\s*<\s*(\w+))?`, 'g'))) {
+    if (m[2] === 'FaixaDadosSalvos') continue;
+    return `${erro} ? ... sem guarda de ${dado}: o erro vence o dado salvo (isError antes de data)`;
+  }
+  return null;
+}
+
 /** `escopo` = texto do componente (declaração de topo) que contém a chamada. */
 function avaliarChamada(t, escopo, hook, idx) {
   const lhs = lhsDaChamada(t, idx);
@@ -150,7 +173,10 @@ function avaliarChamada(t, escopo, hook, idx) {
     const q = /\bquery\s*:\s*(\w+)/.exec(lhs);
     if (alias) {
       const nome = alias[1] ?? 'isError';
-      if (contar(util, nome) >= 2) return { ok: true };
+      if (contar(util, nome) >= 2) {
+        const errDescartaDado = erroAntesDoDado(util, nome, /\bdata\s*(?::\s*(\w+))?/.exec(lhs));
+        return errDescartaDado ? { ok: false, motivo: errDescartaDado } : { ok: true };
+      }
       return { ok: false, motivo: `isError lido (${nome}) mas nunca usado no componente` };
     }
     if (q && (contar(util, `${q[1]}.isError`) > 0 || naQueryState(q[1]))) return { ok: true };

@@ -372,7 +372,7 @@ export default function ReceituarioScreen() {
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
-          {petFalhou ? (
+          {petFalhou && pet == null ? (
             // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
             <ErrorState
               compacto

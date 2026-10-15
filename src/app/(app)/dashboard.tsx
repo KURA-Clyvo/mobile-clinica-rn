@@ -16,7 +16,7 @@ import { AlertCard } from '@components/domain/AlertCard';
 import { OnboardingChecklist } from '@components/domain/OnboardingChecklist';
 import { ProximosDoDia } from '@components/domain/ProximosDoDia';
 import { KCButton } from '@components/primitives/KCButton';
-import { QueryState } from '@components/feedback/QueryState';
+import { FaixaDadosSalvos, QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
@@ -383,7 +383,7 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
-      ) : erroHoje ? (
+      ) : erroHoje && hoje == null ? (
         // I-3 da G2 da FM-08 -- mesma doutrina do card financeiro (`erroFinanceiro` abaixo):
         // "não sei" NÃO é "não houve". Antes desta fix wave, `metrics?.<campo> ?? 0`
         // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
@@ -397,6 +397,9 @@ export default function DashboardScreen() {
           testID="erro-metricas"
         />
       ) : (
+        <>
+        {/* G4 BR-CLI-G4 (achado 3): refetch falho COM dado salvo mostra o dado + faixa, nunca só o erro. */}
+        {erroHoje ? <FaixaDadosSalvos onRetry={() => void refetchHoje()} /> : null}
         <View style={styles.metricsGrid} testID="metrics-grid">
           {chunk(metricItems, metricsColumns).map((row, rowIndex) => (
             <View key={rowIndex} style={styles.metricsRow} testID="metrics-row">
@@ -412,6 +415,7 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+        </>
       )}
 
       <View style={styles.sectionBlock}>
@@ -483,12 +487,15 @@ export default function DashboardScreen() {
               {formatarPeriodoCurto(resumoFinanceiro.periodo.de, resumoFinanceiro.periodo.ate)}
             </Text>
           )}
+          {erroFinanceiro && resumoFinanceiro != null ? (
+            <FaixaDadosSalvos onRetry={() => void refetchFinanceiro()} />
+          ) : null}
           {loadingFinanceiro ? (
             <View style={styles.metricsRow} testID="financeiro-skeleton">
               <Skeleton variant="card" style={styles.skeletonItem} />
               <Skeleton variant="card" style={styles.skeletonItem} />
             </View>
-          ) : erroFinanceiro || resumoFinanceiro == null ? (
+          ) : resumoFinanceiro == null ? (
             // 🔴 I-1 da G2 — ESTE RAMO VEM ANTES DO VAZIO, e a ordem É o fix.
             // `resumoFinanceiro` é `undefined` tanto quando o período não teve
             // cobrança quanto quando a chamada FALHOU, então o gate anterior

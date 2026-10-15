@@ -938,6 +938,21 @@ describe('AgendaScreen — modo Hoje (REC-12)', () => {
       expect(getByTestId('btn-tentar-novo-hoje')).toBeTruthy();
     });
 
+    it('G4 BR-CLI-G4 (achado 3): refetch falho COM dado salvo mostra a agenda + faixa, nao so o erro', () => {
+      mockUseAgendaHoje.mockReturnValue({
+        data: [agendamentoHoje({ id: 77 })],
+        isLoading: false,
+        isError: true,
+        refetch: REFETCH_HOJE,
+        dataHoje: '2026-09-28',
+      });
+      const { getByTestId, queryByTestId } = wrap(<AgendaScreen />);
+      fireEvent.press(getByTestId('btn-modo-hoje'));
+      expect(queryByTestId('agenda-hoje-erro')).toBeNull();
+      expect(getByTestId('query-state-salvos')).toBeTruthy();
+      expect(queryByTestId('empty-agenda')).toBeNull();
+    });
+
     it('"tentar de novo" dispara o refetch da agenda de hoje', async () => {
       mockUseAgendaHoje.mockReturnValue({
         data: undefined,

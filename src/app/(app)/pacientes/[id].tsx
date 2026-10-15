@@ -22,7 +22,7 @@ import { KCChip } from '@components/primitives/KCChip';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
-import { QueryState } from '@components/feedback/QueryState';
+import { FaixaDadosSalvos, QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
@@ -295,11 +295,12 @@ export default function PacienteDetailScreen() {
     );
   }
 
-  if (isError || !pet) {
+  // G4 BR-CLI-G4 (achado 3): com ficha em cache e refetch falho, a ficha aparece + faixa; só sem dado vira erro.
+  if (!pet) {
     return (
       <ScreenContainer scroll={false} style={{ justifyContent: 'center' }}>
         <KCCard style={styles.errorCard}>
-          {isError ? (
+          {isError && pet == null ? (
             // BR-CLI-02: rede fora e 404 chegam aqui como `isError` — a frase não pode afirmar
             // "não encontrado" quando só não conseguimos perguntar.
             <ErrorState
@@ -413,6 +414,7 @@ export default function PacienteDetailScreen() {
     // notch em vez de uma tira `colors.bg` aparecer acima dele; por isso
     // `insets.top + 16` volta a ser somado manualmente aqui.
     <ScreenContainer paddingHorizontal={0} edges={['bottom', 'left', 'right']}>
+      {isError ? <FaixaDadosSalvos onRetry={() => void refetchPet()} /> : null}
       {/* Header */}
       <View testID="pet-header" style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <KCPetPortrait

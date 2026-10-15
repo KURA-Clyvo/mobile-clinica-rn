@@ -18,7 +18,7 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
-import { QueryState } from '@components/feedback/QueryState';
+import { FaixaDadosSalvos, QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { AgendamentoStatusMenu } from '@components/domain/AgendamentoStatusMenu';
@@ -1140,9 +1140,10 @@ export default function AgendaScreen() {
             />
           }
         >
+          {isErrorHoje && dataHoje != null ? <FaixaDadosSalvos onRetry={onRefreshHoje} /> : null}
           {isLoadingHoje ? (
             <Skeleton variant="list" count={4} />
-          ) : isErrorHoje ? (
+          ) : isErrorHoje && dataHoje == null ? (
             // Fix wave G2 (m-3, P2): erro de rede antes disto renderizava o
             // MESMO `empty-agenda` do estado vazio legítimo — "nenhuma
             // consulta" é uma afirmação FALSA quando a chamada falhou, não

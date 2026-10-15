@@ -12,6 +12,7 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { Skeleton } from '@components/feedback/Skeleton';
 import { ErrorState } from '@components/feedback/ErrorState';
+import { FaixaDadosSalvos } from '@components/feedback/QueryState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { MetricCard } from '@components/domain/MetricCard';
 import { STRINGS } from '@constants/strings';
@@ -228,12 +229,14 @@ export default function FinanceiroScreen() {
         </Text>
       )}
 
+      {isError && resumo != null ? <FaixaDadosSalvos onRetry={() => void refetch()} /> : null}
+
       {isLoading ? (
         <View style={styles.metricsRow} testID="financeiro-painel-skeleton">
           <Skeleton variant="card" style={styles.skeletonItem} />
           <Skeleton variant="card" style={styles.skeletonItem} />
         </View>
-      ) : isError || resumo == null ? (
+      ) : resumo == null ? (
         // 🔴 Mesma doutrina do dashboard (I-1 da G2 da FM-07) -- "não sei" NÃO é "não houve".
         // `resumo` é `undefined` tanto quando o período não teve cobrança quanto quando a
         // chamada FALHOU -- este ramo vem ANTES do vazio, e a ordem É o fix.

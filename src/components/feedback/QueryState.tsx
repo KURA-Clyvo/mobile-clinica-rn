@@ -54,6 +54,21 @@ const makeStyles = (colors: typeof lightColors) =>
     faixaTexto: { ...typography.body, color: colors.text, flexShrink: 1 },
   });
 
+/** Faixa "Mostrando dados salvos — Tentar de novo": refetch falhou mas há dado em cache. Telas que
+ *  não usam <QueryState> (G4 BR-CLI-G4, achado 3) renderizam o dado E esta faixa, nunca só o erro. */
+export function FaixaDadosSalvos({ onRetry }: { onRetry: () => void }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
+  return (
+    <View style={styles.faixa} testID="query-state-salvos" accessibilityRole="alert">
+      <Text style={styles.faixaTexto}>{TEXTO_DADOS_SALVOS} —</Text>
+      <KCButton variant="ghost" size="sm" onPress={onRetry} testID="query-state-salvos-retry" accessibilityLabel={ROTULO_TENTAR_DE_NOVO}>
+        {ROTULO_TENTAR_DE_NOVO}
+      </KCButton>
+    </View>
+  );
+}
+
 export function QueryState<T>({
   query,
   isEmpty = vazioPadrao,
@@ -85,14 +100,7 @@ export function QueryState<T>({
 
   return (
     <>
-      {isError ? (
-        <View style={styles.faixa} testID="query-state-salvos" accessibilityRole="alert">
-          <Text style={styles.faixaTexto}>{TEXTO_DADOS_SALVOS} —</Text>
-          <KCButton variant="ghost" size="sm" onPress={tentar} testID="query-state-salvos-retry" accessibilityLabel={ROTULO_TENTAR_DE_NOVO}>
-            {ROTULO_TENTAR_DE_NOVO}
-          </KCButton>
-        </View>
-      ) : null}
+      {isError ? <FaixaDadosSalvos onRetry={tentar} /> : null}
       {isEmpty(data) ? empty : children(data)}
     </>
   );

@@ -154,6 +154,20 @@ describe('FinanceiroScreen — estados de carregamento/erro/vazio (mesma doutrin
     expect(queryByTestId('financeiro-painel-row')).toBeNull();
   });
 
+  it('G4 BR-CLI-G4 (achado 3): refetch falho COM resumo salvo mostra o painel + faixa, nao so o erro', () => {
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: MOCK_RESUMO,
+      isLoading: false,
+      isError: true,
+      refetch: REFETCH,
+      isGestor: true,
+    });
+    const { getByTestId, queryByTestId } = wrap(<FinanceiroScreen />);
+    expect(getByTestId('financeiro-painel-row')).toBeTruthy();
+    expect(getByTestId('query-state-salvos')).toBeTruthy();
+    expect(queryByTestId('erro-financeiro-painel')).toBeNull();
+  });
+
   it('BR-CLI-15 (M5 da G2): o erro tem o botao "Atualizar" e ele refaz a consulta', () => {
     const refetch = jest.fn();
     mockUseResumoFinanceiroReturn.mockReturnValue({

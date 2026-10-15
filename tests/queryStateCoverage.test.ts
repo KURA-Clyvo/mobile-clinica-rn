@@ -72,10 +72,27 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
   });
 
   it('isca: isError lido e USADO passa; lido e ignorado reprova', () => {
-    const usado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError ? 1 : 2; }");
+    const usado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError && data == null ? 1 : 2; }");
     expect(rodar(usado).status).toBe(0);
     const ignorado = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return data; }");
     expect(rodar(ignorado).status).toBe(1);
+  });
+
+  // G4 BR-CLI-G4 (achado 3): "isError antes de data" descarta o dado salvo quando o refetch falha.
+  it('isca: isError testado ANTES do dado (isError ? / isError || !data) => violação nominal', () => {
+    const ternario = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError ? 'erro' : data; }");
+    const r1 = rodar(ternario);
+    expect(r1.status).toBe(1);
+    expect(r1.r.violacoes[0]!.motivo).toMatch(/isError antes de data/);
+    const ou = montarIsca("export default function T(){ const { data: lista, isError } = useCoisas(); if (isError || !lista) return 'erro'; return lista; }");
+    expect(rodar(ou).status).toBe(1);
+  });
+
+  it('controle: isError só quando NÃO há dado, ou ligado à faixa de dados salvos, passa', () => {
+    const guarda = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return isError && data == null ? 'erro' : data; }");
+    expect(rodar(guarda).status).toBe(0);
+    const faixa = montarIsca("export default function T(){ const { data, isError } = useCoisas(); return <>{isError ? <FaixaDadosSalvos/> : null}{data}</>; }");
+    expect(rodar(faixa).status).toBe(0);
   });
 
   // I-1 (G2): cada forma que o detector antigo NÃO via ganha uma isca que DEVE reprovar (regra 13).
