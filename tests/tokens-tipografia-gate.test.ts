@@ -63,10 +63,14 @@ const TOCADOS = [
   'src/components/primitives/KCEmptyState.tsx',
   'src/components/primitives/KCIcon.tsx',
   'src/components/primitives/KCSwitchRow.tsx',
+  // M1 (fix wave G2): Kicker.tsx nasceu na T09 e nao aparece no diff cf2bd4b..main -- acrescentado a mao.
+  'src/components/primitives/Kicker.tsx',
   'src/components/primitives/KCTextField.tsx',
 ];
 
-const LITERAL = /\b(fontSize|borderRadius)\s*:\s*-?\d/;
+// I1: qualquer chave terminada em Radius (borderTopLeftRadius, borderBottomRightRadius...) ou FontSize
+// compostas, alem de fontSize/borderRadius. shadowRadius tambem cai: use token ou justifique fora do gate.
+const LITERAL = /\b(fontSize|[A-Za-z]*Radius)\s*:\s*-?\d/;
 const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const achados = (t: string) =>
   semComentarios(t)
@@ -78,6 +82,9 @@ describe('gate: tipografia e raio por token nas telas tocadas pelo ciclo', () =>
   it('o regex pega as iscas (controle positivo)', () => {
     expect(achados('a: { fontSize: 14 }')).toHaveLength(1);
     expect(achados('a: { borderRadius: 8, x: 1 }')).toHaveLength(1);
+    expect(achados('a: { borderTopLeftRadius: 20 }')).toHaveLength(1);
+    expect(achados('a: { borderBottomRightRadius: 4 }')).toHaveLength(1);
+    expect(achados('a: { borderTopRightRadius: radius.xl }')).toHaveLength(0);
     expect(achados('a: { fontSize: fontSize.sm, borderRadius: radius.md }')).toHaveLength(0);
   });
 

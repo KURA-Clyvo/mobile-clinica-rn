@@ -139,8 +139,8 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     successCard: {
       backgroundColor: colors.bgElev,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
       padding: 24,
       gap: 12,
     },

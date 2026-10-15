@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget, fontSize } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { useAtualizarStatusAgendamento } from '@hooks/useAgenda';
@@ -38,8 +38,8 @@ const makeStyles = (colors: typeof lightColors) =>
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     sheet: {
       backgroundColor: colors.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
     },
     header: {
       flexDirection: 'row',
