@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -56,17 +56,42 @@ const makeStyles = (colors: typeof lightColors) =>
     },
   });
 
+// Largura média de um caractere do valor, em em (Cormorant, dígitos e pontuação). Margem de
+// segurança incluída: errar para MAIS só reduz um pouco a fonte, errar para menos parte o número.
+const LARGURA_MEDIA_EM = 0.5;
+const FONTE_MINIMA = 14;
+
+/** Tamanho de fonte em que `texto` cabe em UMA linha na `largura` medida (G4 BR-CLI-G4, BR-T09-MC:
+ *  "R$ 4.820,50" partia em "R$ 4.820,5" / "0" -- valor monetário nunca pode partir no meio). */
+export function fonteQueCabe(texto: string, largura: number | null, base: number): number {
+  if (largura == null || largura <= 0 || texto.length === 0) return base;
+  const cabe = Math.floor(largura / (texto.length * LARGURA_MEDIA_EM));
+  return Math.max(FONTE_MINIMA, Math.min(base, cabe));
+}
+
 export function MetricCard({ label, value, icon, tone }: MetricCardProps) {
   const { colors } = useTheme();
   const styles = makeStyles(colors);
   const toneColors = getToneColors(tone, colors);
+  const [largura, setLargura] = useState<number | null>(null);
+  const texto = String(value);
+  const tamanho = fonteQueCabe(texto, largura, fontSize['2xl']);
 
   return (
     <KCCard style={styles.card}>
       <View style={[styles.iconCircle, { backgroundColor: toneColors.bg }]}>
         <KCIcon name={icon} size={20} color={toneColors.icon} />
       </View>
-      <Text style={styles.value} testID="metric-value">{value}</Text>
+      <Text
+        style={[styles.value, tamanho < fontSize['2xl'] ? { fontSize: tamanho } : null]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
+        onLayout={(e) => setLargura(e.nativeEvent.layout.width)}
+        testID="metric-value"
+      >
+        {value}
+      </Text>
       <Text style={styles.label} numberOfLines={2} testID="metric-label">{label}</Text>
     </KCCard>
   );

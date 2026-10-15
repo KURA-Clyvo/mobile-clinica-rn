@@ -28,7 +28,8 @@ const makeStyles = (colors: typeof lightColors) =>
     // M6 (G2 da BR-CLI-T09): `gap` garante respiro minimo entre rotulo e valor, e o valor encolhe
     // (flexShrink) e quebra em vez de encostar no rotulo quando o e-mail e longo, a 390.
     fieldRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], paddingVertical: 6 },
-    fieldLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
+    // flexShrink: 0 -- o aperto vai para o VALOR, nunca para o rótulo ("E-"/"mail", G4 BR-CLI-G4 achado 7).
+    fieldLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk, flexShrink: 0 },
     fieldValue: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text, flexShrink: 1, textAlign: 'right' },
     prefRow: {
       flexDirection: 'row',

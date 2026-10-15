@@ -1,7 +1,8 @@
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { ThemeProvider } from '../src/theme';
-import { MetricCard } from '../src/components/domain/MetricCard';
+import { MetricCard, fonteQueCabe } from '../src/components/domain/MetricCard';
 
 function wrap(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
@@ -62,5 +63,36 @@ describe('MetricCard', () => {
       <MetricCard label="Ticket médio" value="—" icon="check" tone="ocean" />,
     );
     expect(getByTestId('metric-value').props.children).toBe('—');
+  });
+
+  // G4 BR-CLI-G4 (BR-T09-MC): "R$ 4.820,50" partia no meio do número ("R$ 4.820,5" / "0").
+  describe('valor monetário nunca parte', () => {
+    it('o valor fica em UMA linha e pede encolhimento nativo', () => {
+      const { getByTestId } = wrap(
+        <MetricCard label="Receita" value="R$ 4.820,50" icon="dashboard" tone="sage" />,
+      );
+      const v = getByTestId('metric-value');
+      expect(v.props.numberOfLines).toBe(1);
+      expect(v.props.adjustsFontSizeToFit).toBe(true);
+    });
+
+    it('com a largura medida estreita (136), "R$ 4.820,50" ganha fonte menor que a base; valor curto mantém a base', () => {
+      const { getByTestId } = wrap(
+        <MetricCard label="Receita" value="R$ 4.820,50" icon="dashboard" tone="sage" />,
+      );
+      const base = StyleSheet.flatten(getByTestId('metric-value').props.style).fontSize as number;
+      fireEvent(getByTestId('metric-value'), 'layout', { nativeEvent: { layout: { width: 136, height: 36 } } });
+      const depois = StyleSheet.flatten(getByTestId('metric-value').props.style).fontSize as number;
+      expect(depois).toBeLessThan(base);
+      // cabe: largura >= caracteres * 0,5 * fonte
+      expect(11 * 0.5 * depois).toBeLessThanOrEqual(136);
+    });
+
+    it('fonteQueCabe: largura desconhecida ou valor curto => base; nunca abaixo do mínimo', () => {
+      expect(fonteQueCabe('R$ 4.820,50', null, 34)).toBe(34);
+      expect(fonteQueCabe('8', 136, 34)).toBe(34);
+      expect(fonteQueCabe('R$ 4.820,50', 136, 34)).toBeLessThan(34);
+      expect(fonteQueCabe('R$ 999.999.999,99', 50, 34)).toBeGreaterThanOrEqual(14);
+    });
   });
 });
