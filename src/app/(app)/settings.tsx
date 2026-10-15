@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { confirmar } from '@components/feedback/confirmar';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget, fontSize } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, spacing } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useOnboardingStore } from '@store/onboardingStore';
 import { queryClient } from '@services/queryClient';
@@ -25,9 +25,11 @@ const makeStyles = (colors: typeof lightColors) =>
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
     titleText: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
     separator: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
-    fieldRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+    // M6 (G2 da BR-CLI-T09): `gap` garante respiro minimo entre rotulo e valor, e o valor encolhe
+    // (flexShrink) e quebra em vez de encostar no rotulo quando o e-mail e longo, a 390.
+    fieldRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing[3], paddingVertical: 6 },
     fieldLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
-    fieldValue: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    fieldValue: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text, flexShrink: 1, textAlign: 'right' },
     prefRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
