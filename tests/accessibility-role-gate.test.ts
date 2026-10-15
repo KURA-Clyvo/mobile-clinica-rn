@@ -26,7 +26,7 @@ export const invalidos = (entrada: string): string[] => {
   const fora: string[] = [];
   for (const m of texto.matchAll(ATRIBUTO)) {
     const valores =
-      m[1] !== undefined ? [m[1]] : [...m[2].matchAll(LITERAL)].map((l) => l[1] ?? l[2]);
+      m[1] !== undefined ? [m[1]] : [...(m[2] ?? '').matchAll(LITERAL)].map((l) => l[1] ?? l[2] ?? '');
     for (const v of valores) if (!VALIDOS.has(v)) fora.push(v);
   }
   return fora;

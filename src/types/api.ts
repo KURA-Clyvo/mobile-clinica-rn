@@ -579,8 +579,8 @@ export interface TriagensListaApiResponse {
 // (ALTA/MEDIA/BAIXA, não precisa de tradução de vocabulário como o relatório).
 export interface TriagemListaItem {
   idTriagem: number;
-  // Date na chamada; string ISO depois de reidratar o cache persistido (JSON) -- consumir com tolerância.
-  dtTriagem: Date | string;
+  // Em runtime vira string ISO ao reidratar o cache persistido (JSON): consumir com formatRelativeTime(Date | string).
+  dtTriagem: Date;
   urgencia: 'ALTA' | 'MEDIA' | 'BAIXA';
   sintomas: string[];
   score: number | null;

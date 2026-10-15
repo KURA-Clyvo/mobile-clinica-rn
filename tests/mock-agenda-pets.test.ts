@@ -10,7 +10,7 @@ const cfg = (extra: object = {}) => ({ params: {}, url: '/pets/118', ...extra })
 describe('mocks de agenda/dashboard x mock de pets', () => {
   it('todo idPet de agenda existe em pets.mock (nenhum órfão)', async () => {
     const { agendamentos } = await agenda(cfg());
-    const ids = [...new Set(agendamentos.map((a) => a.idPet))];
+    const ids = [...new Set(agendamentos.map((a) => a.idPet))].filter((id): id is number => id != null);
     expect(ids.length).toBeGreaterThan(10);
     const orfaos = ids.filter((id) => buscarPetArmazenadoPorId(id) === undefined);
     expect(orfaos).toEqual([]);
