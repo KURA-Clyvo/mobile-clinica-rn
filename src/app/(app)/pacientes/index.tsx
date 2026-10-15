@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, spacing, touchTarget } from '@theme/tokens';
+import { lightColors, spacing, touchTarget, fontSize, radius } from '@theme/tokens';
 import { usePets } from '@hooks/usePets';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { PetListItem } from '@components/domain/PetListItem';
@@ -23,7 +23,16 @@ import { STRINGS } from '@constants/strings';
 import { ROUTES } from '@constants/routes';
 import type { PetResponse } from '../../../types/api';
 
-const ITEM_HEIGHT = 76;
+// BR-CLI-15: o FAB (2 botoes KCButton `md` empilhados) flutua sobre a lista. Com `paddingBottom: 80`
+// fixo e FAB de 106px + 24 de offset, o ULTIMO paciente ficava atras dos botoes (visivel em 1440).
+// O respiro da lista agora e DERIVADO da geometria do FAB -- mude a pilha, o respiro acompanha.
+const FAB_BOTAO_ALTURA = 48; // KCButton size="md" (SIZE_SPEC.md.height)
+const FAB_BOTOES = 2;
+const FAB_GAP = 10;
+const FAB_OFFSET_BAIXO = 24;
+const FAB_RESPIRO = 16;
+const FAB_ALTURA = FAB_BOTOES * FAB_BOTAO_ALTURA + (FAB_BOTOES - 1) * FAB_GAP;
+const LISTA_PADDING_BAIXO = FAB_OFFSET_BAIXO + FAB_ALTURA + FAB_RESPIRO;
 
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
@@ -38,7 +47,7 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 14,
+      borderRadius: radius.lg,
       paddingHorizontal: 10,
       // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
       paddingVertical: 0,
@@ -47,7 +56,7 @@ const makeStyles = (colors: typeof lightColors) =>
     searchInput: {
       flex: 1,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       paddingVertical: 10,
       minHeight: touchTarget.min,
@@ -58,7 +67,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     countText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
     separator: {
@@ -67,13 +76,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     fabContainer: {
       position: 'absolute',
-      bottom: 24,
+      bottom: FAB_OFFSET_BAIXO,
       right: 24,
-      gap: 10,
+      gap: FAB_GAP,
     },
     estadoPad: { paddingHorizontal: spacing[4] },
     listContent: {
-      paddingBottom: 80,
+      paddingBottom: LISTA_PADDING_BAIXO,
     },
   });
 
@@ -104,15 +113,11 @@ export default function PacientesScreen() {
       ? STRINGS.PACIENTES.COUNT_SINGULAR
       : STRINGS.PACIENTES.COUNT_PLURAL(pets.length);
 
-  const getItemLayout = useCallback(
-    (_: ArrayLike<PetResponse> | null | undefined, index: number) => ({
-      length: ITEM_HEIGHT,
-      offset: ITEM_HEIGHT * index,
-      index,
-    }),
-    [],
-  );
-
+  // BR-CLI-T09 (BR-CLI-15): o `getItemLayout` com `ITEM_HEIGHT = 76` foi REMOVIDO. A linha real
+  // (PetListItem: paddingVertical 12x2 + nome/chip + 3 legendas de 13px) mede ~96px e, pior, NAO
+  // e constante -- raca/tutor longos quebram linha em 390px e o Dynamic Type cresce a fonte --, entao
+  // qualquer altura fixa desalinha o scroll/`scrollToIndex`. Sem `getItemLayout` a FlatList mede
+  // sozinha; a lista de pacientes e paginada por clinica (dezenas), o custo e desprezivel.
   const renderSeparator = useCallback(
     () => <View style={styles.separator} />,
     [styles.separator],
@@ -142,7 +147,7 @@ export default function PacientesScreen() {
 
   return (
     // CQ-15: scroll={false} — a lista é uma FlatList, que já virtualiza e
-    // gerencia seu próprio scroll (`getItemLayout`, `removeClippedSubviews`);
+    // gerencia seu próprio scroll (`removeClippedSubviews`);
     // aninhar isso num ScrollView (o modo scroll=true padrão) dispararia o
     // aviso "VirtualizedLists should never be nested inside plain
     // ScrollViews" e derrotaria a virtualização. paddingHorizontal={0}
@@ -199,7 +204,6 @@ export default function PacientesScreen() {
               keyExtractor={(item) => String(item.id)}
               renderItem={renderItem}
               ItemSeparatorComponent={renderSeparator}
-              getItemLayout={getItemLayout}
               removeClippedSubviews
               maxToRenderPerBatch={12}
               initialNumToRender={15}
@@ -216,7 +220,7 @@ export default function PacientesScreen() {
         )}
       </QueryState>
 
-      <View style={styles.fabContainer}>
+      <View style={styles.fabContainer} testID="fab-pacientes">
         {/* REC-03: entrada real de cadastro de tutor — POST /api/v1/tutores
             existe e a UI (formulário + convite) foi construída nesta task.
             Distinta do botão "+ Novo" abaixo (cadastro de PACIENTE/pet, que

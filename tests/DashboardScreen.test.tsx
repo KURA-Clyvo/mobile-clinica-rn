@@ -7,6 +7,7 @@ import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
+import { lightColors } from '../src/theme/tokens';
 import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
 // I-2 da G2: `resumoVazio()` existia sem consumidor nenhum enquanto um comentário
 // afirmava que os testes a usavam. Passou a ser usada de verdade na mordida do
@@ -172,6 +173,19 @@ describe('DashboardScreen — erro nos KPI de hoje (I-3 da G2 da FM-08)', () => 
     expect(queryAllByTestId('metric-value').length).toBe(0);
   });
 
+  it('BR-CLI-15: o erro tem BOTAO "Atualizar" (nao instrucao de puxar a tela) que refaz a consulta', () => {
+    const refetch = jest.fn();
+    mockUseDashboardHoje.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+    mockUseRecentes.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
+
+    const { getByTestId, getByText, queryByText } = wrap(<DashboardScreen />);
+    expect(queryByText(/puxe a tela/i)).toBeNull();
+    expect(getByText('Atualizar')).toBeTruthy();
+    fireEvent.press(getByTestId('erro-metricas-retry'));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it('CONTROLE: com dado real, os mesmos 4 KPI mostram os números (não o estado de erro)', () => {
     mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
     mockUseAlertas.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: REFETCH });
@@ -314,7 +328,7 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
     mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
   });
 
-  it('BR-CLI-T06: CONFIRMADO mostra o rotulo da Hoje ("Confirmado"), nunca "Em andamento"', () => {
+  it('BR-CLI-T06: CONFIRMADO mostra o rotulo da Hoje ("Confirmada"), nunca "Em andamento"', () => {
     mockUseRecentes.mockReturnValue({
       data: [ag(1, 'Thor', 12, 10, 'AGENDADO'), ag(2, 'Simba', 12, 30, 'CONFIRMADO')],
       isLoading: false,
@@ -322,7 +336,7 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
       refetch: REFETCH,
     });
     const { getByText, queryByText } = wrap(<DashboardScreen />);
-    expect(getByText('Confirmado')).toBeTruthy();
+    expect(getByText('Confirmada')).toBeTruthy();
     expect(queryByText('Em andamento')).toBeNull();
   });
 
@@ -340,6 +354,47 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
     expect(getByTestId('empty-fim-do-dia')).toBeTruthy();
     expect(getByText('Nada mais por hoje')).toBeTruthy();
     expect(getByText('3 atendimentos encerrados hoje.')).toBeTruthy();
+  });
+});
+
+describe('DashboardScreen — limiar de espera urgente no render (M4 da G2 da BR-CLI-T09)', () => {
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
+  });
+
+  // agora = 12:00 (mock de @utils/agora). Limiar: urgente so ACIMA de 20 min (19 nao, 21 sim).
+  // Regra B-17: o destaque e quem chegou ha MAIS tempo; a linha e o outro. Por isso cada caso fixa
+  // (espera do destaque, espera da linha) com destaque >= linha, e os 3 casos exercitam os DOIS call
+  // sites do limiar: destaque (19 nao / 21 sim) e linha (10 e 19 nao / 21 sim).
+  const cor = (el: ReactTestInstance) => StyleSheet.flatten(el.props.style).color;
+  const antes = (min: number) => {
+    const t = new Date(2026, 9, 9, 12, 0, 0).getTime() - min * 60000;
+    const d = new Date(t);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `2026-10-09T${p(d.getHours())}:${p(d.getMinutes())}:00`;
+  };
+
+  it.each([
+    ['destaque 19 / linha 10', 19, 10, false, false],
+    ['destaque 21 / linha 19', 21, 19, true, false],
+    ['destaque 30 / linha 21', 30, 21, true, true],
+  ] as const)('%s: so o acima de 20 min fica no tom de urgencia', (_n, mDestaque, mLinha, urgDestaque, urgLinha) => {
+    mockUseRecentes.mockReturnValue({
+      data: [
+        ag(1, 'Thor', 11, 45, 'CHEGOU', { dtCheckin: antes(mDestaque) }),
+        ag(2, 'Mel', 12, 30, 'CHEGOU', { dtCheckin: antes(mLinha) }),
+      ],
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+    });
+    const { getByTestId } = wrap(<DashboardScreen />);
+    expect(within(getByTestId('proximo-pet')).getByText('Thor')).toBeTruthy();
+    expect(getByTestId('proximo-espera').props.children).toBe(`Esperando há ${mDestaque} min`);
+    expect(getByTestId('espera-2').props.children).toBe(`Esperando há ${mLinha} min`);
+    expect(cor(getByTestId('proximo-espera')) === lightColors.clayInk).toBe(urgDestaque);
+    expect(cor(getByTestId('espera-2')) === lightColors.clayInk).toBe(urgLinha);
   });
 });
 

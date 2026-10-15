@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -55,8 +55,8 @@ const makeStyles = (colors: typeof lightColors) =>
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     sheet: {
       backgroundColor: colors.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
       maxHeight: '90%',
     },
     header: {
@@ -68,11 +68,11 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    headerTitle: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
+    headerTitle: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 16, paddingBottom: 8 },
     sectionLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginBottom: 8,
     },
@@ -80,34 +80,34 @@ const makeStyles = (colors: typeof lightColors) =>
     papelOption: {
       flex: 1,
       borderWidth: 1.5,
-      borderRadius: 10,
+      borderRadius: radius.md,
       paddingVertical: 12,
       alignItems: 'center',
     },
     papelOptionNormal: { borderColor: colors.border, backgroundColor: colors.surface },
     papelOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primary + '1a' },
-    papelOptionText: { fontFamily: 'Lexend_500Medium', fontSize: 14 },
+    papelOptionText: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base },
     vetOption: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       borderWidth: 1.5,
-      borderRadius: 10,
+      borderRadius: radius.md,
       paddingVertical: 12,
       paddingHorizontal: 14,
       marginBottom: 8,
     },
     vetOptionNormal: { borderColor: colors.border, backgroundColor: colors.surface },
     vetOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primary + '1a' },
-    vetOptionText: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text },
-    vetOptionSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    vetOptionText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    vetOptionSub: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     footer: {
       paddingHorizontal: 16,
       paddingVertical: 12,
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    errorText: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger, marginTop: 4 },
+    errorText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.xs, color: colors.danger, marginTop: 4 },
   });
 
 export function UsuarioClinicaFormModal({

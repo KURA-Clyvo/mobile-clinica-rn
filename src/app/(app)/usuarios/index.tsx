@@ -8,7 +8,7 @@ import { useRouter } from 'expo-router';
 import { voltarOu } from '@utils/navegacao';
 import { ROUTES } from '@constants/routes';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { useRequireGestor } from '@hooks/useIsGestor';
 import {
   useUsuariosClinica,
@@ -61,11 +61,11 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'center',
       marginLeft: -10,
     },
-    headerTitle: { fontFamily: 'Cormorant_500Medium', fontSize: 24, color: colors.text },
+    headerTitle: { fontFamily: 'Cormorant_500Medium', fontSize: fontSize.wordmark, color: colors.text },
     listGrid: { gap: 10, marginBottom: 24 },
     row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    emailText: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    subText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk, marginTop: 2 },
+    emailText: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    subText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk, marginTop: 2 },
     badgeRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
     actionsRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
     actionButton: {
@@ -74,10 +74,10 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 6,
       minHeight: 44,
       paddingHorizontal: 10,
-      borderRadius: 8,
+      borderRadius: radius.md,
     },
-    actionText: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary },
-    actionTextDanger: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.danger },
+    actionText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.primary },
+    actionTextDanger: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.danger },
     fabContainer: { position: 'absolute', bottom: 24, right: 24 },
   });
 

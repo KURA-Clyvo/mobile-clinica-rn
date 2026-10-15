@@ -143,5 +143,16 @@ describe('KCTextField', () => {
       fireEvent.press(getByTestId('password-toggle'));
       expect(input.props.secureTextEntry).toBe(false);
     });
+
+    it('BR-CLI-15: o toggle usa KCIcon (sem emoji) e mantem o accessibilityLabel', () => {
+      const { getByTestId, queryByText } = wrap(
+        <KCTextField label="Senha" value="" onChangeText={jest.fn()} secureTextEntry />,
+      );
+      expect(queryByText('👁')).toBeNull();
+      expect(queryByText('🙈')).toBeNull();
+      expect(getByTestId('password-toggle').props.accessibilityLabel).toBe('Mostrar senha');
+      fireEvent.press(getByTestId('password-toggle'));
+      expect(getByTestId('password-toggle').props.accessibilityLabel).toBe('Ocultar senha');
+    });
   });
 });

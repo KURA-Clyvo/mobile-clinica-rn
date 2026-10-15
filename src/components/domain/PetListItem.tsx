@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize } from '@theme/tokens';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCChip } from '@components/primitives/KCChip';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -38,12 +38,12 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     name: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     caption: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
   });

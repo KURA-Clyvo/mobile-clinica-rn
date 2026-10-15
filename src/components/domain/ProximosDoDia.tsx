@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@theme/index';
+import { Kicker } from '@components/primitives/Kicker';
 import { fontSize, fonts, lightColors, radius, spacing } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCChip } from '@components/primitives/KCChip';
@@ -9,7 +10,7 @@ import { KCIcon } from '@components/primitives/KCIcon';
 import { STRINGS } from '@constants/strings';
 import { formatTime } from '@utils/date';
 import { etapaRecepcaoLabel, etapaRecepcaoTone } from '@utils/etapaRecepcao';
-import { minutosDeAtraso, minutosDeEspera, organizarDia } from '@utils/proximosDoDia';
+import { esperaUrgente, minutosDeAtraso, minutosDeEspera, organizarDia } from '@utils/proximosDoDia';
 import type { AgendamentoResponse } from '../../types/api';
 
 // BR-CLI-T06 -- bloco "qual e o proximo?" do dashboard. Le a MESMA agenda do dia da tela Hoje
@@ -176,10 +177,9 @@ function Destaque({
   return (
     <View style={styles.destaque} testID="proximo-atendimento">
       <View style={styles.destaqueTopo}>
-        <View style={styles.kickerLinha}>
-          <View style={styles.kickerTraco} />
-          <Text style={styles.kicker}>{STRINGS.dashboard.proximoKicker}</Text>
-        </View>
+        <Kicker cor="textSoft" testID="proximo-kicker">
+          {STRINGS.dashboard.proximoKicker}
+        </Kicker>
         <Text style={styles.destaqueHora} testID="proximo-hora">
           {formatTime(a.dtInicio)}
         </Text>
@@ -197,7 +197,10 @@ function Destaque({
           {etapaRecepcaoLabel(etapa)}
         </KCChip>
         {espera !== null && (
-          <Text style={styles.destaqueTextoSuave} testID="proximo-espera">
+          <Text
+            style={[styles.destaqueTextoSuave, esperaUrgente(espera) && styles.esperaUrgente]}
+            testID="proximo-espera"
+          >
             {STRINGS.dashboard.esperandoHa(espera)}
           </Text>
         )}
@@ -244,7 +247,10 @@ function LinhaSeguinte({ a, agora }: { a: AgendamentoResponse; agora: Date }) {
           {etapaRecepcaoLabel(a.dsEtapaRecepcao)}
         </KCChip>
         {espera !== null && (
-          <Text style={styles.linhaAtraso} testID={`espera-${a.id}`}>
+          <Text
+            style={[styles.linhaAtraso, esperaUrgente(espera) && styles.esperaUrgente]}
+            testID={`espera-${a.id}`}
+          >
             {STRINGS.dashboard.esperandoHa(espera)}
           </Text>
         )}
@@ -280,9 +286,8 @@ const makeStyles = (colors: typeof lightColors) =>
       marginBottom: spacing[5],
     },
     destaqueTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-    kickerLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexShrink: 1 },
-    kickerTraco: { width: spacing[4], height: 1, backgroundColor: colors.textSoft },
-    kicker: { fontFamily: fonts.mono, fontSize: fontSize.xs, letterSpacing: 1.5, color: colors.textSoft },
+    // BR-CLI-15: espera acima do limiar (utils/proximosDoDia.ts). clayInk: 4.66:1 sobre primaryPale, 5.24:1 sobre bg.
+    esperaUrgente: { color: colors.clayInk, fontFamily: fonts.bodyMedium },
     destaqueHora: { fontFamily: fonts.mono, fontSize: fontSize.sm, color: colors.text },
     destaquePetLinha: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
     destaquePet: {

@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { useWebInteractionState } from '@hooks/useWebInteractionState';
 import { getWebInteractionStyle } from '@theme/webInteraction';
 
@@ -38,9 +38,9 @@ export interface KCButtonProps {
 // ação; `teleorientacao/[idPet].tsx` 1 botão) são todos texto curto em linha
 // com espaço de sobra — +8px de altura não força quebra de layout em nenhum.
 const SIZE_SPEC = {
-  sm: { height: 44, paddingHorizontal: 12, fontSize: 13 },
-  md: { height: 48, paddingHorizontal: 18, fontSize: 15 },
-  lg: { height: 54, paddingHorizontal: 24, fontSize: 17 },
+  sm: { height: 44, paddingHorizontal: 12, fontSize: fontSize.sm },
+  md: { height: 48, paddingHorizontal: 18, fontSize: fontSize.base },
+  lg: { height: 54, paddingHorizontal: 24, fontSize: fontSize.md },
 } as const;
 
 const makeStyles = (colors: typeof lightColors) =>
@@ -49,7 +49,7 @@ const makeStyles = (colors: typeof lightColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 10,
+      borderRadius: radius.md,
     },
     textBase: {
       fontFamily: 'Lexend_500Medium',

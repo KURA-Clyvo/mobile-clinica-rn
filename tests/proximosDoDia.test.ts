@@ -5,6 +5,8 @@ import {
   minutosDeAtraso,
   minutosDeEspera,
   etapaAtiva,
+  esperaUrgente,
+  LIMIAR_ESPERA_URGENTE_MIN,
 } from '../src/utils/proximosDoDia';
 import { AGORA, DIA_DO_PRINT, ag } from './helpers_proximos';
 
@@ -138,5 +140,18 @@ describe('proximosDoDia -- regra B-17 do destaque (G2 da BR-CLI-T06, I-3)', () =
     expect(dia.proximo).toBeNull();
     expect(dia.seguintes.map((a) => a.pet.nmPet)).toEqual(['A', 'B']);
     expect(dia.marcaAgora).toBe(2);
+  });
+});
+
+describe('proximosDoDia -- limiar de urgencia da espera (BR-CLI-15)', () => {
+  it('o limiar e a constante nomeada (20 min)', () => {
+    expect(LIMIAR_ESPERA_URGENTE_MIN).toBe(20);
+  });
+  it('nos dois lados do limiar: 19, 20 nao sao urgentes; 21 e 60 sao; null nunca', () => {
+    expect(esperaUrgente(19)).toBe(false);
+    expect(esperaUrgente(LIMIAR_ESPERA_URGENTE_MIN)).toBe(false);
+    expect(esperaUrgente(LIMIAR_ESPERA_URGENTE_MIN + 1)).toBe(true);
+    expect(esperaUrgente(60)).toBe(true);
+    expect(esperaUrgente(null)).toBe(false);
   });
 });

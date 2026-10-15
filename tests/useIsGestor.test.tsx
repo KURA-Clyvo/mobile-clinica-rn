@@ -6,7 +6,10 @@ import { useIsGestor, useRequireGestor } from '../src/hooks/useIsGestor';
 import { ROUTES } from '../src/constants/routes';
 
 const mockReplace = jest.fn();
+// BR-CLI-15: `key` indefinida = Root Layout ainda nao montado (navegar agora lanca na tela vermelha).
+let mockNavKey: string | undefined = 'root';
 jest.mock('expo-router', () => ({
+  useRootNavigationState: () => ({ key: mockNavKey }),
   useRouter: () => ({ replace: mockReplace }),
 }));
 
@@ -70,6 +73,7 @@ function ProbeRequireGestor() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockNavKey = 'root';
   useAuthStore.setState(semSessao());
 });
 
@@ -111,6 +115,20 @@ describe('useIsGestor — matriz de 3 casos', () => {
 // (`consulta`/`receituario`): redirect + guarda de RENDER, para não piscar o
 // conteúdo antes do `useEffect` disparar.
 describe('useRequireGestor — redirect e não-flash', () => {
+  // BR-CLI-15: a guarda nao pode chamar `router.replace` antes de o Root Layout montar (o
+  // expo-router lanca "Attempted to navigate before mounting the Root Layout" -> tela vermelha em dev).
+  it('NAO-gestor com a navegacao raiz ainda nao montada: NAO redireciona; ao montar, redireciona 1x', () => {
+    useAuthStore.setState(sessao({ tpPerfil: 'VETERINARIO', usuario: VET }));
+    mockNavKey = undefined;
+    const { rerender, queryByTestId } = render(<ProbeRequireGestor />);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(queryByTestId('conteudo-protegido')).toBeNull();
+    mockNavKey = 'root';
+    rerender(<ProbeRequireGestor />);
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith(ROUTES.app.dashboard);
+  });
+
   it('NÃO-gestor (VETERINARIO): redireciona para o dashboard', () => {
     useAuthStore.setState(sessao({ tpPerfil: 'VETERINARIO', usuario: VET }));
     render(<ProbeRequireGestor />);

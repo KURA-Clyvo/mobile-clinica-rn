@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from '
 import { Link } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize } from '@theme/tokens';
 import { KCIcon } from './KCIcon';
 import type { KCIconName } from './KCIcon';
 
@@ -35,14 +35,14 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     title: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       textAlign: 'center',
       marginTop: 12,
     },
     description: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       textAlign: 'center',
       marginTop: 4,
@@ -60,7 +60,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     actionText: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.primary,
     },
   });

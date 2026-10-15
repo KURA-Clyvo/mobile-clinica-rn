@@ -12,7 +12,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCButton } from '@components/primitives/KCButton';
@@ -72,13 +72,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     pageTitle: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 28,
+      fontSize: fontSize.xl,
       color: colors.primary,
       flex: 1,
     },
     sectionTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       textTransform: 'uppercase',
       letterSpacing: 1,
@@ -92,7 +92,7 @@ const makeStyles = (colors: typeof lightColors) =>
     backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     loginLinkText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.primary,
     },
   });

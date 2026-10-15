@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import { useRootNavigationState, useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 import { useAuthStore } from '@store/authStore';
 import { ROUTES } from '@constants/routes';
@@ -150,18 +150,22 @@ export function useRequireGestor(redirectTo: Href = ROUTES.app.dashboard): boole
   const router = useRouter();
   const isGestor = useIsGestor();
   const hidratou = useAuthStore((s) => s._hasHydrated);
+  // BR-CLI-15: `router.replace` ANTES de o Root Layout montar lanca "Attempted to navigate before
+  // mounting the Root Layout" (tela vermelha em dev). `useRootNavigationState().key` so existe
+  // depois da montagem -- e o padrao documentado do expo-router para esperar a navegacao pronta.
+  const navegacaoPronta = Boolean(useRootNavigationState()?.key);
   const jaRedirecionou = useRef(false);
 
   useEffect(() => {
     // Enquanto não hidratou, `tpPerfil` é null para TODO MUNDO — inclusive
     // para um gestor com sessão salva. Redirecionar aqui é expulsar por falta
     // de informação, não por falta de permissão.
-    if (!hidratou) return;
+    if (!hidratou || !navegacaoPronta) return;
     if (!isGestor && !jaRedirecionou.current) {
       jaRedirecionou.current = true;
       router.replace(redirectTo);
     }
-  }, [hidratou, isGestor, redirectTo, router]);
+  }, [hidratou, navegacaoPronta, isGestor, redirectTo, router]);
 
   // ⚠️ Devolve `false` enquanto não hidratou, e isso é DELIBERADO: a tela
   // renderiza `null` (nada pisca) até haver informação para decidir. O preço é

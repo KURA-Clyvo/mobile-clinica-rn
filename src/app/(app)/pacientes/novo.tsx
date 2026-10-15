@@ -4,7 +4,7 @@ import { avisar } from '@components/feedback/confirmar';
 import { ErrorState } from '@components/feedback/ErrorState';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -22,15 +22,15 @@ const makeStyles = (colors: typeof lightColors) =>
     backBtn: { minWidth: touchTarget.min, minHeight: touchTarget.min, alignItems: 'center', justifyContent: 'center', marginLeft: -10 },
     section: { gap: 16, paddingBottom: 8 },
     headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-    title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk },
+    title: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     searchWrapper: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 14,
+      borderRadius: radius.lg,
       paddingHorizontal: 10,
       // M-5: o padding vertical mora no <input> (alvo >= 44), nao na caixa — senao o input mede ~19px no web.
       paddingVertical: 0,
@@ -39,7 +39,7 @@ const makeStyles = (colors: typeof lightColors) =>
     searchInput: {
       flex: 1,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       paddingVertical: 10,
       minHeight: touchTarget.min,
@@ -50,21 +50,21 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomWidth: 1,
       borderBottomColor: colors.border,
     },
-    tutorNome: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    tutorSub: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    tutorNome: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    tutorSub: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     sucessoCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
-    sucessoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
+    sucessoTexto: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text, textAlign: 'center' },
     // REC-04 fix wave (G2, I-1b) — mesmo estilo de "sem link" de ConviteTutorView,
     // reaproveitado aqui por ser o MESMO tom (aviso informativo, não erro).
     semContaBox: {
       borderWidth: 1,
       borderColor: colors.border,
       backgroundColor: colors.bgSunk,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 14,
       gap: 6,
     },
-    semContaTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19, textAlign: 'center' },
+    semContaTexto: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.text, lineHeight: 19, textAlign: 'center' },
   });
 
 /**

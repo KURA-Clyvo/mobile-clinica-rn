@@ -64,7 +64,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     title: {
       flex: 1,
-      fontSize: 17,
+      fontSize: fontSize.md,
       fontFamily: 'Lexend_500Medium',
       color: colors.text,
       textAlign: 'center',

@@ -4,7 +4,7 @@ import { useTheme } from '@theme/index';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { formatDateShort } from '@utils/date';
 import type { TimelineEventResponse } from '../../types/api';
-import { touchTarget } from '@theme/tokens';
+import { touchTarget, fontSize, radius } from '@theme/tokens';
 import type { lightColors } from '@theme/tokens';
 
 export interface TimelineItemProps {
@@ -37,7 +37,7 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
   return (
     <View style={{ flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16 }} testID={`timeline-item-${evento.idEventoClinico}`}>
       <View style={{ width: 40, alignItems: 'center' }}>
-        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 36, height: 36, borderRadius: radius.xl, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
           <KCIcon name={iconName} size={18} color={color} />
         </View>
         {!isLast && (
@@ -46,13 +46,13 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
       </View>
       <View style={{ flex: 1, marginLeft: 12, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text }}>{label}</Text>
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
+          <Text style={{ fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text }}>{label}</Text>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
             {formatDateShort(evento.dtEvento)}
           </Text>
         </View>
         <Text
-          style={{ fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textSoft }}
+          style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textSoft }}
           numberOfLines={expanded ? undefined : 2}
           testID="observacao-text"
         >
@@ -64,14 +64,14 @@ export function TimelineItem({ evento, isLast = false }: TimelineItemProps) {
           onPress={() => setExpanded((v) => !v)}
           testID="expand-toggle"
         >
-          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.primary, marginTop: 2 }}>
+          <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.primary, marginTop: 2 }}>
             {expanded ? 'Ver menos' : 'Ver mais'}
           </Text>
         </TouchableOpacity>
         {evento.nmVeterinario ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }} testID="vet-row">
             <KCIcon name="consult" size={12} color={colors.textMuteInk} />
-            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk }}>
+            <Text style={{ fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk }}>
               {evento.nmVeterinario}
             </Text>
           </View>

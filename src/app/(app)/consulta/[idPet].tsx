@@ -31,6 +31,8 @@ import {
 import { useIniciarAtendimento } from '@hooks/useAgenda';
 import type { SoapDraft } from '@services/eventos-clinicos.service';
 import { useAuthStore } from '@store/authStore';
+import { STRINGS } from '@constants/strings';
+import { Kicker } from '@components/primitives/Kicker';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCPetPortrait } from '@components/primitives/KCPetPortrait';
 import { KCButton } from '@components/primitives/KCButton';
@@ -82,14 +84,14 @@ const makeStyles = (colors: typeof lightColors) =>
       borderBottomColor: colors.border,
     },
     petInfo: { flex: 1, marginLeft: 10 },
-    petName: { fontFamily: 'Lexend_500Medium', fontSize: 15, color: colors.text },
-    petDate: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    petName: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    petDate: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     form: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 120, gap: 16 },
     // Após salvar o rodapé empilha até 3 botões (descartar, concluir, confirmar): sem folga o último campo fica atrás dele.
     formComRodapeAlto: { paddingBottom: 280 },
     fieldLabel: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     labelRow: {
@@ -103,16 +105,16 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       textAlignVertical: 'top',
     },
     errorText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.danger,
       marginTop: 4,
     },
@@ -134,17 +136,17 @@ const makeStyles = (colors: typeof lightColors) =>
       backgroundColor: colors.bgElev,
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 12,
+      borderRadius: radius.md,
       gap: 12,
     },
     transcricaoTitulo: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     transcricaoPreview: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       fontStyle: 'italic',
     },
@@ -525,6 +527,7 @@ export default function ConsultaScreen() {
           nome={pet?.nmPet}
         />
         <View style={styles.petInfo}>
+          <Kicker testID="consulta-kicker">{STRINGS.consulta.kicker}</Kicker>
           {petFalhou ? (
             // BR-CLI-02: o nome vira "—" sem explicação quando a ficha não carrega.
             <ErrorState

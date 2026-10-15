@@ -11,7 +11,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
@@ -78,41 +78,41 @@ const makeStyles = (colors: typeof lightColors) =>
       gap: 10,
       marginBottom: 4,
     },
-    title: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
+    title: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingVertical: 4,
     },
-    switchLabel: { fontFamily: 'Lexend_400Regular', fontSize: 14, color: colors.text, flex: 1 },
+    switchLabel: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text, flex: 1 },
     avisoBox: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 14,
       backgroundColor: colors.bgSunk,
       gap: 8,
     },
-    avisoTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
-    avisoNota: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.textSoft, fontStyle: 'italic' },
+    avisoTexto: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.text, lineHeight: 19 },
+    avisoNota: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.xs, color: colors.textSoft, fontStyle: 'italic' },
     checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: touchTarget.min },
     checkbox: {
       width: 22,
       height: 22,
-      borderRadius: 5,
+      borderRadius: radius.sm,
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    checkboxLabel: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text },
-    errorText: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger },
+    checkboxLabel: { flex: 1, fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.text },
+    errorText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.xs, color: colors.danger },
     // Estilos da tela de convite (QR/wa.me/copiar link) foram EXTRAÍDOS para
     // ConviteTutorView.tsx (fix wave G2, I-1) — reaproveitado também por
     // pacientes/novo.tsx, não duplicado.
     // ─── Etapa "Cadastrar pet" (REC-04) ───
     petHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
-    petHeaderTexto: { fontFamily: 'Lexend_500Medium', fontSize: 18, color: colors.text },
+    petHeaderTexto: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text },
   });
 
 export default function NovoTutorScreen() {

@@ -1,4 +1,5 @@
 import type { lightColors } from '@theme/tokens';
+import { STRINGS } from '@constants/strings';
 
 // BR-CLI-T07 — vocabulário e cores de nível numa tabela só (BR-CLI-13).
 // M-2 da T01: Média (`warning`) e Alta (`amber`) tinham o mesmo hex nos dois temas, e o
@@ -15,9 +16,9 @@ export interface UrgenciaVisual {
 }
 
 export const URGENCIA_VISUAL: Record<Urgencia, UrgenciaVisual> = {
-  ALTA: { label: 'Alta', chipTone: 'clay', grafico: 'clayInk' },
-  MEDIA: { label: 'Média', chipTone: 'amber', grafico: 'amber' },
-  BAIXA: { label: 'Baixa', chipTone: 'mute', grafico: 'textMute' },
+  ALTA: { label: STRINGS.rotulos.urgencia.ALTA, chipTone: 'clay', grafico: 'clayInk' },
+  MEDIA: { label: STRINGS.rotulos.urgencia.MEDIA, chipTone: 'amber', grafico: 'amber' },
+  BAIXA: { label: STRINGS.rotulos.urgencia.BAIXA, chipTone: 'mute', grafico: 'textMute' },
 };
 
 // M-5 (G2): o motor devolve `combinacao:{categoria}` quando um verbo e um objeto da MESMA

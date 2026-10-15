@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { Link } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize } from '@theme/tokens';
 import { KCIcon } from '@components/primitives/KCIcon';
 import type { KCIconName } from '@components/primitives/KCIcon';
 import { KuraMark } from '@components/brand/KuraMark';
@@ -94,7 +94,7 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     brandName: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 28,
+      fontSize: fontSize.xl,
       color: colors.navBrand,
     },
     nav: { flex: 1 },
@@ -119,7 +119,7 @@ const makeStyles = (colors: typeof lightColors) =>
     navItemPressed: { opacity: 0.2 },
     navLabel: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.navText,
     },
     navLabelActive: { fontFamily: 'Lexend_500Medium', color: colors.navActiveText },
@@ -143,12 +143,12 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     userName: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 14,
+      fontSize: fontSize.base,
       color: colors.navBrand,
     },
     userCrmv: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.navText,
       marginTop: 2,
     },

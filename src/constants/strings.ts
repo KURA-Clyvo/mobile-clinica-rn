@@ -22,8 +22,9 @@ export const STRINGS = {
     // que `useDashboardHoje` já devolve -- uma falha de rede mostrava "0,0,0,0" (o mesmo
     // vazamento de "não sei" virar "não houve" que a doutrina de `erroFinanceiro` já corrige
     // três seções abaixo, no card financeiro). Mesmo padrão de nomenclatura.
+    rotuloAtualizar: 'Atualizar',
     erroMetricas: 'Não foi possível carregar os números de hoje',
-    erroMetricasDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    erroMetricasDesc: 'Verifique a conexão e toque em Atualizar para tentar de novo.',
     alertas: 'Alertas',
     semAlertas: 'Nenhum alerta ativo',
     // CQ-13: descrição instrutiva do estado vazio — o título continua
@@ -74,7 +75,7 @@ export const STRINGS = {
     // afirmação sobre o negócio. Errar para "não faturou" num painel de gestor
     // é pior que não mostrar nada.
     erroFinanceiro: 'Não foi possível carregar o resumo financeiro',
-    erroFinanceiroDesc: 'Verifique a conexão e puxe a tela para baixo para tentar de novo.',
+    erroFinanceiroDesc: 'Verifique a conexão e toque em Atualizar para tentar de novo.',
     // FM-08 (ciclo FIN) — link do card financeiro do dashboard para o painel de gestão
     // (tela nova, `(app)/financeiro/index.tsx`).
     verPainelCompleto: 'Ver painel completo',
@@ -138,6 +139,32 @@ export const STRINGS = {
     COUNT_SINGULAR: '1 paciente',
     COUNT_PLURAL: (n: number) => `${n} pacientes`,
     NO_TUTOR: 'Sem tutor',
+  },
+  // BR-CLI-T09 (BR-CLI-13): TABELA UNICA de rotulos de status/etapa de agendamento e de nivel de
+  // urgencia. Agendamento no FEMININO ("Agendada", "Concluida", "Cancelada"); urgencia "Alta/Media/
+  // Baixa". `statusAgendamento.ts`, `etapaRecepcao.ts` e `triagem.ts` leem DAQUI -- `tests/
+  // vocabulario-gate.test.ts` falha se um rotulo literal reaparecer nas telas ou nesses utils.
+  rotulos: {
+    status: {
+      AGENDADA: 'Agendada',
+      CONFIRMADA: 'Confirmada',
+      CONCLUIDA: 'Concluída',
+      CANCELADA: 'Cancelada',
+      NAO_COMPARECEU: 'Não compareceu',
+    },
+    etapa: {
+      AGENDADO: 'Agendada',
+      CONFIRMADO: 'Confirmada',
+      CHEGOU: 'Chegou',
+      EM_ATENDIMENTO: 'Em atendimento',
+      FINALIZADO: 'Concluída',
+      NAO_COMPARECEU: 'Não compareceu',
+      CANCELADO: 'Cancelada',
+    },
+    urgencia: { ALTA: 'Alta', MEDIA: 'Média', BAIXA: 'Baixa' },
+  },
+  consulta: {
+    kicker: 'Atendimento · consulta',
   },
   acoes: {
     novaConsulta: 'Nova consulta',
@@ -229,6 +256,7 @@ export const STRINGS = {
     PASSWORD_MIN: 'A senha deve ter no mínimo 6 caracteres',
   },
   LUNA: {
+    KICKER: 'Triagem · fila da Luna',
     TITLE: 'Luna IA',
     STATUS_ONLINE: 'Online',
     STATUS_DEGRADADO: 'Degradado',

@@ -8,7 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { useWebInteractionState } from '@hooks/useWebInteractionState';
 import { getWebInteractionStyle } from '@theme/webInteraction';
 
@@ -29,20 +29,20 @@ const makeStyles = (colors: typeof lightColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
-      borderRadius: 9999,
+      borderRadius: radius.full,
       paddingVertical: 4,
       paddingHorizontal: 10,
       alignSelf: 'flex-start',
       gap: 5,
     },
     label: {
-      fontSize: 11,
+      fontSize: fontSize.xs,
       fontFamily: 'Lexend_500Medium',
     },
     dot: {
       width: 6,
       height: 6,
-      borderRadius: 3,
+      borderRadius: radius.sm,
     },
     // Alvo de toque WCAG 2.5.8/2.5.5 (ver `touchTarget` em tokens.ts). Aplicado
     // SOMENTE quando o chip é interativo (`onPress` presente, ver KCChip abaixo)

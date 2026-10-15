@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, RefreshControl } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@theme/index';
-import { lightColors, type BreakpointKey } from '@theme/tokens';
+import { lightColors, type BreakpointKey, fontSize } from '@theme/tokens';
 import { useAuthStore } from '@store/authStore';
 import { useBreakpoint } from '@hooks/useBreakpoint';
 import { useDashboardHoje, useAlertas } from '@hooks/useDashboard';
@@ -18,6 +18,7 @@ import { ProximosDoDia } from '@components/domain/ProximosDoDia';
 import { KCButton } from '@components/primitives/KCButton';
 import { QueryState } from '@components/feedback/QueryState';
 import { Skeleton } from '@components/feedback/Skeleton';
+import { ErrorState } from '@components/feedback/ErrorState';
 import { KCEmptyState } from '@components/primitives/KCEmptyState';
 import { formatDateFull, getGreeting, firstName } from '@utils/date';
 import { agora as relogio } from '@utils/agora';
@@ -135,12 +136,12 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     greetingText: {
       fontFamily: 'Cormorant_500Medium',
-      fontSize: 26,
+      fontSize: fontSize.xl,
       color: colors.text,
     },
     dateText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginTop: 2,
     },
@@ -152,7 +153,7 @@ const makeStyles = (colors: typeof lightColors) =>
     listRowItem: { flex: 1 },
     sectionTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       marginBottom: 10,
     },
@@ -160,7 +161,7 @@ const makeStyles = (colors: typeof lightColors) =>
     // literal "Receita bruta", D-6; a ressalva sobre sub-captura vai aqui).
     sectionSubtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginTop: -4,
       marginBottom: 10,
@@ -168,7 +169,7 @@ const makeStyles = (colors: typeof lightColors) =>
     // FM-08 — texto de comparação com o período anterior, abaixo do metricsRow financeiro.
     comparacaoText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
       marginTop: 8,
     },
@@ -388,10 +389,11 @@ export default function DashboardScreen() {
         // mostrava "0,0,0,0" para uma falha de rede -- indistinguível de "hoje não teve
         // nenhum atendimento/alerta/teleorientação", num painel cujo propósito é justamente
         // esse número.
-        <KCEmptyState
-          icon="alert"
-          title={STRINGS.dashboard.erroMetricas}
-          description={STRINGS.dashboard.erroMetricasDesc}
+        <ErrorState
+          titulo={STRINGS.dashboard.erroMetricas}
+          descricao={STRINGS.dashboard.erroMetricasDesc}
+          rotulo={STRINGS.dashboard.rotuloAtualizar}
+          onRetry={() => void refetchHoje()}
           testID="erro-metricas"
         />
       ) : (
@@ -500,10 +502,11 @@ export default function DashboardScreen() {
             // escreve "Zero para 'não medimos' seria mentira") — e o app
             // transformava ausência de resposta em afirmação sobre o negócio.
             // Padrão herdado de `pacientes/[id].tsx:289` (`isError || !pet`).
-            <KCEmptyState
-              icon="alert"
-              title={STRINGS.dashboard.erroFinanceiro}
-              description={STRINGS.dashboard.erroFinanceiroDesc}
+            <ErrorState
+              titulo={STRINGS.dashboard.erroFinanceiro}
+              descricao={STRINGS.dashboard.erroFinanceiroDesc}
+              rotulo={STRINGS.dashboard.rotuloAtualizar}
+              onRetry={() => void refetchFinanceiro()}
               testID="erro-financeiro"
             />
           ) : resumoFinanceiro.nrCobrancas === 0 ? (

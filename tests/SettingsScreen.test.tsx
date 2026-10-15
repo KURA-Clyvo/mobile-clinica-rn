@@ -1,5 +1,7 @@
 import React from 'react';
 import { simularFeedback } from './helpers_feedback';
+import { StyleSheet } from 'react-native';
+import { spacing } from '../src/theme/tokens';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockReplace = jest.fn();
@@ -225,6 +227,18 @@ describe('SettingsScreen — identidade sem ficha de veterinário (FM-01)', () =
     const { getByTestId } = wrap(<SettingsScreen />);
 
     expect(getByTestId('vet-email').props.children).toBe('gestor@kura.vet');
+  });
+
+  it('M6: e-mail longo nao encosta no rotulo -- valor encolhe/quebra e a linha tem gap de token', () => {
+    comSessao({ email: 'um.endereco.bem.longo.de.email@clinica-veterinaria-exemplo.com.br', tpPerfil: 'GESTOR', usuario: null });
+    const { getByTestId } = wrap(<SettingsScreen />);
+    const valor = StyleSheet.flatten(getByTestId('vet-email').props.style);
+    expect(valor.flexShrink).toBe(1);
+    expect(valor.textAlign).toBe('right');
+    // a linha e o 1o ancestral com flexDirection row (o pai direto pode ser o wrapper do Text)
+    let no = getByTestId('vet-email').parent;
+    while (no && StyleSheet.flatten(no.props.style)?.flexDirection !== 'row') no = no.parent;
+    expect(StyleSheet.flatten(no?.props.style).gap).toBe(spacing[3]);
   });
 
   it('o campo "Perfil" existe e mostra o papel', () => {

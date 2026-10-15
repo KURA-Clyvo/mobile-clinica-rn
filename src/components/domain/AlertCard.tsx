@@ -5,7 +5,7 @@ import { KCCard } from '@components/primitives/KCCard';
 import { KCIcon } from '@components/primitives/KCIcon';
 import { KCChip } from '@components/primitives/KCChip';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { formatTime } from '@utils/date';
 import type { AlertaResponse } from '../../types/api';
 import type { KCIconName } from '@components/primitives/KCIcon';
@@ -63,7 +63,7 @@ const makeStyles = (colors: typeof lightColors) =>
     iconCircle: {
       width: 36,
       height: 36,
-      borderRadius: 18,
+      borderRadius: radius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       flexShrink: 0,
@@ -72,18 +72,18 @@ const makeStyles = (colors: typeof lightColors) =>
     topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     petName: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.text,
       flex: 1,
     },
     time: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 11,
+      fontSize: fontSize.xs,
       color: colors.textMuteInk,
     },
     message: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       lineHeight: 17,
     },
@@ -97,7 +97,7 @@ const makeStyles = (colors: typeof lightColors) =>
       borderTopWidth: 1,
       borderTopColor: colors.border,
     },
-    messageCompacto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 18, flex: 1 },
+    messageCompacto: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.text, lineHeight: 18, flex: 1 },
   });
 
 export function AlertCard({ alerta, style, compacto }: AlertCardProps) {

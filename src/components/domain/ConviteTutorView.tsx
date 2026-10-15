@@ -6,7 +6,7 @@ import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { ScreenContainer } from '@components/primitives/ScreenContainer';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
@@ -19,12 +19,12 @@ import type { ApiError, ConviteTutor } from '../../types/api';
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     conviteCentro: { alignItems: 'center', gap: 16, paddingVertical: 8 },
-    conviteNome: { fontFamily: 'Lexend_500Medium', fontSize: 17, color: colors.text, textAlign: 'center' },
-    conviteSub: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.textMuteInk, textAlign: 'center' },
+    conviteNome: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.md, color: colors.text, textAlign: 'center' },
+    conviteSub: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk, textAlign: 'center' },
     qrWrapper: {
       padding: 16,
       backgroundColor: '#FFFFFF',
-      borderRadius: 14,
+      borderRadius: radius.lg,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -32,11 +32,11 @@ const makeStyles = (colors: typeof lightColors) =>
       borderWidth: 1,
       borderColor: colors.warning,
       backgroundColor: colors.warningBg,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 14,
       gap: 6,
     },
-    semLinkTexto: { fontFamily: 'Lexend_400Regular', fontSize: 13, color: colors.text, lineHeight: 19 },
+    semLinkTexto: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.text, lineHeight: 19 },
     acoes: { width: '100%', gap: 10 },
   });
 

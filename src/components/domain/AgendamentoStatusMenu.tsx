@@ -3,9 +3,10 @@ import { View, Text, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@theme/index';
-import { lightColors, touchTarget } from '@theme/tokens';
+import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { STRINGS } from '@constants/strings';
 import { useAtualizarStatusAgendamento } from '@hooks/useAgenda';
 import { getTransicoesPermitidas } from '@services/agenda.service';
 import type { StatusDestino } from '@services/agenda.service';
@@ -28,7 +29,8 @@ export interface AgendamentoStatusMenuProps {
 // obrigar quem usa a tela a traduzir "REALIZADO" mentalmente.
 const DESTINO_LABEL: Record<StatusDestino, string> = {
   CONFIRMADO: 'Confirmar agendamento',
-  REALIZADO: 'Marcar como realizado',
+  // M2: o verbo segue a tabela unica (chip "Concluída"), nao um sinonimo
+  REALIZADO: `Marcar como ${STRINGS.rotulos.status.CONCLUIDA.toLowerCase()}`,
   NAO_COMPARECEU: 'Marcar não compareceu',
   CANCELADO: 'Cancelar agendamento',
 };
@@ -38,8 +40,8 @@ const makeStyles = (colors: typeof lightColors) =>
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     sheet: {
       backgroundColor: colors.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: radius.xl,
+      borderTopRightRadius: radius.xl,
     },
     header: {
       flexDirection: 'row',
@@ -52,13 +54,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     headerTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
     },
     content: { paddingHorizontal: 16, paddingTop: 16, gap: 10, paddingBottom: 8 },
     emptyText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
   });

@@ -15,7 +15,7 @@ describe('KCIcon', () => {
   });
 
   it('renders every icon name in the list', () => {
-    expect(ICON_NAMES).toHaveLength(29);
+    expect(ICON_NAMES).toHaveLength(31);
   });
 
   it('passes size prop to Svg width and height', () => {

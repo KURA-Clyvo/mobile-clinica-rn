@@ -13,7 +13,7 @@ import { useToast } from '@components/feedback/Toast';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { voltarOu, fichaDoPet } from '@utils/navegacao';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { usePetDetail } from '@hooks/usePetDetail';
 import { useTeleconsulta } from '@hooks/useTeleconsulta';
 import { useAuthStore } from '@store/authStore';
@@ -41,13 +41,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     bannerTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.info,
       flex: 1,
     },
     bannerBody: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
     },
     ressalvasContainer: { marginTop: 8, gap: 4 },
@@ -58,13 +58,13 @@ const makeStyles = (colors: typeof lightColors) =>
     },
     ressalvaText: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       flex: 1,
     },
     vetIdent: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textSoft,
       marginTop: 8,
     },
@@ -73,24 +73,24 @@ const makeStyles = (colors: typeof lightColors) =>
       marginHorizontal: 16,
       marginVertical: 12,
       backgroundColor: colors.videoBg,
-      borderRadius: 20,
+      borderRadius: radius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
     },
     videoTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.videoText,
     },
     videoSubtitle: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.videoText,
     },
     videoMessage: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.videoText,
       textAlign: 'center',
       paddingHorizontal: 24,
@@ -98,20 +98,20 @@ const makeStyles = (colors: typeof lightColors) =>
     notesCard: { marginHorizontal: 16 },
     notesTitle: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       marginBottom: 8,
     },
     notesInput: {
       minHeight: 80,
       fontFamily: 'Lexend_400Regular',
-      fontSize: 15,
+      fontSize: fontSize.base,
       color: colors.text,
       textAlignVertical: 'top',
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.borderControl,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 10,
     },
     footer: {

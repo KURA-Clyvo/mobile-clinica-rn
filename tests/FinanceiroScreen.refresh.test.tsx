@@ -22,6 +22,7 @@ const mockReplace = jest.fn();
 const mockBack = jest.fn();
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
+  useRootNavigationState: () => ({ key: 'root' }),
   useRouter: () => ({ back: mockBack, push: mockPush, replace: mockReplace }),
 }));
 jest.mock('react-native-safe-area-context', () => {

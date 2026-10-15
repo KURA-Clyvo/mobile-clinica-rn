@@ -189,6 +189,7 @@ const mockUseLocalSearchParams = jest.fn(() => ({}) as Record<string, string>);
 jest.mock('expo-router', () => {
   const ReactForMock = require('react');
   return {
+    useRootNavigationState: () => ({ key: 'root' }),
     useRouter: () => ({ push: mockPush, replace: mockReplace, back: mockBack }),
     useLocalSearchParams: () => mockUseLocalSearchParams(),
     // REC-03 G2 (C-1): `(app)/tutores/novo.tsx` usa `useFocusEffect` pra zerar o

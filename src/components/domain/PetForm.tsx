@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCTextField } from '@components/primitives/KCTextField';
 import { KCChip } from '@components/primitives/KCChip';
@@ -60,12 +60,12 @@ const makeStyles = (colors: typeof lightColors) =>
     section: { gap: 16, paddingBottom: 8 },
     subtitulo: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
     sectionLabel: {
       fontFamily: 'Lexend_500Medium',
-      fontSize: 13,
+      fontSize: fontSize.sm,
       color: colors.text,
       marginBottom: 8,
     },
@@ -76,11 +76,11 @@ const makeStyles = (colors: typeof lightColors) =>
       justifyContent: 'space-between',
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 10,
+      borderRadius: radius.md,
       padding: 12,
     },
-    dateText: { fontFamily: 'Lexend_400Regular', fontSize: 15, color: colors.text },
-    errorText: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger },
+    dateText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.base, color: colors.text },
+    errorText: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.xs, color: colors.danger },
   });
 
 /**

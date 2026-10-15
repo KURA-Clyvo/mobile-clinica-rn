@@ -143,7 +143,7 @@ const USOS: Uso[] = [
     texto: 'danger',
     fundo: 'surface',
   },
-  { arq: TELE, ancora: /fontSize: 12,\s*color: colors\.textSoft,\s*flex: 1/, texto: 'textSoft', fundo: 'infoBg' },
+  { arq: TELE, ancora: /fontSize: fontSize.sm,\s*color: colors\.textSoft,\s*flex: 1/, texto: 'textSoft', fundo: 'infoBg' },
   { arq: TELE, ancora: /color: colors\.textSoft,\s*marginTop: 8/, texto: 'textSoft', fundo: 'infoBg' },
   {
     arq: 'components/domain/LancarCobrancaCard.tsx',
@@ -324,7 +324,9 @@ const USOS: Uso[] = [
   },
   // BR-CLI-T06: destaque do proximo (ocean-pale = primaryPale) e blocos do dia sobre `bg`. Texto secundario SOBRE o destaque
   // e `textSoft` (9.33/7.79), NUNCA `textMuteInk` (4.24 no claro: reprova) -- controle negativo registrado no G0.
-  { arq: PD, ancora: /kicker: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: 'components/primitives/Kicker.tsx', ancora: /cor = 'textMuteInk'/, texto: 'textMuteInk', fundo: 'bg' },
+  { arq: 'components/primitives/Kicker.tsx', ancora: /'amberInk'/, texto: 'amberInk', fundo: 'bg' },
+  { arq: PD, ancora: /<Kicker cor="textSoft"/, texto: 'textSoft', fundo: 'primaryPale' },
   { arq: PD, ancora: /destaqueHora: \{[^}]*color: colors\.text \}/, texto: 'text', fundo: 'primaryPale' },
   { arq: PD, ancora: /fontSize: fontSize\['2xl'\],\s*lineHeight: fontSize\['2xl'\] \* 1\.2,\s*color: colors\.text,/, texto: 'text', fundo: 'primaryPale' },
   { arq: PD, ancora: /destaqueTutor: \{[^}]*color: colors\.textSoft/, texto: 'textSoft', fundo: 'primaryPale' },
@@ -344,6 +346,9 @@ const USOS: Uso[] = [
   // ...e o realce do proximo na Hoje (mesmo par: textSoft sobre primaryPale).
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeCardDestaque: \{\s*backgroundColor: colors\.primaryPale/, texto: 'textSoft', fundo: 'primaryPale' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeMetaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
+  { arq: 'app/(app)/agenda.tsx', ancora: /hojeEsperaUrgente: \{ color: colors\.clayInk \}/, texto: 'clayInk', fundo: 'primaryPale' },
+  { arq: PD, ancora: /esperaUrgente: \{ color: colors\.clayInk/, texto: 'clayInk', fundo: 'primaryPale' },
+  { arq: PD, ancora: /esperaUrgente: \{ color: colors\.clayInk/, texto: 'clayInk', fundo: 'bg' },
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeEsperaTextDestaque: \{ color: colors\.textSoft \}/, texto: 'textSoft', fundo: 'primaryPale' },
   // ...e o chip de etapa no realce (G2 M-4): fundo surface; textos dos tons que a etapa ativa usa.
   { arq: 'app/(app)/agenda.tsx', ancora: /hojeChipDestaque: \{ backgroundColor: colors\.surface \}/, texto: 'primary', fundo: 'surface' },

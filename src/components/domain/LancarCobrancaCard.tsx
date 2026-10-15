@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { avisar } from '@components/feedback/confirmar';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@theme/index';
-import { lightColors } from '@theme/tokens';
+import { lightColors, fontSize, radius } from '@theme/tokens';
 import { KCCard } from '@components/primitives/KCCard';
 import { KCChip } from '@components/primitives/KCChip';
 import { ErrorState } from '@components/feedback/ErrorState';
@@ -94,23 +94,23 @@ function validarValorTexto(valorTexto: string): string | null {
 const makeStyles = (colors: typeof lightColors) =>
   StyleSheet.create({
     card: { marginTop: 16, gap: 12 },
-    titulo: { fontFamily: 'Lexend_500Medium', fontSize: 14, color: colors.text },
-    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textMuteInk },
+    titulo: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.base, color: colors.text },
+    subtitulo: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textMuteInk },
     chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     precoServicoSelecionado: {
       fontFamily: 'Lexend_400Regular',
-      fontSize: 12,
+      fontSize: fontSize.sm,
       color: colors.textMuteInk,
     },
-    erroTexto: { fontFamily: 'Lexend_400Regular', fontSize: 11, color: colors.danger },
+    erroTexto: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.xs, color: colors.danger },
     confirmacaoBox: {
       backgroundColor: colors.sagePale,
-      borderRadius: 12,
+      borderRadius: radius.md,
       padding: 12,
       gap: 4,
     },
-    confirmacaoTexto: { fontFamily: 'Lexend_500Medium', fontSize: 13, color: colors.sage },
-    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: 12, color: colors.textSoft },
+    confirmacaoTexto: { fontFamily: 'Lexend_500Medium', fontSize: fontSize.sm, color: colors.sage },
+    confirmacaoDetalhe: { fontFamily: 'Lexend_400Regular', fontSize: fontSize.sm, color: colors.textSoft },
   });
 
 function ResumoConfirmacao({
