@@ -7,6 +7,7 @@ import { ThemeProvider } from '../src/theme';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import DashboardScreen from '../src/app/(app)/dashboard';
+import { lightColors } from '../src/theme/tokens';
 import { formatarMoeda, formatarPercentual } from '../src/utils/moeda';
 // I-2 da G2: `resumoVazio()` existia sem consumidor nenhum enquanto um comentário
 // afirmava que os testes a usavam. Passou a ser usada de verdade na mordida do
@@ -353,6 +354,41 @@ describe('DashboardScreen — status labels agree with the agenda (FM-04)', () =
     expect(getByTestId('empty-fim-do-dia')).toBeTruthy();
     expect(getByText('Nada mais por hoje')).toBeTruthy();
     expect(getByText('3 atendimentos encerrados hoje.')).toBeTruthy();
+  });
+});
+
+describe('DashboardScreen — limiar de espera urgente no render (M4 da G2 da BR-CLI-T09)', () => {
+  beforeEach(() => {
+    mockUseDashboardHoje.mockReturnValue({ data: MOCK_HOJE, isLoading: false, isError: false, refetch: REFETCH });
+    mockUseAlertas.mockReturnValue({ data: [MOCK_ALERTA], isLoading: false, isError: false, refetch: REFETCH });
+  });
+
+  // agora = 12:00. dtCheckin 11:41 => 19 min (NAO urgente); 11:39 => 21 min (urgente), limiar 20.
+  const cor = (el: ReactTestInstance) => StyleSheet.flatten(el.props.style).color;
+  const naive = (h: number, m: number) => `2026-10-09T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+  const dia = (checkinA: [number, number], checkinB: [number, number]) => [
+    ag(1, 'Thor', 11, 45, 'CHEGOU', { dtCheckin: naive(...checkinA) }),
+    ag(2, 'Mel', 12, 30, 'CHEGOU', { dtCheckin: naive(...checkinB) }),
+  ];
+
+  // O dashboard escolhe sozinho quem e destaque e quem e linha; trocar qual pet tem 19 e qual tem 21
+  // garante que o limiar e exercitado nos DOIS call sites (destaque e linha), em qualquer ordem.
+  it.each([
+    ['Thor 19 / Mel 21', [11, 41], [11, 39]],
+    ['Thor 21 / Mel 19', [11, 39], [11, 41]],
+  ] as const)('%s: so o acima de 20 min fica no tom de urgencia', (_n, thor, mel) => {
+    mockUseRecentes.mockReturnValue({
+      data: dia([...thor] as [number, number], [...mel] as [number, number]),
+      isLoading: false,
+      isError: false,
+      refetch: REFETCH,
+    });
+    const urgente = { 1: thor[1] === 39, 2: mel[1] === 39 } as Record<number, boolean>;
+    const { getByTestId } = wrap(<DashboardScreen />);
+    const idDestaque = within(getByTestId('proximo-pet')).queryByText('Thor') ? 1 : 2;
+    const idLinha = idDestaque === 1 ? 2 : 1;
+    expect(cor(getByTestId('proximo-espera')) === lightColors.clayInk).toBe(urgente[idDestaque]);
+    expect(cor(getByTestId(`espera-${idLinha}`)) === lightColors.clayInk).toBe(urgente[idLinha]);
   });
 });
 
