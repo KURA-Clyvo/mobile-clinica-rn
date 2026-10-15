@@ -15,8 +15,8 @@ const TERMO = String.raw`(?<!\p{L})(?:Agendad[oa]|Confirmad[oa]|Conclu[ií]d[oa]
 const TEM_TERMO = new RegExp(TERMO, 'u');
 // literais de string de uma linha ('..' ou "..") e templates (`..`, podem quebrar linha)
 const LITERAIS = /'(?:[^'\n\\]|\\.)*'|"(?:[^"\n\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
-// texto de JSX entre `>` e `<`, inclusive em varias linhas (sem { } dentro)
-const TEXTO_JSX = />[^<>{}]+</g;
+// texto de JSX entre `>`/`}` e `<`/`{`, inclusive em varias linhas (pega o trecho apos uma interpolacao)
+const TEXTO_JSX = /[>}][^<>{}]+(?=[<{])/g;
 
 const semComentarios = (t: string) =>
   t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
