@@ -48,6 +48,15 @@ describe('AgendamentoStatusMenu — state machine drives the offered actions', (
   // então "REALIZADO não oferece ação" e "AGENDADO oferece os 4 destinos"
   // não existiam como comportamento verificável. Estes casos exercitam
   // getTransicoesPermitidas() de verdade (não mockado).
+  it('M2: o botao de REALIZADO usa o verbo da tabela unica (concluida), nao "realizado"', () => {
+    const { getByTestId, queryByText } = wrap(
+      <AgendamentoStatusMenu {...BASE_PROPS} dsStatusOrigem="AGENDADO" />,
+    );
+    expect(getByTestId('btn-status-REALIZADO')).toBeTruthy();
+    expect(queryByText('Marcar como concluída')).toBeTruthy();
+    expect(queryByText(/realizado/i)).toBeNull();
+  });
+
   it('AGENDADO (bucket AGENDADA) offers all 4 destinations', () => {
     const { getByTestId } = wrap(
       <AgendamentoStatusMenu {...BASE_PROPS} dsStatusOrigem="AGENDADO" />,

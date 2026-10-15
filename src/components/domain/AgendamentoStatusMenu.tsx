@@ -6,6 +6,7 @@ import { useTheme } from '@theme/index';
 import { lightColors, touchTarget, fontSize, radius } from '@theme/tokens';
 import { KCButton } from '@components/primitives/KCButton';
 import { KCIcon } from '@components/primitives/KCIcon';
+import { STRINGS } from '@constants/strings';
 import { useAtualizarStatusAgendamento } from '@hooks/useAgenda';
 import { getTransicoesPermitidas } from '@services/agenda.service';
 import type { StatusDestino } from '@services/agenda.service';
@@ -28,7 +29,8 @@ export interface AgendamentoStatusMenuProps {
 // obrigar quem usa a tela a traduzir "REALIZADO" mentalmente.
 const DESTINO_LABEL: Record<StatusDestino, string> = {
   CONFIRMADO: 'Confirmar agendamento',
-  REALIZADO: 'Marcar como realizado',
+  // M2: o verbo segue a tabela unica (chip "Concluída"), nao um sinonimo
+  REALIZADO: `Marcar como ${STRINGS.rotulos.status.CONCLUIDA.toLowerCase()}`,
   NAO_COMPARECEU: 'Marcar não compareceu',
   CANCELADO: 'Cancelar agendamento',
 };
