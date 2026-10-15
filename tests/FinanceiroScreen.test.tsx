@@ -154,6 +154,21 @@ describe('FinanceiroScreen — estados de carregamento/erro/vazio (mesma doutrin
     expect(queryByTestId('financeiro-painel-row')).toBeNull();
   });
 
+  it('BR-CLI-15 (M5 da G2): o erro tem o botao "Atualizar" e ele refaz a consulta', () => {
+    const refetch = jest.fn();
+    mockUseResumoFinanceiroReturn.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+      refetch,
+      isGestor: true,
+    });
+    const { getByTestId, getByText } = wrap(<FinanceiroScreen />);
+    expect(getByText('Atualizar')).toBeTruthy();
+    fireEvent.press(getByTestId('erro-financeiro-painel-retry'));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it('nrCobrancas === 0 mostra o estado vazio, NUNCA receitaBruta === 0 como gate', () => {
     mockUseResumoFinanceiroReturn.mockReturnValue({
       data: { ...MOCK_RESUMO, nrCobrancas: 0, receitaBruta: 0, mixPorServico: [] },
