@@ -100,7 +100,7 @@ export const SMOKE_COVERAGE_REGISTRY: Record<string, CoverageEntry> = {
       'da Luna (kura-luna-ai, porta 8000), não no .NET (kura-api) nem no Java — é um ' +
       'upstream diferente dos dois que este script já sabe autenticar (Bearer ' +
       'clínica/tutor, X-Api-Key Luna->NET). O script não tem hoje uma var ' +
-      'LUNA_BASE_URL nem conhece o contrato de prontidão da Luna. Baixo risco (GET ' +
+      'LUNA_BASE_URL nem conhece o contrato de prontidão da Luna. Risco baixo (GET ' +
       'simples, sem side-effect) mas fora do escopo desta task — candidato a ' +
       'follow-up que adicione essa 3ª base URL ao script.',
   },
