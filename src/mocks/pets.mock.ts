@@ -190,8 +190,9 @@ const PETS_DA_AGENDA: ReadonlyArray<readonly [id: number, pet: string, idTutor: 
   [117, 'Bento', 217, 'Caio Ramos'], [118, 'Nina', 218, 'Diego Farias'], [119, 'Zeca', 219, 'Elaine Prado'],
   [120, 'Uga', 220, 'Felipe Rocha'], [121, 'Fifi', 221, 'Gustavo Alencar'], [122, 'Duke', 222, 'Helena Vidal'],
 ];
-PETS.push(
-  ...PETS_DA_AGENDA.map(
+// Fora de `PETS` de propósito: a listagem (`list`) segue com os 14 pets curados; estes só respondem
+// por id (`byId`/`buscarPetArmazenadoPorId`), que é o que "Abrir prontuário" usa.
+const PETS_REFERENCIADOS_PELA_AGENDA: PetResponse[] = PETS_DA_AGENDA.map(
     ([id, nmPet, idTutor, nmTutor]): PetResponse => ({
       id,
       nmPet,
@@ -202,7 +203,6 @@ PETS.push(
       sgPorte: 'M',
       tutores: [{ idTutor, nmTutor, dsVinculo: 'PROPRIETARIO', stPrincipal: true }],
     }),
-  ),
 );
 
 const TIMELINES: Record<number, TimelineEventResponse[]> = {
@@ -334,7 +334,7 @@ export async function byId(config: InternalAxiosRequestConfig): Promise<PetRespo
   const url = config.url ?? '';
   const match = /\/pets\/(\d+)$/.exec(url);
   const id = match ? parseInt(match[1] ?? '0', 10) : 0;
-  const pet = PETS.find((p) => p.id === id);
+  const pet = buscarPetArmazenadoPorId(id);
   if (!pet) {
     const err: { status: number; code: string; message: string } = {
       status: 404,
@@ -389,5 +389,5 @@ export async function uploadFoto(config: InternalAxiosRequestConfig): Promise<Pe
 // existe — o chamador decide o que fazer (404, mesma semântica do
 // `AgendaService.CriarAsync` real recusando `IdPet` desconhecido).
 export function buscarPetArmazenadoPorId(id: number): PetResponse | undefined {
-  return PETS.find((p) => p.id === id);
+  return PETS.find((p) => p.id === id) ?? PETS_REFERENCIADOS_PELA_AGENDA.find((p) => p.id === id);
 }
