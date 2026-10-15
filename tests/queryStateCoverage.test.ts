@@ -86,6 +86,13 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     expect(r1.r.violacoes[0]!.motivo).toMatch(/isError antes de data/);
     const ou = montarIsca("export default function T(){ const { data: lista, isError } = useCoisas(); if (isError || !lista) return 'erro'; return lista; }");
     expect(rodar(ou).status).toBe(1);
+    // reprodução do maestro: retorno antecipado `if (isError) {` passava verde
+    const cedo = montarIsca(
+      "export default function T(){ const { data, isError } = useCoisas();\n  if (isError) {\n    return 'erro';\n  }\n  return data; }",
+    );
+    const r3 = rodar(cedo);
+    expect(r3.status).toBe(1);
+    expect(r3.r.violacoes[0]!.motivo).toMatch(/retorno antecipado/);
   });
 
   it('controle: isError só quando NÃO há dado, ou ligado à faixa de dados salvos, passa', () => {

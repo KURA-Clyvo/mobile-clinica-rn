@@ -150,6 +150,10 @@ function erroAntesDoDado(util, erro, dataMatch) {
   if (new RegExp(String.raw`(?<![\w.])${e}\s*\|\|\s*(?:!\s*${d}\b|${d}\s*(?:==|!=)=?\s*(?:null|undefined)|!\s*\(?\s*${d}\b)`).test(util)) {
     return `${erro} || <ausência de ${dado}> descarta o dado salvo (isError antes de data)`;
   }
+  // `if (erro) return ...` / `if (erro) {`: retorno antecipado sem guarda de dado (reprodução do maestro, BR-CLI-G4).
+  if (new RegExp(String.raw`\bif\s*\(\s*${e}\s*\)`).test(util)) {
+    return `if (${erro}) sem guarda de ${dado}: retorno antecipado descarta o dado salvo (isError antes de data)`;
+  }
   // `erro ? <Algo/>` como 1º teste de um ternário, salvo quando o ramo é a faixa de dados salvos.
   for (const m of util.matchAll(new RegExp(String.raw`(?<![\w.!&|])${e}\s*\?\s*(\(?\s*<\s*(\w+))?`, 'g'))) {
     if (m[2] === 'FaixaDadosSalvos') continue;
