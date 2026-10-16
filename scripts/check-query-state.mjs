@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // BR-CLI-DET (fix wave da G2): ORIGEM das regras de "erro vence o dado salvo" / erro+vazio / useQueries. O tutor (mobile-tutor-rn
-// 6fb15d5, BR-TUT-T03) é a versão ANTERIOR: ele receberá esta versão na BR-TUT-T04 e, até lá, ainda tem as cegueiras G2-I1..I5/M1/M4.
+// 6fb15d5, BR-TUT-T03) era a versão ANTERIOR; desde a BR-TUT-T04 (tutor main@50efadd, 2026-10-16) ele tem esta mesma lógica (DIFF=0).
 // ÂNCORA (regra 11), conferida em 2026-10-16: só o que NÃO mudou continua cópia do tutor 6fb15d5 —
 //   (A) do início de `const RAZAO_MIN = 30` até a linha anterior a `const esc` (descoberta de hooks de dado), tutor linhas 81-162;
 //   (B) de `export function analisar` ao fim do arquivo, tutor linhas 317-375.
