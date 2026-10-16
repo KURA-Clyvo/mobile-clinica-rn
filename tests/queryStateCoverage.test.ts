@@ -54,6 +54,7 @@ function exigirPassa(dir: string) {
 describe('gate: tela que lê dado de servidor trata o erro (check-query-state)', () => {
   it('app real: 0 violações (EXIT 0)', () => {
     const { status, r } = rodar(RAIZ);
+    expect(r.chamadas.length).toBeGreaterThan(20); // G2-M5: 0 violações só vale se as chamadas foram contadas
     expect(r.violacoes).toEqual([]);
     expect(status).toBe(0);
   });
@@ -418,6 +419,7 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
   it('allowlist: toda entrada tem razão > 30 caracteres, aponta para chamada que existe e NÃO cobre os blocos da F2', () => {
     const lista = JSON.parse(execFileSync('node', [SCRIPT, '--allowlist'], { encoding: 'utf8' })) as Record<string, string>;
     const { r } = rodar(RAIZ);
+    expect(Object.keys(lista).length).toBeGreaterThan(0); // G2-M5: allowlist vazia (detector nulo) não passa
     for (const [chave, razao] of Object.entries(lista)) {
       expect(razao.length).toBeGreaterThan(30);
       const [tela, hook] = chave.split('::');
@@ -429,6 +431,7 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
 
   it('o CLI imprime a contagem e sai 0 no app real', () => {
     const out = execFileSync('node', [SCRIPT], { encoding: 'utf8' });
+    expect(out).toMatch(/chamadas: [2-9]\d/); // G2-M5: detector nulo imprime `chamadas: 0`
     expect(out).toMatch(/violacoes: 0/);
   });
 });
