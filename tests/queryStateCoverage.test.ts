@@ -102,6 +102,57 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     expect(rodar(faixa).status).toBe(0);
   });
 
+  // As 4 iscas obrigatórias do brief da BR-TUT-T03 (portadas do tutor 6fb15d5), no FORMATO que o Prettier e o código real produzem (não one-liners de sonda).
+  describe('iscas obrigatórias (formato real)', () => {
+    it('isError testado DEPOIS do dado, em ternário encadeado de uma linha e no formato multilinha do Prettier => violação (conservador)', () => {
+      // `data ? ... : isError ? ... : ...` é a ordem certa, mas o detector é textual: qualquer `isError ?` sem guarda `&& data == null`
+      // reprova. Declarado: o caminho aceito é QueryState (ou `isError && data == null`). Se isto passar a EXIT 0 sem o dev mudar a
+      // tela, o detector perdeu a regra.
+      const umaLinha = montarIsca('export default function T(){ const { data, isError } = useCoisas(); return data ? <L d={data}/> : isError ? <Erro/> : <Skel/>; }');
+      const r1 = rodar(umaLinha);
+      expect(r1.status).toBe(1);
+      expect(r1.r.violacoes[0]!.motivo).toMatch(/isError antes de data/);
+      const multilinha = montarIsca(
+        'export default function T(){\n  const { data, isError } = useCoisas();\n  return data ? (\n    <L d={data}/>\n  ) : isError ? (\n    <Erro/>\n  ) : null;\n}',
+      );
+      expect(rodar(multilinha).status).toBe(1);
+    });
+
+    it('`if (isError) {\\n return ... }` multilinha (Prettier), antes de usar o dado => violação "retorno antecipado"', () => {
+      const dir = montarIsca(
+        'export default function T(){\n  const { data, isError } = useCoisas();\n  if (isError) {\n    return <Erro/>;\n  }\n  return <L d={data}/>;\n}',
+      );
+      const { status, r } = rodar(dir);
+      expect(status).toBe(1);
+      expect(r.violacoes[0]!.motivo).toMatch(/retorno antecipado/);
+    });
+
+    it('desestruturação renomeada (`data: vacinas`, `isError: falhou`) é seguida pelo alias => violação; com guarda de dado passa', () => {
+      const ruim = montarIsca(
+        'export default function T(){\n  const { data: vacinas, isError: falhou } = useCoisas();\n  if (falhou) return <Erro/>;\n  return <L d={vacinas}/>;\n}',
+      );
+      const r1 = rodar(ruim);
+      expect(r1.status).toBe(1);
+      expect(r1.r.violacoes[0]!.motivo).toMatch(/falhou.*vacinas|vacinas/);
+      const ruimTernario = montarIsca('export default function T(){ const { data: vacinas, isError: falhou } = useCoisas(); return falhou ? <Erro/> : <L d={vacinas}/>; }');
+      expect(rodar(ruimTernario).status).toBe(1);
+      const boa = montarIsca('export default function T(){ const { data: vacinas, isError: falhou } = useCoisas(); return falhou && vacinas == null ? <Erro/> : <L d={vacinas}/>; }');
+      expect(rodar(boa).status).toBe(0);
+      const lidoEIgnorado = montarIsca('export default function T(){ const { data: vacinas, isError: falhou } = useCoisas(); return <L d={vacinas}/>; }');
+      expect(rodar(lidoEIgnorado).status).toBe(1);
+    });
+
+    it('`?? \'OK\'` sobre dado que pode estar ausente (o código antigo do perfil do pet) => violação por não tratar isError', () => {
+      const dir = montarIsca(
+        "const STATUS = { OK: 'Tudo certo', ALERTA: 'Atenção' };\n" +
+          'export default function T(){\n  const { data: pet } = useCoisas();\n  const statusCfg = STATUS[pet?.dsStatusGeral ?? \'OK\'];\n  return <Chip>{statusCfg}</Chip>;\n}',
+      );
+      const { status, r } = rodar(dir);
+      expect(status).toBe(1);
+      expect(r.violacoes[0]!.motivo).toMatch(/destructuring sem isError/);
+    });
+  });
+
   // I-1 (G2): cada forma que o detector antigo NÃO via ganha uma isca que DEVE reprovar (regra 13).
   // Os corpos são as sondas da revisão G2 (br-cli-t03-revisao.md, F2).
   const SEM_ERRO = 'export default function T(){ const { data = [] } = useCoisas(); return data; }';
@@ -139,6 +190,113 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     const { status, r } = rodar(montar(arquivos));
     expect(r.violacoes.length).toBeGreaterThan(0);
     expect(status).toBe(1);
+  });
+
+
+  // BR-CLI-DET (porte do F3-I1 da BR-TUT-T03, tutor 6fb15d5): as iscas da G2 que o detector antigo da clínica (773ae66) NÃO via, no formato multilinha do Prettier.
+  describe('F3-I1: formas que o detector herdado não enxergava', () => {
+    const tela = (corpo: string) => `export default function T() {\n${corpo}\n}`;
+    const CASOS: [string, string, RegExp][] = [
+      [
+        'a) objeto: `if (q.isError) { return <Erro/> }` descarta o dado salvo',
+        tela(
+          '  const petsQuery = useCoisas();\n  if (petsQuery.isError) {\n    return <ErrorState onRetry={() => petsQuery.refetch()} />;\n  }\n  return <Text>{petsQuery.data?.length ?? 0}</Text>;',
+        ),
+        /isError antes de data/,
+      ],
+      [
+        'a) objeto: ternário `q.isError ? <Erro/> : ...`',
+        tela('  const q = useCoisas();\n  return q.isError ? (\n    <Erro />\n  ) : (\n    <L d={q.data} />\n  );'),
+        /isError antes de data/,
+      ],
+      [
+        'a) objeto: `q.isError || !q.data`',
+        tela('  const q = useCoisas();\n  if (q.isError || !q.data) return <Erro />;\n  return <L d={q.data} />;'),
+        /isError antes de data/,
+      ],
+      [
+        'b) desestruturado: `if (isError && !isFetching) return <Erro/>`',
+        tela('  const { data, isError, isFetching } = useCoisas();\n  if (isError && !isFetching) {\n    return <Erro />;\n  }\n  return <L d={data} />;'),
+        /condição composta sem guarda de data/,
+      ],
+      [
+        'b) objeto: `if (q.isError && !q.isFetching) return <Erro/>`',
+        tela('  const q = useCoisas();\n  if (q.isError && !q.isFetching) {\n    return <Erro />;\n  }\n  return <L d={q.data} />;'),
+        /condição composta sem guarda de q\.data/,
+      ],
+      [
+        // Reprodução do maestro (sessão 6): desestruturação em 2ª instrução a partir do objeto, com renomeação, e o
+        // objeto também indo para <QueryState>. O detector só olhava `q.isError` e aceitava pelo <QueryState>.
+        'a) objeto + desestruturação renomeada depois: `const { isError: falhou } = q; if (falhou) return null`',
+        tela(
+          '  const q = useCoisas();\n  const { isError: falhou } = q;\n  if (falhou) return null;\n  return (\n    <QueryState\n      query={q}\n      empty={<Text>Nenhum</Text>}\n    >\n      {(d) => <L d={d} />}\n    </QueryState>\n  );',
+        ),
+        /isError antes de data/,
+      ],
+      [
+        'c) erro E vazio ao mesmo tempo (Review Focus §5)',
+        tela(
+          '  const { data = [], isError } = useCoisas();\n  return (\n    <>\n      {isError && <ErrorState onRetry={() => 1} />}\n      {data.length === 0 && <Text>Nenhum pet ainda</Text>}\n      {data.length > 0 && <L d={data} />}\n    </>\n  );',
+        ),
+        /erro e vazio podem coincidir/,
+      ],
+      [
+        'c) erro E vazio, forma objeto, `!q.length`',
+        tela(
+          '  const q = useCoisas();\n  return (\n    <>\n      {q.isError && <ErrorState onRetry={() => 1} />}\n      {!q.data?.length && (\n        <Text>Nenhum</Text>\n      )}\n    </>\n  );',
+        ),
+        /erro e vazio podem coincidir/,
+      ],
+    ];
+    it.each(CASOS)('isca: %s => violação nominal, EXIT 1', (_n, src, motivo) => {
+      const { status, r } = rodar(montarIsca(src));
+      expect(status).toBe(1);
+      expect(r.violacoes).toHaveLength(1);
+      expect(r.violacoes[0]!.motivo).toMatch(motivo);
+    });
+
+    const QUERIES = (corpo: string) => tela(`  const petsQuery = useCoisas();\n  const vacinas = useQueries({ queries: [] });\n${corpo}`);
+    const QUERY_LIKE = 'isLoading: false, refetch: () => 1, data: petsQuery.data';
+    const CASOS_QUERIES: [string, string][] = [
+      [
+        'd) M8b da G2: o erro dos itens do useQueries é descartado (só `petsQuery.isError`)',
+        QUERIES(`  const agregada = { ${QUERY_LIKE}, isError: petsQuery.isError };\n  return (\n    <QueryState query={agregada} empty={null}>\n      {() => null}\n    </QueryState>\n  );`),
+      ],
+      [
+        'd) `isError` lido do array e jogado fora (`void algumErro`)',
+        QUERIES('  const algumErro = vacinas.some((r) => r.isError);\n  void algumErro;\n  return petsQuery.isError && petsQuery.data == null ? 1 : 2;'),
+      ],
+      ['d) a palavra isError só aparece em outro lugar', QUERIES('  return petsQuery.isError && petsQuery.data == null ? vacinas.length : 2;')],
+    ];
+    it.each(CASOS_QUERIES)('isca (useQueries): %s => violação em useQueries, EXIT 1', (_n, src) => {
+      const { status, r } = rodar(montarIsca(src));
+      expect(status).toBe(1);
+      expect(r.violacoes.map((v) => v.hook)).toEqual(['useQueries']);
+      expect(r.violacoes[0]!.motivo).toMatch(/useQueries: o isError de cada item/);
+    });
+
+    const PASSAM_F3: [string, string][] = [
+      ['objeto com guarda de dado', tela('  const q = useCoisas();\n  if (q.isError && q.data == null) {\n    return <Erro />;\n  }\n  return <L d={q.data} />;')],
+      ['desestruturado com guarda de dado na condição composta', tela('  const { data, isError, isFetching } = useCoisas();\n  if (isError && data == null && !isFetching) {\n    return <Erro />;\n  }\n  return <L d={data} />;')],
+      [
+        'erro e vazio, com `!isError` na cadeia do vazio',
+        tela('  const { data = [], isError } = useCoisas();\n  return (\n    <>\n      {isError && data.length === 0 && <ErrorState onRetry={() => 1} />}\n      {!isError && data.length === 0 && <Text>Nenhum pet ainda</Text>}\n    </>\n  );'),
+      ],
+      [
+        'useQueries: o erro de cada item entra no agregado e o agregado é usado',
+        tela('  const vacinas = useQueries({ queries: [] });\n  const falhou = vacinas.some((r) => r.isError);\n  return falhou ? <Erro /> : <L />;'),
+      ],
+      [
+        'objeto + desestruturação renomeada depois, com guarda do dado renomeado',
+        tela('  const q = useCoisas();\n  const { isError: falhou, data: d } = q;\n  if (falhou && !d) return null;\n  return <QueryState query={q} empty={<Text>N</Text>}>{(x) => <L d={x} />}</QueryState>;'),
+      ],
+      ['useQueries: `res[0].isError` lido', tela('  const vacinas = useQueries({ queries: [] });\n  return vacinas[0]?.isError ? <Erro /> : <L />;')],
+    ];
+    it.each(PASSAM_F3)('controle negativo: %s => passa', (_n, src) => {
+      const { status, r } = rodar(montarIsca(src));
+      expect(r.violacoes).toEqual([]);
+      expect(status).toBe(0);
+    });
   });
 
   const PASSAM: [string, Record<string, string | null>][] = [
