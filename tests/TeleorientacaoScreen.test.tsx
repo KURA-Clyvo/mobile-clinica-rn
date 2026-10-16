@@ -200,6 +200,40 @@ describe('TeleorientacaoScreen — com idAgendamento (wired ao backend)', () => 
     fireEvent.press(getByTestId('btn-tentar-novamente'));
     expect(IDLE_MUTATION.mutate).toHaveBeenCalledTimes(1);
   });
+
+  // BR-CLI-DET (G2-I6): sala salva em cache + refetch falho (isError e data valem juntos) não pode trocar o botão pelo erro.
+  describe('sala salva + refetch falho', () => {
+    const SALA_SALVA = { idAgendamento: 42, dsSalaUrl: 'https://kura.daily.co/room-42', dsProvedorVideo: 'DAILY', dtInicioSessao: null, stFallbackManual: false };
+
+    it('controle: sem erro, a sala salva mostra "Entrar na sala" e nenhum aviso', () => {
+      mockUseTeleconsulta.mockReturnValue({ query: { data: SALA_SALVA, isLoading: false, error: null, isError: false }, mutation: IDLE_MUTATION });
+      const { queryByTestId } = wrap(<TeleorientacaoScreen />);
+      expect(queryByTestId('btn-entrar-sala')).not.toBeNull();
+      expect(queryByTestId('aviso-sala-desatualizada')).toBeNull();
+      expect(queryByTestId('msg-erro-sala')).toBeNull();
+    });
+
+    it('com a sala salva e erro de refetch, mantém "Entrar na sala" e mostra só um aviso', () => {
+      mockUseTeleconsulta.mockReturnValue({
+        query: { data: SALA_SALVA, isLoading: false, error: { status: 503, message: 'down' }, isError: true },
+        mutation: IDLE_MUTATION,
+      });
+      const { queryByTestId } = wrap(<TeleorientacaoScreen />);
+      expect(queryByTestId('msg-erro-sala')).toBeNull();
+      expect(queryByTestId('btn-entrar-sala')).not.toBeNull();
+      expect(queryByTestId('aviso-sala-desatualizada')).not.toBeNull();
+    });
+
+    it('sem sala e com erro, o erro continua no lugar da sala (o ramo de erro não sumiu)', () => {
+      mockUseTeleconsulta.mockReturnValue({
+        query: { data: undefined, isLoading: false, error: { status: 503, message: 'down' }, isError: true },
+        mutation: IDLE_MUTATION,
+      });
+      const { queryByTestId } = wrap(<TeleorientacaoScreen />);
+      expect(queryByTestId('msg-erro-sala')).not.toBeNull();
+      expect(queryByTestId('btn-entrar-sala')).toBeNull();
+    });
+  });
 });
 
 // CQ-15: prova de mordida — falha contra a tela sem ScreenContainer (o
