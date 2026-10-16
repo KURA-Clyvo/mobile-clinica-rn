@@ -161,58 +161,6 @@ function lhsDaChamada(t, idx) {
   return m ? m[1].trim() : null;
 }
 
-/**
- * BR-CLI-G4 (achado 3): "isError antes de data". Com dado em cache e refetch falho `isError` e `data`
- * valem juntos; a tela que testa `isError` primeiro (`isError || !data`, ou `isError ? <Erro/>`)
- * DESCARTA o dado salvo e mostra só o erro. O certo: `isError && data == null ? <Erro/>` e, com dado,
- * o conteúdo + <FaixaDadosSalvos/>. Só vale quando o destructuring traz o `data` (sem ele não há o
- * que descartar). Heurística textual (mesmos limites do restante deste script).
- */
-function erroAntesDoDado(util, erro, dataMatch) {
-  if (!dataMatch) return null;
-  const dado = dataMatch[1] ?? 'data';
-  const e = esc(erro);
-  const d = esc(dado);
-  if (new RegExp(String.raw`(?<![\w.])${e}\s*\|\|\s*(?:!\s*${d}\b|${d}\s*(?:==|!=)=?\s*(?:null|undefined)|!\s*\(?\s*${d}\b)`).test(util)) {
-    return `${erro} || <ausência de ${dado}> descarta o dado salvo (isError antes de data)`;
-  }
-  // `if (erro) return ...` / `if (erro) {`: retorno antecipado sem guarda de dado (reprodução do maestro, BR-CLI-G4).
-  if (new RegExp(String.raw`\bif\s*\(\s*${e}\s*\)`).test(util)) {
-    return `if (${erro}) sem guarda de ${dado}: retorno antecipado descarta o dado salvo (isError antes de data)`;
-  }
-  // BR-TUT-T03 (F3-I1 b): `if (erro && !isFetching) return ...` — condição composta que lê o erro e NÃO menciona o dado.
-  for (const m of util.matchAll(/\bif\s*\(([^)]*)\)/g)) {
-    const cond = m[1];
-    if (!new RegExp(String.raw`(?<![\w.!])${e}(?!\w)`).test(cond)) continue;
-    if (new RegExp(String.raw`(?<![\w.])${d}(?!\w)`).test(cond)) continue; // há guarda de dado na condição
-    return `if (${cond.trim()}): condição composta sem guarda de ${dado}, retorno antecipado descarta o dado salvo (isError antes de data)`;
-  }
-  // `erro ? <Algo/>` como 1º teste de um ternário, salvo quando o ramo é a faixa de dados salvos.
-  for (const m of util.matchAll(new RegExp(String.raw`(?<![\w.!&|])${e}\s*\?\s*(\(?\s*<\s*(\w+))?`, 'g'))) {
-    if (m[2] === 'FaixaDadosSalvos') continue;
-    return `${erro} ? ... sem guarda de ${dado}: o erro vence o dado salvo (isError antes de data)`;
-  }
-  return null;
-}
-
-/**
- * BR-TUT-T03 (F3-I1 c, Review Focus §5): a frase de erro e a frase de vazio nunca podem coincidir. Regra textual: o componente
- * renderiza o erro (`{erro && <...`, ou `<ErrorState` direto) E renderiza um vazio por `{<x>.length === 0 && <...` em
- * expressão `&&` SEM `!erro` na mesma cadeia. LIMITE: ternário/retorno antecipado não são analisados (o retorno antecipado já é
- * pego por `erroAntesDoDado`; ternário encadeado certo — `erro && data == null ? <E/> : vazio ? <V/> : ...` — passa).
- */
-function erroEVazio(util, erro) {
-  const e = esc(erro);
-  const renderizaErro = new RegExp(String.raw`(?<![\w.!])${e}\s*&&\s*\(?\s*<`).test(util) || /<ErrorState\b/.test(util);
-  if (!renderizaErro) return null;
-  for (const m of util.matchAll(/\{\s*\(?([^{}]*?(?:\.length\s*===?\s*0|!\s*[\w.?]+\.length\b|\.length\s*<\s*1))\s*\)?\s*&&\s*\(?\s*</g)) {
-    if (new RegExp(String.raw`!\s*${e}(?!\w)`).test(m[1])) continue; // `!erro` na cadeia: o vazio só aparece sem erro
-    if (new RegExp(String.raw`(?<![\w.!])${e}\s*&&`).test(m[1])) continue; // cadeia do próprio erro (ErrorState só quando vazio)
-    return `erro e vazio podem coincidir: o componente renderiza o erro e também \`${m[1].trim()} && <...>\` sem \`!${erro}\` (Review Focus §5)`;
-  }
-  return null;
-}
-
 /** Conteúdo entre parênteses balanceados; `i` aponta para o 1º caractere DEPOIS do `(` de abertura. */
 function argsBalanceados(t, i) {
   let prof = 1;
@@ -224,16 +172,257 @@ function argsBalanceados(t, i) {
   return t.slice(i, j - 1);
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Análise de condições (BR-CLI-DET, fix wave da G2: I1-I5, M1, M4). Tudo textual, sem AST.
+//
+// MODELO: cada condição (`if (...)`, teste de ternário, cadeia `{... && <El/>}`) vira uma forma normal disjuntiva
+// (DNF) de folhas. Cada disjunto carrega 3 marcas: `err` (lê o erro, positivo), `naoErro` (lê `!erro`) e `guarda`
+// (testa a AUSÊNCIA do dado: `!d`, `d == null`, `d === undefined`, `!d?.length`, `d?.length === 0`).
+// O erro vence o dado salvo se algum disjunto tem `err` e NÃO tem `guarda` nem `naoErro`. Por isso `isError && data == null`
+// passa e `!data || isError` reprova (o 2º disjunto é só `isError`): a guarda de dado só vale em CONJUNÇÃO com o erro.
+
+/** `t` dividido em `sep` ('||' ou '&&') só no nível 0 de (), [] e {}. */
+function dividir(t, sep) {
+  const partes = [];
+  let prof = 0;
+  let ini = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (c === '(' || c === '[' || c === '{') prof++;
+    else if (c === ')' || c === ']' || c === '}') prof--;
+    else if (prof === 0 && t.startsWith(sep, i)) {
+      partes.push(t.slice(ini, i));
+      i += sep.length - 1;
+      ini = i + 1;
+    }
+  }
+  partes.push(t.slice(ini));
+  return partes;
+}
+
+/** `(x)` -> `x` quando o `(` inicial fecha no último caractere; senão devolve igual. */
+function desembrulhar(s) {
+  const t = s.trim();
+  if (!t.startsWith('(') || !t.endsWith(')')) return t;
+  let prof = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === '(') prof++;
+    else if (t[i] === ')') {
+      prof--;
+      if (prof === 0 && i < t.length - 1) return t;
+    }
+  }
+  return desembrulhar(t.slice(1, -1));
+}
+
+const DADO_ARRAY = String.raw`[\w$]+(?:\[[^\]]*\])?\s*\??\.\s*data(?!\w)`;
+const dadoPorNome = (n) => String.raw`(?<![\w.])${esc(n)}(?!\w)`;
+const dadoPorObjeto = (q) => String.raw`(?<![\w.])${esc(q)}\s*\??\.\s*data(?!\w)`;
+
+/** Formas que testam a AUSÊNCIA do dado (`dsrc` = regex do dado). `d != null` NÃO é ausência. */
+const guardasDe = (dsrc) => [
+  new RegExp(String.raw`!\s*\(?\s*${dsrc}(?:\s*\??\.\s*length)?(?![\w.?])`),
+  new RegExp(String.raw`${dsrc}\s*===?\s*(?:null|undefined)(?!\w)`),
+  new RegExp(String.raw`${dsrc}\s*\??\.\s*length\s*(?:===?\s*0|<\s*1)(?!\w)`),
+  new RegExp(String.raw`typeof\s+${dsrc}\s*===?\s*['"]undefined['"]`),
+];
+
+const predAlias = (n) => {
+  const re = new RegExp(String.raw`(?<![\w.])${esc(n)}(?!\w)`);
+  return (s) => re.test(s);
+};
+/** Leituras de erro de uma query-objeto `q` (M1): isError, error, isRefetchError, status === 'error', com `?.`. */
+function predsObjeto(q) {
+  const a = new RegExp(String.raw`(?<![\w.])${esc(q)}\s*\??\.\s*(?:isError|error|isRefetchError)(?!\w)`);
+  const b = new RegExp(String.raw`(?<![\w.])${esc(q)}\s*\??\.\s*status\s*===?\s*['"]error['"]`);
+  return [(s) => a.test(s), (s) => b.test(s)];
+}
+/** Leitura do erro de CADA item de um `useQueries` (`rs.some(r => r.isError)`, `rs[0]?.isError`) dentro de `s`. */
+function leuErroDoArray(s, nome) {
+  const re = new RegExp(String.raw`(?<![\w.])${esc(nome)}(?!\w)\s*(?:\.\s*\w+\s*\(|\[)`, 'g');
+  for (const m of s.matchAll(re)) {
+    const depois = m.index + m[0].length;
+    const leu = m[0].endsWith('(') ? /\bisError\b/.test(argsBalanceados(s, depois)) : /^[^\]]*\]\s*\??\.isError\b/.test(s.slice(depois));
+    if (leu) return true;
+  }
+  return false;
+}
+
+function novoCtx(erros, dadosSrc, rotulo) {
+  return { erros, dadosSrc, rotulo };
+}
+const temGuarda = (ctx, s) => ctx.dadosSrc.some((d) => guardasDe(d).some((re) => re.test(s)));
+const lerErro = (ctx, s) => ctx.erros.some((p) => p(s));
+
+function folha(s, ctx) {
+  const neg = /^!(?!=)/.test(s);
+  const resto = neg ? desembrulhar(s.slice(1)) : s;
+  const le = lerErro(ctx, resto);
+  return { err: !neg && le, naoErro: neg && le, guarda: temGuarda(ctx, s) };
+}
+
+function dnf(t, ctx) {
+  const ors = dividir(t, '||');
+  if (ors.length > 1) return ors.flatMap((p) => dnf(p, ctx));
+  const ands = dividir(t, '&&');
+  if (ands.length > 1) {
+    return ands
+      .map((p) => dnf(p, ctx))
+      .reduce(
+        (acc, d) => acc.flatMap((a) => d.map((b) => ({ err: a.err || b.err, naoErro: a.naoErro || b.naoErro, guarda: a.guarda || b.guarda }))),
+        [{ err: false, naoErro: false, guarda: false }],
+      );
+  }
+  const s = t.trim();
+  const inner = desembrulhar(s);
+  if (inner !== s) return dnf(inner, ctx);
+  return [folha(s, ctx)];
+}
+const erroSemGuarda = (d) => d.some((x) => x.err && !x.naoErro && !x.guarda);
+
+/** Início do teste de um ternário cujo `?` está em `q`: anda para trás até um delimitador de nível 0. */
+function inicioDoTeste(t, q) {
+  let prof = 0;
+  for (let i = q - 1; i >= 0; i--) {
+    const c = t[i];
+    if (c === ')' || c === ']' || c === '}') prof++;
+    else if (c === '(' || c === '[' || c === '{') {
+      if (prof === 0) return i + 1;
+      prof--;
+    } else if (prof === 0) {
+      if (c === ';' || c === ',' || c === ':') return i + 1;
+      if (c === '?' && !'.?'.includes(t[i + 1] ?? ' ') && t[i - 1] !== '?') return i + 1;
+      if (c === '=') {
+        if (t[i + 1] === '>') return i + 2;
+        if (!/[=!<>]/.test(t[i - 1] ?? '') && t[i + 1] !== '=') return i + 1;
+      }
+      if (i >= 5 && t.slice(i - 5, i + 1) === 'return' && !/[\w$]/.test(t[i - 6] ?? '')) return i + 1;
+    }
+  }
+  return 0;
+}
+
+const ateFecharChave = (t, i) => {
+  let p = 0;
+  for (let j = i; j < t.length; j++) {
+    if (t[j] === '{') p++;
+    else if (t[j] === '}') {
+      if (p === 0) return t.slice(i, j);
+      p--;
+    }
+  }
+  return t.slice(i);
+};
+
+/** Sítios de condição do componente: `if (...)`, teste de ternário e cadeia `{... && <El/>}`. */
+function condicoes(util) {
+  const out = [];
+  for (const m of util.matchAll(/\bif\s*\(/g)) out.push({ tipo: 'if', texto: argsBalanceados(util, m.index + m[0].length) });
+  for (let i = 0; i < util.length; i++) {
+    if (util[i] !== '?' || '.?:'.includes(util[i + 1] ?? ' ') || util[i - 1] === '?') continue;
+    const faixa = /^\s*\(?\s*<\s*FaixaDadosSalvos\b/.test(util.slice(i + 1));
+    out.push({ tipo: 'ternario', texto: util.slice(inicioDoTeste(util, i), i), faixa });
+  }
+  for (const m of util.matchAll(/\{\s*([^{}]*?)\s*&&\s*\(?\s*</g)) {
+    out.push({ tipo: 'jsx', texto: m[1], depois: ateFecharChave(util, m.index + m[0].length) });
+  }
+  return out;
+}
+
 /**
- * BR-TUT-T03 (F3-I1 d): `useQueries` devolve um ARRAY. A palavra `isError` em qualquer lugar do componente não basta (a
- * `petsQuery.isError` da Saúde enganava o detector com o erro das vacinas descartado). Exige o erro de CADA item lido pelo
- * próprio array: `res.some/every/find/filter/map(... isError ...)` ou `res[i].isError`; e, se o resultado da leitura for
- * guardado numa variável, essa variável tem de ser usada (`void x` não conta). LIMITE: não prova que o valor lido chega ao render.
+ * Segue variáveis locais que guardam o erro ou o dado: `const erro = q.isError;`, `const mostrar = isError && !isFetching;`,
+ * `const sala = mutation.data ?? q.data;` (G2-I3). O alias de erro herda a regra da definição: se a própria definição já tem
+ * `&& <dado> == null`, o alias é seguro e não entra. Objeto literal e arrow function não são aliases.
  */
-function avaliarUseQueries(util, lhs) {
+function seguirAliases(util, ctx, naQueryState) {
+  const vistos = new Set();
+  let mudou = true;
+  while (mudou) {
+    mudou = false;
+    for (const m of util.matchAll(/\b(?:const|let|var)\s+(\w+)\s*=\s*([^;]+?)\s*;/g)) {
+      const nome = m[1];
+      const rhs = m[2];
+      if (vistos.has(nome) || /^\s*\{/.test(rhs) || /^\s*(?:async\s+)?(?:\([^)]*\)|\w+)\s*=>/.test(rhs) || naQueryState(nome)) continue;
+      if (erroSemGuarda(dnf(rhs, ctx))) {
+        ctx.erros.push(predAlias(nome));
+        vistos.add(nome);
+        mudou = true;
+      } else if (!lerErro(ctx, rhs) && ctx.dadosSrc.some((d) => new RegExp(d).test(rhs))) {
+        ctx.dadosSrc.push(dadoPorNome(nome));
+        vistos.add(nome);
+        mudou = true;
+      }
+    }
+  }
+}
+
+/**
+ * "erro vence o dado salvo" (BR-CLI-G4 achado 3; F3-I1 a/b; G2-I1/I2/I3/I5). Com dado em cache e refetch falho `isError` e
+ * `data` valem juntos: a tela que entrega o erro sem exigir a AUSÊNCIA do dado descarta o dado salvo.
+ */
+function erroAntesDoDado(util, ctx) {
+  if (!ctx.dadosSrc.length) return null;
+  const dado = ctx.rotulo;
+  for (const c of condicoes(util)) {
+    const d = dnf(c.texto, ctx);
+    const cond = c.texto.trim().replace(/\s+/g, ' ');
+    if (c.tipo === 'jsx') {
+      // `{!erro && <Lista d={dado}/>}`: a lista some quando o erro chega (o dado salvo é escondido).
+      if (d.length && d.every((x) => x.naoErro) && ctx.dadosSrc.some((s) => new RegExp(s).test(c.depois))) {
+        return `{${cond} && <...${dado}...>}: o erro negado esconde o dado salvo (isError antes de data)`;
+      }
+      continue;
+    }
+    if (erroSemGuarda(d) && !(c.tipo === 'ternario' && c.faixa)) {
+      if (c.tipo === 'if') {
+        if (cond.includes('||')) return `if (${cond}): o erro vence o dado salvo dentro de \`||\` (isError antes de data); a guarda de ${dado} só vale em \`&&\` com o erro`;
+        if (cond.includes('&&')) return `if (${cond}): condição composta sem guarda de ${dado}, retorno antecipado descarta o dado salvo (isError antes de data)`;
+        return `if (${cond}) sem guarda de ${dado}: retorno antecipado descarta o dado salvo (isError antes de data)`;
+      }
+      return `${cond} ? ... sem guarda de ${dado}: o erro vence o dado salvo (isError antes de data)`;
+    }
+    // `!erro ? <Lista/> : <Erro/>` e `!erro && dado ? ... : <Erro/>` são o mesmo ternário com os ramos trocados.
+    if (c.tipo === 'ternario' && !c.faixa && d.length && d.every((x) => x.naoErro && !x.err)) {
+      return `${cond} ? ...: erro negado, o ramo de erro vence o dado salvo (isError antes de data)`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Review Focus §5: a frase de erro e a frase de vazio nunca podem coincidir. O componente renderiza o erro por uma cadeia
+ * `{erro && <...` SEM guarda de dado E um vazio `{<x>.length === 0 && <...` sem o erro na cadeia. (G2-M4: erro só COM guarda de dado
+ * — `if (isError && data == null) return <ErrorState/>` — não coincide com o vazio, que só existe com dado.)
+ */
+function erroEVazio(util, ctx) {
+  const cs = condicoes(util).filter((c) => c.tipo === 'jsx');
+  if (!cs.some((c) => erroSemGuarda(dnf(c.texto, ctx)))) return null;
+  for (const c of cs) {
+    if (!/\.length\s*===?\s*0|!\s*[\w.?]+\.length\b|\.length\s*<\s*1/.test(c.texto)) continue;
+    const d = dnf(c.texto, ctx);
+    if (d.length && d.every((x) => x.err || x.naoErro)) continue; // o erro está na cadeia do vazio (`!erro`, ou o próprio erro)
+    return `erro e vazio podem coincidir: o componente renderiza o erro e também \`${c.texto.trim().replace(/\s+/g, ' ')} && <...>\` sem \`!erro\` (Review Focus §5)`;
+  }
+  return null;
+}
+
+const problemaDeErro = (util, ctx, naQueryState) => {
+  seguirAliases(util, ctx, naQueryState);
+  return erroAntesDoDado(util, ctx) ?? erroEVazio(util, ctx);
+};
+
+/**
+ * BR-TUT-T03 (F3-I1 d): `useQueries` devolve um ARRAY. A palavra `isError` em qualquer lugar do componente não basta.
+ * Exige o erro de CADA item lido pelo próprio array: `res.some/every/find/filter/map(... isError ...)` ou `res[i].isError`; se o
+ * resultado da leitura for guardado numa variável, ela tem de ser usada (`void x` não conta). E (G2-I4) o erro lido não pode
+ * vencer o dado: `if (rs.some(r => r.isError)) return <Erro/>` descarta a lista salva de todos os itens. O caminho aceito é
+ * agregar o erro num objeto entregue a `<QueryState query={...}>`, ou guardar com `&& <item>.data == null`.
+ */
+function avaliarUseQueries(util, lhs, naQueryState) {
   const nome = /^(\w+)$/.exec(lhs)?.[1];
   if (!nome) return { ok: false, motivo: 'useQueries: o resultado precisa ficar numa variável simples (para checar isError de cada item)' };
   const re = new RegExp(String.raw`(?<![\w.])${nome}(?!\w)\s*(?:\.\s*\w+\s*\(|\[)`, 'g');
+  let leuAlgum = false;
   for (const m of util.matchAll(re)) {
     const depois = m.index + m[0].length;
     let leu;
@@ -242,9 +431,34 @@ function avaliarUseQueries(util, lhs) {
     if (!leu) continue;
     const guardado = /(?:const|let)\s+(\w+)\s*=\s*$/.exec(util.slice(0, m.index));
     if (guardado && contar(util.replace(new RegExp(String.raw`\bvoid\s+${guardado[1]}\b`, 'g'), ' '), guardado[1]) < 2) continue;
-    return { ok: true };
+    leuAlgum = true;
+    break;
   }
-  return { ok: false, motivo: `useQueries: o isError de cada item de ${nome} não é lido (ex.: ${nome}.some(r => r.isError)) ou é lido e descartado` };
+  if (!leuAlgum) return { ok: false, motivo: `useQueries: o isError de cada item de ${nome} não é lido (ex.: ${nome}.some(r => r.isError)) ou é lido e descartado` };
+  const ctx = novoCtx([(s) => leuErroDoArray(s, nome)], [DADO_ARRAY], 'o data do item');
+  const problema = problemaDeErro(util, ctx, naQueryState);
+  return problema ? { ok: false, motivo: `useQueries: ${problema}` } : { ok: true };
+}
+
+/** Forma OBJETO (`const q = useX()`, ou `const { query: q } = useX()`): as regras valem iguais (G2-I5), com ou sem <QueryState>. */
+function avaliarObjeto(util, nome, naQueryState, semLeitura) {
+  const ctx = novoCtx(predsObjeto(nome), [dadoPorObjeto(nome)], `${nome}.data`);
+  // Desestruturação em 2ª instrução a partir do objeto (`const { isError: falhou, data: d } = q;`): os aliases entram na análise.
+  for (const d of util.matchAll(new RegExp(String.raw`\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*${esc(nome)}\s*[;\n]`, 'g'))) {
+    const aliasErro = /\bisError\s*(?::\s*(\w+))?/.exec(d[1]);
+    if (!aliasErro) continue;
+    ctx.erros.push(predAlias(aliasErro[1] ?? 'isError'));
+    const aliasDado = /\bdata\s*(?::\s*(\w+))?/.exec(d[1]);
+    if (aliasDado) ctx.dadosSrc.push(dadoPorNome(aliasDado[1] ?? 'data'));
+  }
+  const leu = ctx.erros.some((p) => p(util));
+  if (leu) {
+    const problema = problemaDeErro(util, ctx, naQueryState);
+    if (problema) return { ok: false, motivo: problema };
+    if (predsObjeto(nome).some((p) => p(util))) return { ok: true };
+  }
+  if (naQueryState(nome)) return { ok: true };
+  return { ok: false, motivo: semLeitura };
 }
 
 /** `escopo` = texto do componente (declaração de topo) que contém a chamada. */
@@ -254,7 +468,7 @@ function avaliarChamada(t, escopo, hook, idx) {
   const util = semUsoInocuo(escopo);
   const naQueryState = (q) => new RegExp(String.raw`<QueryState\b(?:[^<>]|=>)*?\bquery=\{\s*${esc(q)}\s*\}`).test(util);
   if (hook === 'useQueries') {
-    return avaliarUseQueries(util, lhs);
+    return avaliarUseQueries(util, lhs, naQueryState);
   }
   if (lhs.startsWith('{')) {
     const alias = /\bisError\s*(?::\s*(\w+))?/.exec(lhs);
@@ -262,37 +476,19 @@ function avaliarChamada(t, escopo, hook, idx) {
     if (alias) {
       const nome = alias[1] ?? 'isError';
       if (contar(util, nome) >= 2) {
-        const problema = erroAntesDoDado(util, nome, /\bdata\s*(?::\s*(\w+))?/.exec(lhs)) ?? erroEVazio(util, nome);
+        const dataMatch = /\bdata\s*(?::\s*(\w+))?/.exec(lhs);
+        const ctx = novoCtx([predAlias(nome)], dataMatch ? [dadoPorNome(dataMatch[1] ?? 'data')] : [], dataMatch?.[1] ?? 'data');
+        const problema = problemaDeErro(util, ctx, naQueryState);
         return problema ? { ok: false, motivo: problema } : { ok: true };
       }
       return { ok: false, motivo: `isError lido (${nome}) mas nunca usado no componente` };
     }
-    if (q && (contar(util, `${q[1]}.isError`) > 0 || naQueryState(q[1]))) return { ok: true };
+    if (q) return avaliarObjeto(util, q[1], naQueryState, 'destructuring sem isError');
     return { ok: false, motivo: 'destructuring sem isError' };
   }
   const nome = /^(\w+)/.exec(lhs)?.[1];
   if (!nome) return { ok: false, motivo: 'atribuição não reconhecida' };
-  // Reprodução do maestro (BR-TUT-T03, sessão 6): desestruturação em 2ª instrução a partir do objeto
-  // (`const { isError: falhou } = q;`) escapava, porque só `q.isError` era procurado e `q` também ia para <QueryState>.
-  // Cada `{ ... } = <nome>` que lê isError passa pelas mesmas regras; o dado aceito é o `data` da mesma
-  // desestruturação ou `<nome>.data`.
-  for (const d of util.matchAll(new RegExp(String.raw`\b(?:const|let|var)\s*\{([^}]*)\}\s*=\s*${esc(nome)}\s*[;\n]`, 'g'))) {
-    const aliasErro = /\bisError\s*(?::\s*(\w+))?/.exec(d[1]);
-    if (!aliasErro) continue;
-    const erro = aliasErro[1] ?? 'isError';
-    const aliasDado = /\bdata\s*(?::\s*(\w+))?/.exec(d[1]);
-    const problema =
-      erroAntesDoDado(util, erro, aliasDado ?? [null, `${nome}.data`]) ?? erroEVazio(util, erro);
-    if (problema) return { ok: false, motivo: problema };
-  }
-  if (new RegExp(String.raw`\b${nome}\.isError\b`).test(util)) {
-    // forma OBJETO: a regra "erro antes do dado" vale igual (F3-I1 a/b); o dado é `<nome>.data`. Vale também quando a query
-    // TAMBÉM vai para <QueryState>: o retorno antecipado por fora do kit descartaria o dado salvo do mesmo jeito.
-    const problema = erroAntesDoDado(util, `${nome}.isError`, [null, `${nome}.data`]) ?? erroEVazio(util, `${nome}.isError`);
-    return problema ? { ok: false, motivo: problema } : { ok: true };
-  }
-  if (naQueryState(nome)) return { ok: true };
-  return { ok: false, motivo: `${nome} nunca passa a <QueryState query> nem lê .isError` };
+  return avaliarObjeto(util, nome, naQueryState, `${nome} nunca passa a <QueryState query> nem lê .isError`);
 }
 
 export function analisar(root) {
