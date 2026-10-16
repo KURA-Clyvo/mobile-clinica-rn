@@ -142,6 +142,9 @@ export default function TeleorientacaoScreen() {
 
   const sala = criarSalaMutation.data ?? salaQuery.data;
   const erro = (criarSalaMutation.error ?? salaQuery.error) as unknown as ApiError | undefined;
+  // BR-CLI-DET (G2-I6): o erro só substitui a sala quando NÃO há sala. Com a sala salva e o refetch falho (isError e data
+  // valem juntos), o botão "Entrar na sala" continua e o erro vira um aviso discreto.
+  const erroSemSala = sala == null ? erro : undefined;
   // `isError` da query explícito: com a sala em erro não há "carregando" (BR-CLI-02).
   const salaComErro = salaQuery.isError;
   const carregando = (salaQuery.isLoading && !salaComErro) || criarSalaMutation.isPending;
@@ -224,12 +227,12 @@ export default function TeleorientacaoScreen() {
             </>
           ) : carregando ? (
             <ActivityIndicator color={colors.videoText} testID="loading-sala" />
-          ) : erro?.status === 422 ? (
+          ) : erroSemSala?.status === 422 ? (
             <Text style={styles.videoMessage} testID="msg-sem-consentimento">
               O tutor ainda não registrou consentimento de teleorientação. Peça para ele
               aceitar o termo no app antes de continuar.
             </Text>
-          ) : erro ? (
+          ) : erroSemSala ? (
             <>
               <Text style={styles.videoMessage} testID="msg-erro-sala">
                 Não foi possível carregar a sala de videochamada.
@@ -256,6 +259,11 @@ export default function TeleorientacaoScreen() {
               <KCIcon name="cam" size={48} color={colors.videoText} />
               {pet && tutor && (
                 <Text style={styles.videoSubtitle}>{`${pet.nmPet} · ${tutor.nmTutor}`}</Text>
+              )}
+              {erro && (
+                <Text style={styles.videoSubtitle} testID="aviso-sala-desatualizada">
+                  Não foi possível atualizar os dados da sala; mostrando a última versão salva.
+                </Text>
               )}
               <KCButton
                 variant="secondary"
