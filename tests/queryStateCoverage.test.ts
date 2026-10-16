@@ -340,6 +340,11 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
       ['I1 `!data || isError`', tela('  const { data, isError } = useCoisas();\n  if (!data || isError) {\n    return <ErrorState />;\n  }\n  return <L d={data} />;'), ERRO_SEM_DADO],
       ['I1 `q.data == null || q.isError`', tela('  const q = useCoisas();\n  if (q.data == null || q.isError) {\n    return <ErrorState />;\n  }\n  return <L d={q.data} />;'), ERRO_SEM_DADO],
       ['I1 `isError || data?.length === 0`', tela('  const { data, isError } = useCoisas();\n  if (isError || data?.length === 0) {\n    return <ErrorState />;\n  }\n  return <L d={data} />;'), ERRO_SEM_DADO],
+      // Reprodução do maestro (sessão 6): a guarda com a polaridade trocada por negação dupla ainda deixa o erro vencer o dado
+      // (`!!data`, `!(data == null)`, `!(!data)` = "tem dado"); o detector lia o `!` inicial como guarda de ausência.
+      ['maestro `isError && !!data ?`', tela('  const { data, isError } = useCoisas();\n  return isError && !!data ? (\n    <ErrorState />\n  ) : (\n    <L d={data} />\n  );'), ERRO_SEM_DADO],
+      ['maestro `isError && !(data == null) ?`', tela('  const { data, isError } = useCoisas();\n  return isError && !(data == null) ? (\n    <ErrorState />\n  ) : (\n    <L d={data} />\n  );'), ERRO_SEM_DADO],
+      ['maestro `if (q.isError && !(!q.data))`', tela('  const q = useCoisas();\n  if (q.isError && !(!q.data)) {\n    return <ErrorState />;\n  }\n  return <L d={q.data} />;'), ERRO_SEM_DADO],
       // G2-I2: erro negado
       ['I2 `!isError ? <L/> : <Erro/>`', tela('  const { data, isError } = useCoisas();\n  return !isError ? (\n    <L d={data} />\n  ) : (\n    <ErrorState />\n  );'), ERRO_SEM_DADO],
       ['I2 `!q.isError ? <L/> : <Erro/>` (objeto)', tela('  const q = useCoisas();\n  return !q.isError ? (\n    <L d={q.data} />\n  ) : (\n    <ErrorState />\n  );'), ERRO_SEM_DADO],

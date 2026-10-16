@@ -36,6 +36,7 @@
 //     ter, em CONJUNÇÃO com ele, a AUSÊNCIA do dado (`isError && data == null`, `isError && !data`, `!data && isError`, `d === undefined`,
 //     `!d?.length`, `d?.length === 0`, `typeof d === 'undefined'`). A guarda de dado dentro de `||` NÃO vale (`!data || isError`,
 //     `q.data == null || q.isError`, `isError || data?.length === 0` reprovam). `d != null` e a mera menção ao dado NÃO são guarda.
+//     As negações iniciais contam por paridade: `!!d`, `!(d == null)` e `!(!d)` testam PRESENÇA e reprovam (reprodução do maestro).
 //   * ERRO NEGADO: `!erro ? <Lista/> : <Erro/>` (o ramo de erro vence o dado) e `{!erro && <Lista d={dado}/>}` (a lista some no erro) reprovam.
 //     `{!erro && vazio && <Vazio/>}` (só o vazio some) passa. Ramo `<FaixaDadosSalvos/>` do ternário passa.
 //   * erro e vazio coincidindo: componente com `{erro && <...}` SEM guarda de dado E um vazio `{x.length === 0 && <...}` sem o erro na
@@ -264,11 +265,25 @@ function novoCtx(erros, dadosSrc, rotulo) {
 const temGuarda = (ctx, s) => ctx.dadosSrc.some((d) => guardasDe(d).some((re) => re.test(s)));
 const lerErro = (ctx, s) => ctx.erros.some((p) => p(s));
 
+// Reprodução do maestro (sessão 6): a guarda era lida no texto inteiro da folha, então `!!data`, `!(data == null)` e
+// `!(!data)` (= "TEM dado") passavam por `!data`. Agora as negações iniciais são contadas: com paridade PAR a folha é guarda
+// se testa ausência (`d == null`, `d.length === 0`, `typeof d === 'undefined'`); com paridade ÍMPAR, se é o dado nu (`!d`,
+// `!d?.length`). O erro segue a mesma paridade (`!!isError` lê o erro).
+// Paridade par: as formas de guarda continuam sem âncora (a folha pode ser um ternário de alias, `sala == null ? e : undefined`),
+// mas aplicadas ao NÚCLEO já sem as negações iniciais (`!!d` vira `d`, que não é guarda).
+const ausenciaDe = (dsrc) => guardasDe(dsrc);
+const dadoNu = (dsrc) => new RegExp(String.raw`^${dsrc}(?:\s*\??\.\s*length)?$`);
 function folha(s, ctx) {
-  const neg = /^!(?!=)/.test(s);
-  const resto = neg ? desembrulhar(s.slice(1)) : s;
-  const le = lerErro(ctx, resto);
-  return { err: !neg && le, naoErro: neg && le, guarda: temGuarda(ctx, s) };
+  let nucleo = desembrulhar(s);
+  let negs = 0;
+  while (/^!(?!=)/.test(nucleo)) {
+    negs++;
+    nucleo = desembrulhar(nucleo.slice(1));
+  }
+  const impar = negs % 2 === 1;
+  const le = lerErro(ctx, nucleo);
+  const guarda = ctx.dadosSrc.some((d) => (impar ? dadoNu(d).test(nucleo) : ausenciaDe(d).some((re) => re.test(nucleo))));
+  return { err: !impar && le, naoErro: impar && le, guarda };
 }
 
 function dnf(t, ctx) {
