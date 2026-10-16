@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // BR-CLI-DET (fix wave da G2): ORIGEM das regras de "erro vence o dado salvo" / erro+vazio / useQueries. O tutor (mobile-tutor-rn
-// 6fb15d5, BR-TUT-T03) é a versão ANTERIOR: ele receberá esta versão na BR-TUT-T04 e, até lá, ainda tem as cegueiras G2-I1..I5/M1/M4.
+// 6fb15d5, BR-TUT-T03) era a versão ANTERIOR; desde a BR-TUT-T04 (tutor main@50efadd, 2026-10-16) ele tem esta mesma lógica (DIFF=0).
 // ÂNCORA (regra 11), conferida em 2026-10-16: só o que NÃO mudou continua cópia do tutor 6fb15d5 —
 //   (A) do início de `const RAZAO_MIN = 30` até a linha anterior a `const esc` (descoberta de hooks de dado), tutor linhas 81-162;
 //   (B) de `export function analisar` ao fim do arquivo, tutor linhas 317-375.
@@ -37,14 +37,25 @@
 //     `!d?.length`, `d?.length === 0`, `typeof d === 'undefined'`). A guarda de dado dentro de `||` NÃO vale (`!data || isError`,
 //     `q.data == null || q.isError`, `isError || data?.length === 0` reprovam). `d != null` e a mera menção ao dado NÃO são guarda.
 //     As negações iniciais contam por paridade: `!!d`, `!(d == null)` e `!(!d)` testam PRESENÇA e reprovam (reprodução do maestro).
-//   * ERRO NEGADO: `!erro ? <Lista/> : <Erro/>` (o ramo de erro vence o dado) e `{!erro && <Lista d={dado}/>}` (a lista some no erro) reprovam.
-//     `{!erro && vazio && <Vazio/>}` (só o vazio some) passa. Ramo `<FaixaDadosSalvos/>` do ternário passa.
+//   * ERRO NEGADO: `!erro ? <Lista/> : <Erro/>` (o ramo de erro vence o dado) reprova, e `{!erro && <Lista d={dado}/>}` reprova SÓ quando o DADO
+//     aparece textualmente no JSX escondido (`d={q.data}`, `data.map(...)`). Com `<QueryState>` o dado chega pela render prop e NUNCA aparece assim:
+//     `{!q.isError && <QueryState query={q}>...}` PASSA (limite I2, abaixo). `{!erro && vazio && <Vazio/>}` (só o vazio some) passa.
+//     Ramo `<FaixaDadosSalvos/>` do ternário passa.
 //   * erro e vazio coincidindo: componente com `{erro && <...}` SEM guarda de dado E um vazio `{x.length === 0 && <...}` sem o erro na
 //     cadeia (Review Focus §5). Erro só COM guarda (`if (isError && data == null) return <ErrorState/>`) não coincide com o vazio.
 //   * `useQueries`: o erro de CADA item tem de ser lido pelo próprio array e usado (`void x` não conta), e vale a mesma regra de erro
 //     vs. dado (guarda `r.isError && r.data == null`); o caminho aceito é agregar o erro num objeto entregue a `<QueryState query={...}>`.
 //
 // LIMITES DECLARADOS (o detector é TEXTUAL, não é análise de fluxo; o que está aqui passa mesmo sendo um defeito):
+//   * I1 (G2 BR-TUT-T04, medido na agenda real do tutor e fixado em `tests/queryStateCoverage.test.ts`; MEDIDO TAMBÉM na clínica, ver `br-cli-det-limites`): `<QueryState query={q}>` ABSOLVE o objeto `q`.
+//     Uma leitura de erro que não seja o campo literal `q.isError|error|isRefetchError|status === 'error'` passa mesmo escondendo o dado:
+//     função auxiliar (`if (falhou(q)) return null`, A03), `q.status !== 'success'` (A04), cast na 2ª instrução
+//     (`const { isError: f } = q as {...}`, A05), `q.failureReason` (A09), spread que zera o erro (`query={{ ...q, isError: false }}` + 1 leitura
+//     inócua, A10), alias do objeto (`const q2 = q; if (q2.isError)`, A11). Nada disso é pego aqui.
+//   * I2 (idem): erro NEGADO em volta do próprio `<QueryState>` passa, porque a regra do erro negado só enxerga o dado textual:
+//     `{!q.isError && <QueryState query={q}>...}` (A01) e `const ok = !q.isError; {ok && <QueryState...>}` (A02). No erro a tela fica EM BRANCO.
+//     QUEM PROTEGE I1/I2 nas telas reais é o teste de estado por tela, não este detector. `check-query-state = 0` sozinho NÃO prova que o erro
+//     nunca some de uma tela com `<QueryState>`.
 //   * M2: `switch (true) { case q.isError: ... }` e erro usado como efeito no render (`q.isError && navigation.goBack()`) não são sítios
 //     de condição reconhecidos. Erro negado em retorno antecipado (`if (!isError) return <Lista/>`) também não.
 //   * M3: o vazio só é reconhecido na forma `{x.length === 0 && <...}` / `!x.length && <...`. Vazio em ternário (`data.length === 0 ? <V/> : ...`),
@@ -53,8 +64,8 @@
 //     como uso mesmo que o ramo de erro seja inócuo. O erro lido só em ATRIBUIÇÃO (`const up = !isError && ...`) não é sítio de render.
 //   * Alias só por `const|let|var nome = <expr>;` terminado em `;` (a expressão é lida até o 1º `;`); objeto literal e arrow function não são alias.
 //     Variável derivada do dado (`const l = q.data ?? []`) conta como dado quando o alias de dado é definido assim.
-//   * `query={q}` só vale colado a `<QueryState`; `q` repassado por prop a um filho, a helper (`useEstado(q)`) ou espalhado (`query={{ ...q }}`) é
-//     violação (conservador). `useSuspenseQuery` lança o erro a um error boundary que este script não enxerga: exige allowlist com a razão.
+//   * `query={q}` só vale colado a `<QueryState`; `q` repassado por prop a um filho ou a helper (`useEstado(q)`) é violação (conservador) QUANDO
+//     NÃO HÁ `<QueryState query={q}>` no componente. COM ele, `q` é ABSOLVIDO: ver I1 abaixo. `useSuspenseQuery` lança o erro a um error boundary que este script não enxerga: exige allowlist com a razão.
 //   * Hook que não começa por `use`, ou chamado por ALIAS importado (`import { useX as useY }`), não é descoberto.
 //   * `useQueries` com o resultado desestruturado (`const [a, b] = useQueries(...)`) ou sem variável simples é violação; o detector não prova
 //     que o erro lido chega ao render, só que ele é lido, usado e não vence o dado.

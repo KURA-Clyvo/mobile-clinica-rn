@@ -440,3 +440,25 @@ describe('gate: tela que lê dado de servidor trata o erro (check-query-state)',
     expect(out).toMatch(/violacoes: 0/);
   });
 });
+
+// LIMITES DECLARADOS (G2 BR-TUT-T04, I1/I2): formas em que o detector deixa passar uma leitura de erro que esconde o dado, porque
+// `<QueryState query={q}>` absolve `q` e a regra do erro negado só enxerga o DADO textual. Cada isca FIXA o limite: EXIT 0 e 0 violações.
+// limite declarado (G2 BR-TUT-T04): se este teste quebrar, o detector melhorou; troque por isca de violação.
+// Quem protege essas formas nas telas reais é o teste de estado por tela (o teste de estado por tela), não o detector.
+describe('limites declarados do detector (iscas que PASSAM de propósito)', () => {
+  const QS = '<QueryState query={q} empty={null}>{() => null}</QueryState>';
+  const tela = (corpo: string, jsx = QS) => `export default function T() {\n  const q = useCoisas();\n${corpo}\n  return (\n    <>\n      ${jsx}\n    </>\n  );\n}`;
+  const LIMITES: [string, string][] = [
+    ['A01 erro negado em volta do <QueryState> (I2)', tela('', `{!q.isError && ${QS}}`)],
+    ['A02 erro negado por constante (I2)', tela('  const ok = !q.isError;', `{ok && ${QS}}`)],
+    ['A03 função auxiliar lê o erro (I1)', `function falhou(x: { isError: boolean }) {\n  return x.isError;\n}\n\n${tela('  if (falhou(q)) return null;')}`],
+    ["A04 `status !== 'success'` (I1)", tela("  if (q.status !== 'success' && !q.isLoading) return null;")],
+    ['A05 desestruturação com cast `as` (I1)', tela('  const { isError: falhou } = q as { isError: boolean };\n  if (falhou) return null;')],
+    ['A09 `failureReason` (I1)', tela('  if (q.failureReason) return null;')],
+    ['A10 spread que zera o erro + leitura inócua (I1)', tela('', '<Lista refreshing={canceling || q.isError} /><QueryState query={{ ...q, isError: false }} empty={null}>{() => null}</QueryState>')],
+    ['A11 alias do objeto `const q2 = q` (I1)', tela('  const q2 = q;\n  if (q2.isError) return null;')],
+  ];
+  it.each(LIMITES)('limite: %s => passa, EXIT 0, 0 violações', (_nome, src) => {
+    exigirPassa(montarIsca(src));
+  });
+});
