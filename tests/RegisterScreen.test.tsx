@@ -189,6 +189,68 @@ describe('RegisterScreen', () => {
   });
 });
 
+// S4-FIX-01 (E66): mensagens de erro do cadastro por status HTTP.
+describe('RegisterScreen — mensagens de erro (S4-FIX-01)', () => {
+  async function falharCom(erro: unknown) {
+    mockRegisterClinica.mockRejectedValue(erro);
+    const u = wrap(<RegisterScreen />);
+    const campos: Array<[string, string]> = [
+      ['Ex: Clínica Veterinária Kura', 'Clínica Kura'],
+      ['00.000.000/0001-00', '12345678000199'],
+      ['clinica@email.com', 'clinica@email.com'],
+      ['(11) 99999-9999', '11987654321'],
+      ['Rua, número, bairro', 'Rua das Flores, 123'],
+      ['São Paulo', 'São Paulo'],
+      ['SP', 'SP'],
+      ['00000-000', '01234567'],
+      ['Dr(a). Nome Completo', 'Dr. João Silva'],
+      ['SP-12345', 'SP-54321'],
+      ['vet@email.com', 'joao@vet.com'],
+      ['Mínimo 6 caracteres', 'senha123'],
+      ['Repita a senha', 'senha123'],
+    ];
+    campos.forEach(([ph, v]) => fireEvent.changeText(u.getByPlaceholderText(ph), v));
+    fireEvent.press(u.getByText('Cadastrar'));
+    return u;
+  }
+
+  it('409 => duplicado', async () => {
+    const { findByText } = await falharCom({ status: 409, code: 'HTTP_409', message: 'x' });
+    await findByText('E-mail ou CNPJ já cadastrado');
+  });
+
+  it('422 sem mensagem do servidor => duplicado', async () => {
+    const { findByText } = await falharCom({ status: 422, code: 'HTTP_422', message: 'Request failed with status code 422' });
+    await findByText('E-mail ou CNPJ já cadastrado');
+  });
+
+  it('422 com mensagem do servidor => mostra a mensagem da API', async () => {
+    const { findByText } = await falharCom({ status: 422, code: 'about:blank', message: 'CNPJ já cadastrado.' });
+    await findByText('CNPJ já cadastrado.');
+  });
+
+  it('400 => confira os dados (com detalhe de campo quando houver)', async () => {
+    const { findByText } = await falharCom({ status: 400, code: 'HTTP_400', message: 'x', details: { NrCnpj: ['CNPJ inválido'] } });
+    await findByText('Confira os dados informados: CNPJ inválido');
+  });
+
+  it('400 sem detalhe => confira os dados', async () => {
+    const { findByText } = await falharCom({ status: 400, code: 'HTTP_400', message: 'x' });
+    await findByText('Confira os dados informados');
+  });
+
+  it('rede (status 0) => sem conexão', async () => {
+    const { findByText } = await falharCom({ status: 0, code: 'NETWORK_ERROR', message: 'Sem conexão.' });
+    await findByText('Sem conexão. Verifique sua internet.');
+  });
+
+  it('outro status => genérico honesto, não "sem conexão"', async () => {
+    const { findByText, queryByText } = await falharCom({ status: 500, code: 'HTTP_500', message: 'x' });
+    await findByText('Não foi possível concluir o cadastro agora. Tente de novo.');
+    expect(queryByText('Sem conexão. Verifique sua internet.')).toBeNull();
+  });
+});
+
 describe('LoginScreen register link', () => {
   it('renders "Cadastrar clínica" link', () => {
     const { getByText } = wrap(<LoginScreen />);

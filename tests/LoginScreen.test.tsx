@@ -128,15 +128,30 @@ describe('LoginScreen', () => {
     await findByText('E-mail ou senha incorretos');
   });
 
-  it('shows network error chip on non-401 error', async () => {
-    mockLogin.mockRejectedValue({ status: 503, code: 'NETWORK', message: 'Network error' });
+  async function falharCom(erro: unknown) {
+    mockLogin.mockRejectedValue(erro);
+    const utils = wrap(<LoginScreen />);
+    fireEvent.changeText(utils.getByPlaceholderText('seu@email.com'), 'dr@clinic.com');
+    fireEvent.changeText(utils.getByPlaceholderText('Mínimo 6 caracteres'), 'senha123');
+    fireEvent.press(utils.getByText('Entrar'));
+    return utils;
+  }
 
-    const { getByPlaceholderText, getByText, findByText } = wrap(<LoginScreen />);
-    fireEvent.changeText(getByPlaceholderText('seu@email.com'), 'dr@clinic.com');
-    fireEvent.changeText(getByPlaceholderText('Mínimo 6 caracteres'), 'senha123');
-    fireEvent.press(getByText('Entrar'));
+  // S4-FIX-01 (E66): o .NET devolve 422 para credencial errada.
+  it('shows invalid credentials chip on 422 error', async () => {
+    const { findByText } = await falharCom({ status: 422, code: 'HTTP_422', message: 'x' });
+    await findByText('E-mail ou senha incorretos');
+  });
 
+  it('shows network chip only when there is no HTTP response', async () => {
+    const { findByText } = await falharCom({ status: 0, code: 'NETWORK_ERROR', message: 'Sem conexão.' });
     await findByText('Sem conexão. Verifique sua internet.');
+  });
+
+  it('shows honest generic message (not network) on other HTTP status', async () => {
+    const { findByText, queryByText } = await falharCom({ status: 503, code: 'HTTP_503', message: 'x' });
+    await findByText('Não foi possível entrar agora. Tente de novo.');
+    expect(queryByText('Sem conexão. Verifique sua internet.')).toBeNull();
   });
 });
 

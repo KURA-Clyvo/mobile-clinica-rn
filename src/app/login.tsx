@@ -28,13 +28,16 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// S4-FIX-01 (E66): `error` é o ApiError normalizado (`normalizeError`):
+// status 0 + code NETWORK_ERROR = sem resposta HTTP (rede). O .NET devolve
+// 422 (regra de negócio) para e-mail/senha errados, não só 401.
 function getLoginErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'status' in error) {
-    if ((error as { status: number }).status === 401) {
-      return STRINGS.AUTH.INVALID_CREDENTIALS;
-    }
+  if (error && typeof error === 'object') {
+    const { status, code } = error as { status?: number; code?: string };
+    if (status === 401 || status === 422) return STRINGS.AUTH.INVALID_CREDENTIALS;
+    if (code === 'NETWORK_ERROR' || status === 0) return STRINGS.AUTH.NETWORK_ERROR;
   }
-  return STRINGS.AUTH.NETWORK_ERROR;
+  return STRINGS.AUTH.LOGIN_GENERIC_ERROR;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
