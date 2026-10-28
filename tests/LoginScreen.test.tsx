@@ -139,8 +139,21 @@ describe('LoginScreen', () => {
 
   // S4-FIX-01 (E66): o .NET devolve 422 para credencial errada.
   it('shows invalid credentials chip on 422 error', async () => {
-    const { findByText } = await falharCom({ status: 422, code: 'HTTP_422', message: 'x' });
+    const { findByText } = await falharCom({ status: 422, code: 'HTTP_422', message: 'Email ou senha inválidos.' });
     await findByText('E-mail ou senha incorretos');
+  });
+
+  it('shows invalid credentials chip on 422 error without server message', async () => {
+    const { findByText } = await falharCom({ status: 422, code: 'HTTP_422' });
+    await findByText('E-mail ou senha incorretos');
+  });
+
+  // G2 S4-FIX I1: o 422 de e-mail em mais de uma clínica não pode virar "senha incorreta".
+  it('shows the server message for other 422 business rules (ambiguous e-mail)', async () => {
+    const ambiguo = 'Este e-mail está cadastrado em mais de uma clínica. Não é possível identificar o usuário só pelo e-mail — peça ao gestor da sua clínica um e-mail de acesso exclusivo.';
+    const { findByText, queryByText } = await falharCom({ status: 422, code: 'HTTP_422', message: ambiguo });
+    await findByText(ambiguo);
+    expect(queryByText('E-mail ou senha incorretos')).toBeNull();
   });
 
   it('shows network chip only when there is no HTTP response', async () => {

@@ -46,7 +46,7 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
-// S4-FIX-01 (E66): o .NET devolve 400 para validação (ex.: CNPJ com máscara)
+// S4-FIX-01 (E66): o .NET devolve 400 para validação (ex.: CNPJ sem máscara, antes do E67)
 // e 422 para regra de negócio (CNPJ/e-mail duplicado). Rede = status 0.
 function getRegisterErrorMessage(error: unknown): string {
   if (error && typeof error === 'object') {
