@@ -28,13 +28,33 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// S4-FIX-01 (E66): `error` é o ApiError normalizado (`normalizeError`):
+// status 0 + code NETWORK_ERROR = sem resposta HTTP (rede). O .NET devolve
+// 422 (regra de negócio) para e-mail/senha errados, não só 401.
+//
+// O mesmo 422 também carrega outra mensagem de propósito: e-mail cadastrado em
+// mais de uma clínica (MensagemEmailAmbiguo). Ela não pode virar "senha
+// incorreta", então só a mensagem de credencial inválida é trocada pelo texto
+// do app; qualquer outra mensagem de 422 é mostrada como veio do servidor.
+// Âncora (regra 11): backend-clinica-dotnet src/Kura.Application/Services/
+// AuthService.cs:65 (MensagemCredencialInvalida) e :70-73 (MensagemEmailAmbiguo),
+// commit 33dc567, conferido em 2026-10-28 com
+// `git show origin/main:src/Kura.Application/Services/AuthService.cs | sed -n '65,73p'`.
+const MENSAGEM_CREDENCIAL_INVALIDA_API = 'Email ou senha inválidos.';
+
 function getLoginErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'status' in error) {
-    if ((error as { status: number }).status === 401) {
-      return STRINGS.AUTH.INVALID_CREDENTIALS;
+  if (error && typeof error === 'object') {
+    const { status, code, message } = error as { status?: number; code?: string; message?: string };
+    if (status === 401) return STRINGS.AUTH.INVALID_CREDENTIALS;
+    if (status === 422) {
+      const doServidor = message?.trim();
+      return doServidor && doServidor !== MENSAGEM_CREDENCIAL_INVALIDA_API
+        ? doServidor
+        : STRINGS.AUTH.INVALID_CREDENTIALS;
     }
+    if (code === 'NETWORK_ERROR' || status === 0) return STRINGS.AUTH.NETWORK_ERROR;
   }
-  return STRINGS.AUTH.NETWORK_ERROR;
+  return STRINGS.AUTH.LOGIN_GENERIC_ERROR;
 }
 
 const makeStyles = (colors: typeof lightColors) =>

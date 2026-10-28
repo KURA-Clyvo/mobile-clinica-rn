@@ -250,6 +250,12 @@ export const STRINGS = {
   AUTH: {
     INVALID_CREDENTIALS: 'E-mail ou senha incorretos',
     NETWORK_ERROR: 'Sem conexão. Verifique sua internet.',
+    // S4-FIX-01 (E66): erro HTTP que não é credencial nem rede não pode
+    // dizer "sem conexão" — houve resposta do servidor.
+    LOGIN_GENERIC_ERROR: 'Não foi possível entrar agora. Tente de novo.',
+    REGISTER_GENERIC_ERROR: 'Não foi possível concluir o cadastro agora. Tente de novo.',
+    REGISTER_DUPLICATE: 'E-mail ou CNPJ já cadastrado',
+    REGISTER_CHECK_DATA: 'Confira os dados informados',
   },
   VALIDATION: {
     EMAIL_INVALID: 'E-mail inválido',

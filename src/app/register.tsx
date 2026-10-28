@@ -46,13 +46,32 @@ const registerSchema = z
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
+// S4-FIX-01 (E66): o .NET devolve 400 para validação (ex.: CNPJ sem máscara, antes do E67)
+// e 422 para regra de negócio (CNPJ/e-mail duplicado). Rede = status 0.
 function getRegisterErrorMessage(error: unknown): string {
-  if (error && typeof error === 'object' && 'status' in error) {
-    if ((error as { status: number }).status === 409) {
-      return 'E-mail ou CNPJ já cadastrado';
+  if (error && typeof error === 'object') {
+    const { status, code, message, details } = error as {
+      status?: number;
+      code?: string;
+      message?: string;
+      details?: Record<string, string[]>;
+    };
+    if (status === 409) return STRINGS.AUTH.REGISTER_DUPLICATE;
+    if (status === 422) {
+      // `HTTP_<status>` é o código sintético do normalizeError (sem corpo do
+      // servidor): nesse caso `message` seria o texto genérico do axios.
+      const doServidor = code !== `HTTP_${status}` && message ? message : null;
+      return doServidor ?? STRINGS.AUTH.REGISTER_DUPLICATE;
     }
+    if (status === 400) {
+      const detalhe = details ? Object.values(details).flat()[0] : undefined;
+      return detalhe
+        ? `${STRINGS.AUTH.REGISTER_CHECK_DATA}: ${detalhe}`
+        : STRINGS.AUTH.REGISTER_CHECK_DATA;
+    }
+    if (code === 'NETWORK_ERROR' || status === 0) return STRINGS.AUTH.NETWORK_ERROR;
   }
-  return STRINGS.AUTH.NETWORK_ERROR;
+  return STRINGS.AUTH.REGISTER_GENERIC_ERROR;
 }
 
 const makeStyles = (colors: typeof lightColors) =>
